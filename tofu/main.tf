@@ -24,15 +24,22 @@ provider "linode" {
 }
 
 # Kubernetes provider for managing K8s resources
-# Uses the merged kubeconfig from ~/.kube/config
+# Uses kubeconfig from the LKE cluster resource
 provider "kubernetes" {
-  config_path = "~/.kube/config"
+  host                   = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster.server
+  token                  = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).users[0].user.token
+  cluster_ca_certificate = base64decode(yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster["certificate-authority-data"])
 }
 
 # Helm provider for installing charts
-# Uses the merged kubeconfig from ~/.kube/config
-# Note: Helm v2.x uses kubernetes block, v3.x+ just inherits from default kubeconfig
-provider "helm" {}
+# Uses same kubeconfig data as the kubernetes provider
+provider "helm" {
+  kubernetes = {
+    host                   = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster.server
+    token                  = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).users[0].user.token
+    cluster_ca_certificate = base64decode(yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster["certificate-authority-data"])
+  }
+}
 
 # Determine cluster name prefix (use provided value or system username)
 locals {

@@ -22,8 +22,8 @@ Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, ML
 ## Quick Start
 
 ```bash
-# Configure Linode API token
-export LINODE_TOKEN=$(linode-cli configure get token)
+# Configure Linode API token (paste your Personal Access Token)
+export LINODE_TOKEN="YOUR_PERSONAL_ACCESS_TOKEN"
 
 # Initialize and deploy
 cd tofu
@@ -65,7 +65,6 @@ linode-cli configure
 .
 ├── README.md              # This file
 ├── LICENSE                # MIT License
-├── CONTRIBUTING.md        # Contribution guidelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── main.tf            # Core resources
     ├── variables.tf       # Configuration variables
@@ -161,7 +160,7 @@ Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) f
 
 ## Security
 
-- API token automatically loaded from `linode-cli` configuration
+- API token read from the `LINODE_TOKEN` environment variable
 - Kubeconfig excluded from git tracking (auto-merged to ~/.kube/config)
 - Configurable firewall rules for kubectl and monitoring access
 - Support for Kubernetes RBAC and Network Policies
@@ -229,7 +228,7 @@ cd tofu && tofu destroy
 - High availability control plane
 - Autoscaling configuration (1-5 nodes)
 - Firewall rules and network policies
-- Automated deployment scripts
+- OpenTofu-based automation
 - Kubeconfig auto-merge to ~/.kube/config (no local files)
 
 ### Observability
@@ -279,7 +278,7 @@ For issues and questions:
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Open an issue or pull request.
 
 ## License
 

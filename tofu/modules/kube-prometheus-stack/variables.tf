@@ -7,7 +7,7 @@ variable "namespace" {
 variable "kube_prometheus_stack_version" {
   description = "Version of kube-prometheus-stack Helm chart"
   type        = string
-  default     = "67.6.1"
+  default     = "80.8.0"
 }
 
 variable "grafana_admin_password" {
