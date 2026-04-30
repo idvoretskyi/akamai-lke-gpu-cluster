@@ -11,7 +11,7 @@ terraform {
   }
 }
 
-# Metrics Server - provides resource metrics API for kubectl top and HPA
+# Metrics Server — provides the resource metrics API for kubectl top and HPA.
 resource "helm_release" "metrics_server" {
   name       = "metrics-server"
   repository = "https://kubernetes-sigs.github.io/metrics-server/"
@@ -24,26 +24,15 @@ resource "helm_release" "metrics_server" {
 
   values = [
     yamlencode({
-      # Required for Linode LKE compatibility
+      # Required args for Linode LKE compatibility
       args = [
         "--kubelet-insecure-tls",
-        "--kubelet-preferred-address-types=InternalIP"
+        "--kubelet-preferred-address-types=InternalIP",
       ]
-      # Resource limits for production workloads
-      resources = {
-        requests = {
-          cpu    = "100m"
-          memory = "200Mi"
-        }
-        limits = {
-          cpu    = "200m"
-          memory = "400Mi"
-        }
-      }
-      # High availability configuration
-      replicas = 2
+      resources = var.resources
+      replicas  = var.replicas
       podDisruptionBudget = {
-        enabled      = true
+        enabled      = var.replicas > 1
         minAvailable = 1
       }
     })

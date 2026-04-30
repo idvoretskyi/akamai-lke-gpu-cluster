@@ -11,18 +11,22 @@ terraform {
   }
 }
 
-# Create monitoring namespace
+locals {
+  storage_class = var.storage_class
+}
+
+# Create monitoring namespace.
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = var.namespace
     labels = {
       "app.kubernetes.io/name"       = "kube-prometheus-stack"
-      "app.kubernetes.io/managed-by" = "terraform"
+      "app.kubernetes.io/managed-by" = "opentofu"
     }
   }
 }
 
-# Kube Prometheus Stack - comprehensive monitoring solution
+# kube-prometheus-stack — Prometheus, Grafana, Alertmanager, Node Exporter, KSM.
 resource "helm_release" "kube_prometheus_stack" {
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
@@ -46,7 +50,7 @@ resource "helm_release" "kube_prometheus_stack" {
           storageSpec = {
             volumeClaimTemplate = {
               spec = {
-                storageClassName = "linode-block-storage-retain"
+                storageClassName = local.storage_class
                 resources = {
                   requests = {
                     storage = var.prometheus_storage_size
@@ -55,10 +59,10 @@ resource "helm_release" "kube_prometheus_stack" {
               }
             }
           }
-          # Allow selecting all service monitors
+          # Allow selecting all service monitors and pod monitors
           serviceMonitorSelectorNilUsesHelmValues = false
           podMonitorSelectorNilUsesHelmValues     = false
-          # GPU monitoring integration (if enabled)
+          # GPU monitoring integration (when enabled)
           additionalScrapeConfigs = var.enable_gpu_monitoring ? [
             {
               job_name = "dcgm-exporter"
@@ -81,7 +85,7 @@ resource "helm_release" "kube_prometheus_stack" {
         persistence = {
           enabled          = true
           size             = var.grafana_storage_size
-          storageClassName = "linode-block-storage-retain"
+          storageClassName = local.storage_class
         }
       }
       # Alertmanager configuration
@@ -91,10 +95,10 @@ resource "helm_release" "kube_prometheus_stack" {
           storage = {
             volumeClaimTemplate = {
               spec = {
-                storageClassName = "linode-block-storage-retain"
+                storageClassName = local.storage_class
                 resources = {
                   requests = {
-                    storage = "10Gi"
+                    storage = var.alertmanager_storage_size
                   }
                 }
               }
@@ -102,11 +106,11 @@ resource "helm_release" "kube_prometheus_stack" {
           }
         }
       }
-      # Node exporter
+      # Node Exporter — hardware and OS metrics
       nodeExporter = {
         enabled = true
       }
-      # Kube state metrics
+      # Kube State Metrics — Kubernetes object metrics
       kubeStateMetrics = {
         enabled = true
       }
