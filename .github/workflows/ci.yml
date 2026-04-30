@@ -28,12 +28,41 @@ jobs:
           cd tofu
           tofu fmt -check -recursive
 
-      - name: Init (no backend)
+      - name: Init root (no backend)
         run: |
           cd tofu
           tofu init -backend=false
 
-      - name: Validate configuration
+      - name: Validate root configuration
         run: |
           cd tofu
+          tofu validate -no-color
+
+  tofu-validate-modules:
+    name: OpenTofu validate modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - gpu-operator
+          - metrics-server
+          - kube-prometheus-stack
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+
+      - name: Init module (${{ matrix.module }})
+        run: |
+          cd tofu/modules/${{ matrix.module }}
+          tofu init -backend=false
+
+      - name: Validate module (${{ matrix.module }})
+        run: |
+          cd tofu/modules/${{ matrix.module }}
           tofu validate -no-color
