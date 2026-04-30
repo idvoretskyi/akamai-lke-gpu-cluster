@@ -1,57 +1,14 @@
-terraform {
-  required_version = ">= 1.6"
-
-  required_providers {
-    linode = {
-      source  = "linode/linode"
-      version = "~> 3.5"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 3.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 3.0"
-    }
-  }
-}
-
-# Provider will automatically use LINODE_TOKEN environment variable
-# Set via: export LINODE_TOKEN=$(linode-cli configure get token)
-provider "linode" {
-  # token is read from LINODE_TOKEN environment variable
-}
-
-# Kubernetes provider for managing K8s resources
-# Uses kubeconfig from the LKE cluster resource
-provider "kubernetes" {
-  host                   = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster.server
-  token                  = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).users[0].user.token
-  cluster_ca_certificate = base64decode(yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster["certificate-authority-data"])
-}
-
-# Helm provider for installing charts
-# Uses same kubeconfig data as the kubernetes provider
-provider "helm" {
-  kubernetes = {
-    host                   = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster.server
-    token                  = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).users[0].user.token
-    cluster_ca_certificate = base64decode(yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)).clusters[0].cluster["certificate-authority-data"])
-  }
-}
-
-# Determine cluster name prefix (use provided value or system username)
+# Determine cluster name prefix: use provided value or fall back to system username.
 locals {
   cluster_prefix = var.cluster_name_prefix != "" ? var.cluster_name_prefix : replace(lower(data.external.username.result.username), "/[^a-z0-9-]/", "-")
 }
 
-# Get system username if cluster_name_prefix is not set
+# Get system username when cluster_name_prefix is not set.
 data "external" "username" {
   program = ["sh", "-c", "echo '{\"username\":\"'$(whoami)'\"}'"]
 }
 
-# LKE Cluster with GPU nodes
+# LKE Cluster with GPU nodes.
 resource "linode_lke_cluster" "gpu_cluster" {
   label       = "${local.cluster_prefix}-lke-gpu"
   k8s_version = var.kubernetes_version
@@ -73,8 +30,12 @@ resource "linode_lke_cluster" "gpu_cluster" {
   }
 }
 
-# Merge kubeconfig into ~/.kube/config (no local file storage)
+# Optionally merge the cluster kubeconfig into ~/.kube/config.
+# Disable by setting merge_kubeconfig = false (e.g. in CI or when managing
+# kubeconfig externally).
 resource "terraform_data" "merge_kubeconfig" {
+  count = var.merge_kubeconfig ? 1 : 0
+
   triggers_replace = {
     kubeconfig_content = base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)
     cluster_id         = linode_lke_cluster.gpu_cluster.id
@@ -108,14 +69,13 @@ KUBECONFIGEOF
       # Set the new context as active
       kubectl config use-context lke${linode_lke_cluster.gpu_cluster.id}-ctx
 
-      echo "✓ Kubeconfig merged into ~/.kube/config"
-      echo "✓ Context 'lke${linode_lke_cluster.gpu_cluster.id}-ctx' is now active"
-      echo "✓ No local kubeconfig file created (stored in ~/.kube/config only)"
+      echo "Kubeconfig merged into ~/.kube/config"
+      echo "Context 'lke${linode_lke_cluster.gpu_cluster.id}-ctx' is now active"
     EOT
   }
 }
 
-# Firewall for LKE cluster
+# Firewall for LKE cluster.
 resource "linode_firewall" "lke_firewall" {
   label = "${local.cluster_prefix}-lke-firewall"
   tags  = var.tags
@@ -144,7 +104,7 @@ resource "linode_firewall" "lke_firewall" {
   depends_on = [linode_lke_cluster.gpu_cluster]
 }
 
-# GPU Operator Module
+# GPU Operator Module.
 module "gpu_operator" {
   count  = var.install_gpu_operator ? 1 : 0
   source = "./modules/gpu-operator"
@@ -157,11 +117,11 @@ module "gpu_operator" {
 
   depends_on = [
     linode_lke_cluster.gpu_cluster,
-    terraform_data.merge_kubeconfig
+    terraform_data.merge_kubeconfig,
   ]
 }
 
-# Metrics Server Module
+# Metrics Server Module.
 module "metrics_server" {
   count  = var.install_metrics_server ? 1 : 0
   source = "./modules/metrics-server"
@@ -170,26 +130,27 @@ module "metrics_server" {
 
   depends_on = [
     linode_lke_cluster.gpu_cluster,
-    terraform_data.merge_kubeconfig
+    terraform_data.merge_kubeconfig,
   ]
 }
 
-# Kube Prometheus Stack Module
+# Kube Prometheus Stack Module.
 module "kube_prometheus_stack" {
   count  = var.install_monitoring ? 1 : 0
   source = "./modules/kube-prometheus-stack"
 
-  namespace               = "monitoring"
-  grafana_admin_password  = var.grafana_admin_password
-  prometheus_retention    = var.prometheus_retention
-  prometheus_storage_size = var.prometheus_storage_size
-  grafana_storage_size    = var.grafana_storage_size
-  enable_gpu_monitoring   = var.enable_gpu_monitoring && var.install_gpu_operator
+  namespace                 = "monitoring"
+  grafana_admin_password    = var.grafana_admin_password
+  prometheus_retention      = var.prometheus_retention
+  prometheus_storage_size   = var.prometheus_storage_size
+  alertmanager_storage_size = var.alertmanager_storage_size
+  grafana_storage_size      = var.grafana_storage_size
+  enable_gpu_monitoring     = var.enable_gpu_monitoring && var.install_gpu_operator
 
   depends_on = [
     module.gpu_operator,
     module.metrics_server,
     linode_lke_cluster.gpu_cluster,
-    terraform_data.merge_kubeconfig
+    terraform_data.merge_kubeconfig,
   ]
 }
