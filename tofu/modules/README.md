@@ -215,7 +215,7 @@ kubectl top nodes
 
 ```
 linode_lke_cluster
-    └─> null_resource.merge_kubeconfig
+    └─> terraform_data.merge_kubeconfig
         ├─> module.gpu_operator
         ├─> module.metrics_server
         └─> module.kube_prometheus_stack
