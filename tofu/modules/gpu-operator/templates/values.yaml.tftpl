@@ -1,0 +1,30 @@
+operator:
+  defaultRuntime: containerd
+
+driver:
+  enabled: ${install_driver}
+
+toolkit:
+  enabled: true
+
+devicePlugin:
+  enabled: true
+
+dcgmExporter:
+  enabled: ${enable_dcgm_exporter}
+
+gfd:
+  enabled: true
+
+migManager:
+  # MIG not supported on RTX 4000 Ada
+  enabled: false
+
+nodeStatusExporter:
+  enabled: ${enable_node_status_exporter}
+
+validator:
+  plugin:
+    env:
+      - name: WITH_WORKLOAD
+        value: "true"

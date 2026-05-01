@@ -1,0 +1,18 @@
+# Required for Linode LKE: use internal IP and skip TLS verification for kubelet.
+args:
+  - --kubelet-insecure-tls
+  - --kubelet-preferred-address-types=InternalIP
+
+replicas: ${replicas}
+
+resources:
+  requests:
+    cpu: ${requests_cpu}
+    memory: ${requests_memory}
+  limits:
+    cpu: ${limits_cpu}
+    memory: ${limits_memory}
+
+podDisruptionBudget:
+  enabled: ${replicas > 1 ? "true" : "false"}
+  minAvailable: 1

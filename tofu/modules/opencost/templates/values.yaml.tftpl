@@ -1,0 +1,21 @@
+opencost:
+  prometheus:
+    external:
+      enabled: true
+      url: ${prometheus_url}
+    internal:
+      enabled: false
+
+  ui:
+    enabled: ${enable_ui}
+
+  resources:
+    requests:
+      cpu: ${requests_cpu}
+      memory: ${requests_memory}
+    limits:
+      cpu: ${limits_cpu}
+      memory: ${limits_memory}
+
+serviceMonitor:
+  enabled: ${enable_service_monitor}

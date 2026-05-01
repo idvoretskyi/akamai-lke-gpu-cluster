@@ -1,16 +1,3 @@
-terraform {
-  required_providers {
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 3.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 3.0"
-    }
-  }
-}
-
 # Metrics Server — provides the resource metrics API for kubectl top and HPA.
 resource "helm_release" "metrics_server" {
   name       = "metrics-server"
@@ -23,18 +10,12 @@ resource "helm_release" "metrics_server" {
   wait    = true
 
   values = [
-    yamlencode({
-      # Required args for Linode LKE compatibility
-      args = [
-        "--kubelet-insecure-tls",
-        "--kubelet-preferred-address-types=InternalIP",
-      ]
-      resources = var.resources
-      replicas  = var.replicas
-      podDisruptionBudget = {
-        enabled      = var.replicas > 1
-        minAvailable = 1
-      }
+    templatefile("${path.module}/templates/values.yaml.tftpl", {
+      replicas        = var.replicas
+      requests_cpu    = var.resources.requests.cpu
+      requests_memory = var.resources.requests.memory
+      limits_cpu      = var.resources.limits.cpu
+      limits_memory   = var.resources.limits.memory
     })
   ]
 }

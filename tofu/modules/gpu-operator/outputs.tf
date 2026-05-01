@@ -1,6 +1,6 @@
 output "namespace" {
   description = "Namespace where GPU operator is installed"
-  value       = kubernetes_namespace.gpu_operator.metadata[0].name
+  value       = kubernetes_namespace_v1.gpu_operator.metadata[0].name
 }
 
 output "release_name" {
@@ -22,7 +22,7 @@ output "validation_commands" {
   description = "Commands to validate GPU availability"
   value       = <<-EOT
     # Check GPU operator pods
-    kubectl get pods -n ${kubernetes_namespace.gpu_operator.metadata[0].name}
+    kubectl get pods -n ${kubernetes_namespace_v1.gpu_operator.metadata[0].name}
 
     # Verify GPU devices are detected
     kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
@@ -34,6 +34,6 @@ output "validation_commands" {
       -- nvidia-smi
 
     # Check DCGM metrics (if enabled)
-    kubectl get pods -n ${kubernetes_namespace.gpu_operator.metadata[0].name} -l app=nvidia-dcgm-exporter
+    kubectl get pods -n ${kubernetes_namespace_v1.gpu_operator.metadata[0].name} -l app=nvidia-dcgm-exporter
   EOT
 }

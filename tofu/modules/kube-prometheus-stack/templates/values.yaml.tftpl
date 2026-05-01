@@ -1,0 +1,47 @@
+prometheus:
+  prometheusSpec:
+    retention: ${prometheus_retention}
+    # Accept all ServiceMonitors and PodMonitors regardless of label selectors
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${storage_class}
+          resources:
+            requests:
+              storage: ${prometheus_storage_size}
+%{ if enable_gpu_monitoring ~}
+    additionalScrapeConfigs:
+      - job_name: dcgm-exporter
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - gpu-operator
+%{ endif ~}
+
+grafana:
+  enabled: true
+  adminPassword: ${grafana_admin_password}
+  persistence:
+    enabled: true
+    size: ${grafana_storage_size}
+    storageClassName: ${storage_class}
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${storage_class}
+          resources:
+            requests:
+              storage: ${alertmanager_storage_size}
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true

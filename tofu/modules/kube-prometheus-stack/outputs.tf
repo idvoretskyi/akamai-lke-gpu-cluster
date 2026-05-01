@@ -1,6 +1,6 @@
 output "namespace" {
   description = "Namespace where monitoring stack is deployed"
-  value       = kubernetes_namespace.monitoring.metadata[0].name
+  value       = kubernetes_namespace_v1.monitoring.metadata[0].name
 }
 
 output "release_name" {
@@ -37,18 +37,18 @@ output "validation_commands" {
   description = "Commands to validate monitoring stack functionality"
   value       = <<-EOT
     # Check all monitoring pods
-    kubectl get pods -n ${kubernetes_namespace.monitoring.metadata[0].name}
+    kubectl get pods -n ${kubernetes_namespace_v1.monitoring.metadata[0].name}
 
     # Access Grafana (port 3000)
-    kubectl port-forward -n ${kubernetes_namespace.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-grafana 3000:80
+    kubectl port-forward -n ${kubernetes_namespace_v1.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-grafana 3000:80
     # Then visit: http://localhost:3000
 
     # Access Prometheus (port 9090)
-    kubectl port-forward -n ${kubernetes_namespace.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-prometheus 9090:9090
+    kubectl port-forward -n ${kubernetes_namespace_v1.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-prometheus 9090:9090
     # Then visit: http://localhost:9090/targets
 
     # Access Alertmanager (port 9093)
-    kubectl port-forward -n ${kubernetes_namespace.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-alertmanager 9093:9093
+    kubectl port-forward -n ${kubernetes_namespace_v1.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-alertmanager 9093:9093
     # Then visit: http://localhost:9093
   EOT
 }

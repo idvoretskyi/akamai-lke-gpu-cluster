@@ -1,5 +1,7 @@
+# ─── Cluster ──────────────────────────────────────────────────────────────────
+
 variable "cluster_name_prefix" {
-  description = "Prefix for the LKE cluster name (will use system username if not set)"
+  description = "Prefix for the LKE cluster name (defaults to system username when empty)"
   type        = string
   default     = ""
 }
@@ -10,7 +12,7 @@ variable "region" {
   default     = "us-ord" # Chicago, US
 
   validation {
-    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
+    condition     = can(cidrhost("${var.region}/32", 0)) == false && can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
     error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
   }
 }
@@ -21,28 +23,50 @@ variable "kubernetes_version" {
   default     = "1.34"
 
   validation {
-    condition     = can(regex("^1\\.[0-9]{2,}$", var.kubernetes_version))
-    error_message = "kubernetes_version must be in the format '1.Y' (e.g. '1.34')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+$", var.kubernetes_version))
+    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.34')."
   }
 }
 
-variable "gpu_node_type" {
-  description = "Linode instance type for GPU nodes (NVIDIA RTX 4000 Ada GPU x1 Small)"
-  type        = string
-  default     = "g2-gpu-rtx4000a1-s" # RTX 4000 Ada x1 Small
+variable "ha_control_plane" {
+  description = "Enable high availability for the control plane (~$60/month extra). Set true for production; false to minimize cost."
+  type        = bool
+  default     = false
+}
 
-  # Note: List available GPU plans with:
-  # linode-cli linodes types --json | jq '.[] | select(.class=="gpu")'
+variable "tags" {
+  description = "Tags to apply to Linode resources"
+  type        = list(string)
+  default     = ["lke", "gpu", "ml", "ai"]
+}
+
+# ─── Node Pool & Autoscaling ──────────────────────────────────────────────────
+
+variable "gpu_node_type" {
+  description = "Linode instance type for GPU nodes. Default is the cheapest available GPU plan: NVIDIA RTX 4000 Ada x1 Small (~$0.52/hr, ~$380/mo)."
+  type        = string
+  default     = "g2-gpu-rtx4000a1-s" # Cheapest Linode GPU — RTX 4000 Ada x1 Small
+  # List available GPU plans: linode-cli linodes types --json | jq '.[] | select(.class=="gpu")'
 }
 
 variable "gpu_node_count" {
-  description = "Number of GPU nodes in the cluster"
+  description = "Initial number of GPU nodes in the cluster (must be within autoscaler_min..autoscaler_max)"
   type        = number
   default     = 1
 
   validation {
     condition     = var.gpu_node_count >= 1
     error_message = "gpu_node_count must be at least 1."
+  }
+
+  validation {
+    condition     = var.gpu_node_count >= var.autoscaler_min
+    error_message = "gpu_node_count must be >= autoscaler_min (${var.autoscaler_min})."
+  }
+
+  validation {
+    condition     = var.gpu_node_count <= var.autoscaler_max
+    error_message = "gpu_node_count must be <= autoscaler_max (${var.autoscaler_max})."
   }
 }
 
@@ -64,21 +88,11 @@ variable "autoscaler_max" {
 
   validation {
     condition     = var.autoscaler_max >= var.autoscaler_min
-    error_message = "autoscaler_max must be greater than or equal to autoscaler_min."
+    error_message = "autoscaler_max must be >= autoscaler_min (${var.autoscaler_min})."
   }
 }
 
-variable "ha_control_plane" {
-  description = "Enable high availability for the control plane"
-  type        = bool
-  default     = true
-}
-
-variable "tags" {
-  description = "Tags to apply to Linode resources"
-  type        = list(string)
-  default     = ["lke", "gpu", "ml", "ai"]
-}
+# ─── Networking ───────────────────────────────────────────────────────────────
 
 variable "allowed_kubectl_ips" {
   description = "CIDR ranges allowed to reach the Kubernetes API (port 443). Restrict in production."
@@ -86,8 +100,8 @@ variable "allowed_kubectl_ips" {
   default     = ["0.0.0.0/0"]
 
   validation {
-    condition     = alltrue([for ip in var.allowed_kubectl_ips : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", ip))])
-    error_message = "Each allowed_kubectl_ips entry must be a valid IPv4 CIDR (e.g. '203.0.113.10/32')."
+    condition     = alltrue([for ip in var.allowed_kubectl_ips : can(cidrhost(ip, 0))])
+    error_message = "Each allowed_kubectl_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
   }
 }
 
@@ -97,15 +111,15 @@ variable "allowed_monitoring_ips" {
   default     = ["0.0.0.0/0"]
 
   validation {
-    condition     = alltrue([for ip in var.allowed_monitoring_ips : can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", ip))])
-    error_message = "Each allowed_monitoring_ips entry must be a valid IPv4 CIDR (e.g. '203.0.113.10/32')."
+    condition     = alltrue([for ip in var.allowed_monitoring_ips : can(cidrhost(ip, 0))])
+    error_message = "Each allowed_monitoring_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
   }
 }
 
 # ─── Kubeconfig ──────────────────────────────────────────────────────────────
 
 variable "merge_kubeconfig" {
-  description = "Automatically merge the cluster kubeconfig into ~/.kube/config after deployment. Set to false when running in CI or managing kubeconfig externally."
+  description = "Automatically merge the cluster kubeconfig into ~/.kube/config after deployment. Set false in CI or when managing kubeconfig externally."
   type        = bool
   default     = true
 }
@@ -113,7 +127,7 @@ variable "merge_kubeconfig" {
 # ─── GPU Operator ─────────────────────────────────────────────────────────────
 
 variable "install_gpu_operator" {
-  description = "Install NVIDIA GPU Operator"
+  description = "Install NVIDIA GPU Operator (automated driver and device plugin management)"
   type        = bool
   default     = true
 }
@@ -169,35 +183,58 @@ variable "prometheus_retention" {
   }
 }
 
+# ─── Storage ──────────────────────────────────────────────────────────────────
+# Linode block storage costs ~$0.10/GB/month. Defaults are sized for a
+# cost-efficient single-node dev/test cluster.
+
 variable "prometheus_storage_size" {
-  description = "Prometheus persistent storage size (e.g. '50Gi')"
+  description = "Prometheus persistent storage size (e.g. '30Gi'). ~$3/month per 30Gi on Linode block storage."
   type        = string
-  default     = "50Gi"
+  default     = "30Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.prometheus_storage_size))
-    error_message = "prometheus_storage_size must be a Kubernetes quantity like '50Gi'."
+    error_message = "prometheus_storage_size must be a Kubernetes quantity like '30Gi'."
   }
 }
 
 variable "alertmanager_storage_size" {
-  description = "Alertmanager persistent storage size (e.g. '10Gi')"
+  description = "Alertmanager persistent storage size (e.g. '5Gi')"
   type        = string
-  default     = "10Gi"
+  default     = "5Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.alertmanager_storage_size))
-    error_message = "alertmanager_storage_size must be a Kubernetes quantity like '10Gi'."
+    error_message = "alertmanager_storage_size must be a Kubernetes quantity like '5Gi'."
   }
 }
 
 variable "grafana_storage_size" {
-  description = "Grafana persistent storage size (e.g. '10Gi')"
+  description = "Grafana persistent storage size (e.g. '5Gi')"
   type        = string
-  default     = "10Gi"
+  default     = "5Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.grafana_storage_size))
-    error_message = "grafana_storage_size must be a Kubernetes quantity like '10Gi'."
+    error_message = "grafana_storage_size must be a Kubernetes quantity like '5Gi'."
+  }
+}
+
+# ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
+
+variable "install_opencost" {
+  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality)"
+  type        = bool
+  default     = true
+}
+
+variable "opencost_chart_version" {
+  description = "Version of the OpenCost Helm chart"
+  type        = string
+  default     = "2.5.14"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
+    error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
   }
 }
