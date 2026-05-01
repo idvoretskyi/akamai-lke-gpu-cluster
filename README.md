@@ -1,5 +1,10 @@
 # Linode GPU Kubernetes Infrastructure
 
+[![CI](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.34-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
 OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) optimized for AI/ML workloads.
 
@@ -8,11 +13,12 @@ OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kuberne
 This repository provides automated infrastructure deployment for GPU-accelerated Kubernetes clusters with comprehensive monitoring, designed to serve as a foundation for AI/ML platforms and workloads.
 
 **Key Features:**
+
 - **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
-- **High Availability**: Managed control plane with HA option
+- **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
 - **Autoscaling**: Automatic node scaling (1-5 nodes)
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
@@ -41,13 +47,14 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ```
 
 **Deployment time:**
+
 - Basic cluster: ~5 minutes
 - With GPU operator: ~15-20 minutes
 - With full monitoring stack: ~20-30 minutes
 
 ## Prerequisites
 
-- **OpenTofu** >= 1.6 - Infrastructure as code tool
+- **OpenTofu** >= 1.9 - Infrastructure as code tool
 - **linode-cli** - Linode API client (configured with token)
 - **kubectl** - Kubernetes command-line tool
 
@@ -61,19 +68,29 @@ linode-cli configure
 
 ## Project Structure
 
-```
+```text
 .
 ├── README.md              # This file
 ├── LICENSE                # MIT License
+├── .github/               # GitHub Actions CI and Dependabot config
 └── tofu/                  # OpenTofu infrastructure code
-    ├── main.tf            # Core resources
+    ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
+    ├── providers.tf       # Provider configurations
+    ├── locals.tf          # Shared locals (cluster prefix, username)
+    ├── cluster.tf         # LKE cluster resource
+    ├── firewall.tf        # Linode firewall resource
+    ├── kubeconfig.tf      # Kubeconfig merge resource
+    ├── modules.tf         # Module calls
+    ├── checks.tf          # Advisory check blocks
     ├── variables.tf       # Configuration variables
     ├── outputs.tf         # Output values
     ├── tofu.tfvars.example # Configuration template
+    ├── scripts/           # Helper scripts
     └── modules/           # Reusable modules
-        ├── gpu-operator/  # NVIDIA GPU Operator
-        ├── metrics-server/ # Kubernetes Metrics Server
-        └── kube-prometheus-stack/ # Monitoring stack
+        ├── gpu-operator/       # NVIDIA GPU Operator
+        ├── metrics-server/     # Kubernetes Metrics Server
+        ├── kube-prometheus-stack/ # Monitoring stack
+        └── opencost/           # Kubernetes cost monitoring
 ```
 
 ## Workflow
@@ -108,13 +125,13 @@ Default configuration deploys to Chicago (us-ord) with GPU operator and monitori
 # cluster_name_prefix = "my-cluster"  # Optional: defaults to your username
 region              = "us-ord"
 kubernetes_version  = "1.34"
-gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada
+gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count      = 1
 autoscaler_min      = 1
 autoscaler_max      = 5
 
-# High availability
-ha_control_plane = true
+# High availability (disabled by default to save ~$60/month)
+ha_control_plane = false
 
 # GPU Operator (automated NVIDIA driver installation)
 install_gpu_operator  = true
@@ -127,8 +144,11 @@ install_metrics_server = true
 install_monitoring      = true
 grafana_admin_password  = "admin"  # Change in production!
 prometheus_retention    = "15d"
-prometheus_storage_size = "50Gi"
-grafana_storage_size    = "10Gi"
+prometheus_storage_size = "30Gi"
+grafana_storage_size    = "5Gi"
+
+# Cost Monitoring (OpenCost)
+install_opencost = true
 ```
 
 See `tofu/tofu.tfvars.example` for all available configuration options.
@@ -148,13 +168,14 @@ See `tofu/tofu.tfvars.example` for all available configuration options.
 
 ## Cost Estimation
 
-**GPU Nodes**: ~$1.50-2.00/hour per node (~$1,080-1,440/month per node)
+| Resource | Cost |
+|---|---|
+| GPU node (1×) | ~$0.52/hr (~$380/month) |
+| GPU node (2×) | ~$1.04/hr (~$760/month) |
+| HA control plane | +~$60/month (disabled by default) |
+| Monitoring storage (~40Gi) | ~$4/month |
 
-**Monthly Cost (1 node)**: ~$1,080-1,440
-**Monthly Cost (2 nodes)**: ~$2,160-2,880
-
-**Control Plane**: Free (standard) or additional charge (HA)
-**Storage**: Included in node pricing, additional for persistent volumes
+**Minimum cost (1 node, no HA):** ~$384/month
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
@@ -175,47 +196,57 @@ allowed_monitoring_ips = ["YOUR_IP/32"]
 
 ## Cluster Management
 
-**Scale nodes**:
-```bash
-# Edit tofu/tofu.tfvars
-# gpu_node_count = 2
+**Scale nodes:**
 
+```bash
+# Edit tofu/tofu.tfvars: gpu_node_count = 2
 cd tofu && tofu apply
 ```
 
-**Update Kubernetes version**:
-```bash
-# Edit tofu/tofu.tfvars
-# kubernetes_version = "1.35"
+**Update Kubernetes version:**
 
+```bash
+# Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
 cd tofu && tofu apply
 ```
 
-**Access Grafana**:
+**Access Grafana:**
+
 ```bash
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 # Visit: http://localhost:3000 (default: admin/admin)
 ```
 
-**Access Prometheus**:
+**Access Prometheus:**
+
 ```bash
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
 # Visit: http://localhost:9090
 ```
 
-**Check GPU availability**:
+**Access OpenCost:**
+
+```bash
+kubectl port-forward -n opencost svc/opencost 9090:9090
+# Visit: http://localhost:9090
+```
+
+**Check GPU availability:**
+
 ```bash
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 kubectl get pods -n gpu-operator
 ```
 
-**Check resource usage**:
+**Check resource usage:**
+
 ```bash
 kubectl top nodes
 kubectl top pods -A
 ```
 
-**Destroy cluster**:
+**Destroy cluster:**
+
 ```bash
 cd tofu && tofu destroy
 ```
@@ -223,15 +254,17 @@ cd tofu && tofu destroy
 ## Features
 
 ### Infrastructure
+
 - LKE cluster with GPU nodes (NVIDIA RTX 4000 Ada)
 - NVIDIA GPU Operator with automated driver installation
-- High availability control plane
+- Optional HA control plane (disabled by default)
 - Autoscaling configuration (1-5 nodes)
 - Firewall rules and network policies
 - OpenTofu-based automation
 - Kubeconfig auto-merge to ~/.kube/config (no local files)
 
 ### Observability
+
 - Kubernetes Metrics Server (resource metrics API)
 - Prometheus (metrics collection and storage)
 - Grafana (visualization and dashboards)
@@ -239,8 +272,10 @@ cd tofu && tofu destroy
 - Node Exporter (hardware and OS metrics)
 - Kube State Metrics (Kubernetes object metrics)
 - DCGM Exporter (GPU metrics integration)
+- OpenCost (Kubernetes cost monitoring and allocation)
 
 ### GPU Support
+
 - NVIDIA GPU Operator (automated driver management)
 - GPU device plugin (resource scheduling)
 - GPU monitoring with DCGM exporter
@@ -266,10 +301,12 @@ This infrastructure is designed for:
 - [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
+- [OpenCost Documentation](https://www.opencost.io/docs/)
 
 ## Support
 
 For issues and questions:
+
 - Review the troubleshooting commands in the sections above
 - Check `tofu/modules/README.md` for module-specific troubleshooting
 - Visit [Linode Community Forums](https://www.linode.com/community/)

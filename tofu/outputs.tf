@@ -1,3 +1,5 @@
+# ─── Cluster ──────────────────────────────────────────────────────────────────
+
 output "cluster_id" {
   description = "The ID of the LKE cluster"
   value       = linode_lke_cluster.gpu_cluster.id
@@ -23,15 +25,17 @@ output "api_endpoints" {
   value       = linode_lke_cluster.gpu_cluster.api_endpoints
 }
 
-output "kubeconfig_path" {
-  description = "Path to the kubeconfig file"
-  value       = "~/.kube/config (merged)"
+output "kubectl_context" {
+  description = "The kubectl context name for this cluster"
+  value       = "lke${linode_lke_cluster.gpu_cluster.id}-ctx"
 }
 
 output "cluster_dashboard_url" {
-  description = "URL to the cluster dashboard"
+  description = "URL to the Linode cluster dashboard"
   value       = linode_lke_cluster.gpu_cluster.dashboard_url
 }
+
+# ─── Node Pool ────────────────────────────────────────────────────────────────
 
 output "gpu_node_pool_id" {
   description = "The ID of the GPU node pool"
@@ -43,73 +47,112 @@ output "gpu_node_pool_count" {
   value       = linode_lke_cluster.gpu_cluster.pool[0].count
 }
 
+# ─── Networking ───────────────────────────────────────────────────────────────
+
 output "firewall_id" {
   description = "The ID of the firewall protecting the cluster"
   value       = linode_firewall.lke_firewall.id
 }
 
-output "kubectl_context" {
-  description = "The kubectl context name for this cluster"
-  value       = "lke${linode_lke_cluster.gpu_cluster.id}-ctx"
+# ─── Kubeconfig ──────────────────────────────────────────────────────────────
+
+output "kubeconfig_path" {
+  description = "Path to the merged kubeconfig file (when merge_kubeconfig = true)"
+  value       = var.merge_kubeconfig ? "~/.kube/config (merged)" : "kubeconfig merge disabled — manage kubeconfig externally"
 }
 
+# ─── GPU Operator ─────────────────────────────────────────────────────────────
+
 output "gpu_operator_namespace" {
-  description = "GPU operator namespace (if installed)"
-  value       = var.install_gpu_operator ? module.gpu_operator[0].namespace : null
+  description = "GPU Operator namespace (null when not installed)"
+  value       = try(module.gpu_operator[0].namespace, null)
+}
+
+output "gpu_operator_version" {
+  description = "GPU Operator chart version (null when not installed)"
+  value       = try(module.gpu_operator[0].version, null)
 }
 
 output "gpu_operator_status" {
-  description = "GPU operator status (if installed)"
-  value       = var.install_gpu_operator ? module.gpu_operator[0].status : null
-}
-
-output "metrics_server_namespace" {
-  description = "Metrics Server namespace (if installed)"
-  value       = var.install_metrics_server ? module.metrics_server[0].namespace : null
-}
-
-output "monitoring_namespace" {
-  description = "Monitoring stack namespace (if installed)"
-  value       = var.install_monitoring ? module.kube_prometheus_stack[0].namespace : null
-}
-
-output "grafana_service" {
-  description = "Grafana service name for port-forwarding (if installed)"
-  value       = var.install_monitoring ? module.kube_prometheus_stack[0].grafana_service : null
-}
-
-output "prometheus_service" {
-  description = "Prometheus service name for port-forwarding (if installed)"
-  value       = var.install_monitoring ? module.kube_prometheus_stack[0].prometheus_service : null
-}
-
-output "setup_commands" {
-  description = "Commands to set up kubectl access"
-  value       = <<-EOT
-    # Kubeconfig has been automatically merged into ~/.kube/config
-    # Context: lke${linode_lke_cluster.gpu_cluster.id}-ctx
-
-    # Switch to this cluster context (if not already active)
-    kubectl config use-context lke${linode_lke_cluster.gpu_cluster.id}-ctx
-
-    # Verify cluster access
-    kubectl get nodes
-
-    ${var.install_gpu_operator ? "# GPU Operator installed - Check GPU availability\n    kubectl get nodes -o json | jq '.items[].status.capacity.\"nvidia.com/gpu\"'\n    kubectl get pods -n gpu-operator" : "# GPU Operator not installed - Run: tofu apply -var=\"install_gpu_operator=true\""}
-
-    ${var.install_monitoring ? "# Monitoring stack installed - Access Grafana\n    kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80\n    # Then visit: http://localhost:3000\n    # Default credentials: admin / admin\n    \n    # Access Prometheus\n    kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090\n    # Then visit: http://localhost:9090" : "# Monitoring not installed - Run: tofu apply -var=\"install_monitoring=true\""}
-
-    ${var.install_metrics_server ? "# Metrics Server installed - Check resource usage\n    kubectl top nodes\n    kubectl top pods -A" : "# Metrics Server not installed"}
-  EOT
+  description = "GPU Operator Helm release status (null when not installed)"
+  value       = try(module.gpu_operator[0].status, null)
 }
 
 output "gpu_validation_commands" {
-  description = "Commands to validate GPU setup (if GPU operator installed)"
-  value       = var.install_gpu_operator ? module.gpu_operator[0].validation_commands : "GPU Operator not installed"
+  description = "Commands to validate GPU setup (null when GPU Operator is not installed)"
+  value       = try(module.gpu_operator[0].validation_commands, null)
 }
 
-output "monitoring_access_commands" {
-  description = "Commands to access monitoring stack (if installed)"
+# ─── Metrics Server ───────────────────────────────────────────────────────────
+
+output "metrics_server_namespace" {
+  description = "Metrics Server namespace (null when not installed)"
+  value       = try(module.metrics_server[0].namespace, null)
+}
+
+output "metrics_server_version" {
+  description = "Metrics Server chart version (null when not installed)"
+  value       = try(module.metrics_server[0].version, null)
+}
+
+output "metrics_server_validation_commands" {
+  description = "Commands to validate Metrics Server (null when not installed)"
+  value       = try(module.metrics_server[0].validation_commands, null)
+}
+
+# ─── Monitoring Stack ─────────────────────────────────────────────────────────
+
+output "monitoring_namespace" {
+  description = "Monitoring stack namespace (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].namespace, null)
+}
+
+output "monitoring_version" {
+  description = "kube-prometheus-stack chart version (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].version, null)
+}
+
+output "grafana_service" {
+  description = "Grafana service name for port-forwarding (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].grafana_service, null)
+}
+
+output "prometheus_service" {
+  description = "Prometheus service name for port-forwarding (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].prometheus_service, null)
+}
+
+output "alertmanager_service" {
+  description = "Alertmanager service name for port-forwarding (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].alertmanager_service, null)
+}
+
+# ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
+
+output "opencost_namespace" {
+  description = "OpenCost namespace (null when not installed)"
+  value       = try(module.opencost[0].namespace, null)
+}
+
+output "opencost_version" {
+  description = "OpenCost chart version (null when not installed)"
+  value       = try(module.opencost[0].version, null)
+}
+
+output "opencost_service" {
+  description = "OpenCost service name for port-forwarding (null when not installed)"
+  value       = try(module.opencost[0].service_name, null)
+}
+
+output "opencost_validation_commands" {
+  description = "Commands to access and validate OpenCost (null when not installed)"
+  value       = try(module.opencost[0].validation_commands, null)
+}
+
+# ─── Secrets ─────────────────────────────────────────────────────────────────
+
+output "grafana_admin_password" {
+  description = "Grafana admin password"
   sensitive   = true
-  value       = var.install_monitoring ? "# Access Grafana\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80\n# Then visit: http://localhost:3000\n# Default credentials: admin / ${var.grafana_admin_password}\n\n# Access Prometheus\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090\n# Then visit: http://localhost:9090\n\n# Access Alertmanager\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093\n# Then visit: http://localhost:9093" : "Monitoring stack not installed"
+  value       = var.grafana_admin_password
 }

@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Keep Terraform/OpenTofu providers up-to-date
+  # Keep Terraform/OpenTofu providers up-to-date for the root module
   - package-ecosystem: "terraform"
     directory: "/tofu"
     schedule:
@@ -11,6 +11,7 @@ updates:
     labels:
       - dependencies
 
+  # Keep Terraform/OpenTofu providers up-to-date for each module
   - package-ecosystem: "terraform"
     directory: "/tofu/modules/gpu-operator"
     schedule:
@@ -22,7 +23,27 @@ updates:
       - dependencies
 
   - package-ecosystem: "terraform"
-    directory: "/tofu/modules/kubeflow"
+    directory: "/tofu/modules/metrics-server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: "terraform"
+    directory: "/tofu/modules/kube-prometheus-stack"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: "terraform"
+    directory: "/tofu/modules/opencost"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

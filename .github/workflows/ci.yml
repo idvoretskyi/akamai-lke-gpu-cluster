@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -28,12 +28,109 @@ jobs:
           cd tofu
           tofu fmt -check -recursive
 
-      - name: Init (no backend)
+      - name: Init root (no backend)
         run: |
           cd tofu
           tofu init -backend=false
 
-      - name: Validate configuration
+      - name: Validate root configuration
         run: |
           cd tofu
           tofu validate -no-color
+
+  tofu-validate-modules:
+    name: OpenTofu validate modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - gpu-operator
+          - metrics-server
+          - kube-prometheus-stack
+          - opencost
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+
+      - name: Init module (${{ matrix.module }})
+        run: |
+          cd tofu/modules/${{ matrix.module }}
+          tofu init -backend=false
+
+      - name: Validate module (${{ matrix.module }})
+        run: |
+          cd tofu/modules/${{ matrix.module }}
+          tofu validate -no-color
+
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup tflint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Init tflint
+        run: |
+          cd tofu
+          tflint --init
+
+      - name: Run tflint
+        run: |
+          cd tofu
+          tflint --recursive
+
+  trivy:
+    name: Trivy config scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run Trivy IaC scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: tofu
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: tofu/scripts
+
+  markdownlint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Run markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: |
+            **/*.md
+            !**/.terraform/**

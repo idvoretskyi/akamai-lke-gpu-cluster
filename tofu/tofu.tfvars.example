@@ -1,102 +1,129 @@
 # ============================================================================
 # Linode GPU Kubernetes Infrastructure Configuration
 # ============================================================================
-# Linode API Token is automatically read from linode-cli configuration
-# No need to set it here - it will be loaded via environment variable
-# To verify your token: linode-cli configure get token
+# Linode API Token is automatically read from the LINODE_TOKEN environment
+# variable. No need to set it here.
+# To set it: export LINODE_TOKEN=$(linode-cli configure get token)
 
 # ============================================================================
 # Cluster Configuration
 # ============================================================================
 
-# Cluster Name
-# cluster_name_prefix = "my-cluster"  # Optional: Leave blank to use your system username
+# Cluster name prefix (optional — defaults to your system username)
+# cluster_name_prefix = "my-cluster"
 
-# Region
+# Linode region
 region = "us-ord" # Chicago, US
 
-# Kubernetes Version
+# Kubernetes version (format: 'X.Y')
 kubernetes_version = "1.34"
 
+# High availability control plane.
+# Set true for production (~$60/month extra). Default false for cost savings.
+ha_control_plane = false
+
+# Resource tags applied to Linode resources
+tags = ["lke", "gpu", "ml", "ai"]
+
+# ============================================================================
 # GPU Node Configuration
-# NVIDIA RTX 4000 Ada GPU x1 Small: 1 GPU, 4 vCPU, 16GB RAM, 512GB SSD
+# ============================================================================
+# Cheapest Linode GPU: NVIDIA RTX 4000 Ada x1 Small
+#   SKU:    g2-gpu-rtx4000a1-s
+#   Specs:  1 GPU, 4 vCPU, 16 GB RAM, 512 GB SSD
+#   Cost:   ~$0.52/hr (~$380/month per node)
+#
+# List all available GPU plans:
+#   linode-cli linodes types --json | jq '.[] | select(.class=="gpu")'
+
 gpu_node_type  = "g2-gpu-rtx4000a1-s"
 gpu_node_count = 1
 
-# Autoscaling Configuration
+# Autoscaling range (cost floor = autoscaler_min nodes at rest)
 autoscaler_min = 1
 autoscaler_max = 5
 
-# High Availability Control Plane
-ha_control_plane = true
+# ============================================================================
+# Security (restrict IPs in production)
+# ============================================================================
 
-# Resource Tags
-tags = ["lke", "gpu", "ml", "ai"]
-
-# Security (Update with your IP ranges for production)
 allowed_kubectl_ips    = ["0.0.0.0/0"]
 allowed_monitoring_ips = ["0.0.0.0/0"]
 
 # ============================================================================
-# GPU Operator Configuration
+# Kubeconfig
 # ============================================================================
 
-# Enable GPU Operator (NVIDIA drivers and device plugin)
-install_gpu_operator = true
+# Automatically merge cluster kubeconfig into ~/.kube/config.
+# Set to false in CI pipelines or when managing kubeconfig externally.
+merge_kubeconfig = true
 
-# GPU Operator Version
-gpu_operator_version = "v24.9.0"
+# ============================================================================
+# GPU Operator
+# ============================================================================
 
-# Enable GPU Monitoring (DCGM exporter for Prometheus)
+install_gpu_operator  = true
+gpu_operator_version  = "v24.9.0"
 enable_gpu_monitoring = true
 
 # ============================================================================
-# Metrics Server Configuration
+# Metrics Server
 # ============================================================================
 
-# Enable Kubernetes Metrics Server (for kubectl top and HPA)
 install_metrics_server = true
 
 # ============================================================================
-# Monitoring Stack Configuration
+# Monitoring Stack (Prometheus + Grafana + Alertmanager)
 # ============================================================================
 
-# Enable kube-prometheus-stack (Prometheus + Grafana + Alertmanager)
 install_monitoring = true
 
-# Grafana Admin Password (change in production!)
-grafana_admin_password = "admin"
+grafana_admin_password = "admin" # Change in production!
 
-# Prometheus Data Retention
 prometheus_retention = "15d"
 
-# Persistent Storage Sizes
-prometheus_storage_size = "50Gi"
-grafana_storage_size    = "10Gi"
+# Storage sizes — Linode block storage costs ~$0.10/GB/month.
+# Defaults are sized for cost-efficient dev/test use.
+# For production, increase prometheus_storage_size to 50Gi+.
+prometheus_storage_size   = "30Gi" # ~$3/month
+alertmanager_storage_size = "5Gi"  # ~$0.50/month
+grafana_storage_size      = "5Gi"  # ~$0.50/month
+
+# ============================================================================
+# Cost Monitoring (OpenCost)
+# ============================================================================
+
+install_opencost       = true
+opencost_chart_version = "2.5.14"
 
 # ============================================================================
 # Example Configurations
 # ============================================================================
 
-# Development/Testing Setup (minimal resources):
-# gpu_node_count         = 1
-# autoscaler_max         = 2
-# install_gpu_operator   = true
-# install_monitoring     = true
-# prometheus_storage_size = "25Gi"
+# Minimum cost setup (single node, no HA):
+# gpu_node_count            = 1
+# autoscaler_max            = 2
+# ha_control_plane          = false   # saves ~$60/month
+# prometheus_storage_size   = "20Gi"
+# alertmanager_storage_size = "5Gi"
+# grafana_storage_size      = "5Gi"
+# Estimated total: ~$384/month (1 GPU node + ~$4 storage)
 
 # Production AI Platform (full setup):
-# gpu_node_count         = 2
-# autoscaler_max         = 5
-# install_gpu_operator   = true
-# enable_gpu_monitoring  = true
-# install_metrics_server = true
-# install_monitoring     = true
-# prometheus_retention   = "30d"
-# prometheus_storage_size = "100Gi"
-# grafana_admin_password = "your-secure-password-here"
+# gpu_node_count            = 2
+# autoscaler_max            = 5
+# ha_control_plane          = true
+# install_gpu_operator      = true
+# enable_gpu_monitoring     = true
+# install_metrics_server    = true
+# install_monitoring        = true
+# install_opencost          = true
+# prometheus_retention      = "30d"
+# prometheus_storage_size   = "100Gi"
+# alertmanager_storage_size = "10Gi"
+# grafana_admin_password    = "your-secure-password-here"
 
-# Security-Hardened Setup:
+# Security-hardened setup:
 # allowed_kubectl_ips    = ["YOUR_IP/32"]
 # allowed_monitoring_ips = ["YOUR_IP/32"]
 # ha_control_plane       = true
