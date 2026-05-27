@@ -10,6 +10,10 @@ updates:
       prefix: "deps(terraform)"
     labels:
       - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
 
   # Keep Terraform/OpenTofu providers up-to-date for each module
   - package-ecosystem: "terraform"
@@ -21,6 +25,10 @@ updates:
       prefix: "deps(terraform)"
     labels:
       - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
 
   - package-ecosystem: "terraform"
     directory: "/tofu/modules/metrics-server"
@@ -31,6 +39,10 @@ updates:
       prefix: "deps(terraform)"
     labels:
       - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
 
   - package-ecosystem: "terraform"
     directory: "/tofu/modules/kube-prometheus-stack"
@@ -41,6 +53,10 @@ updates:
       prefix: "deps(terraform)"
     labels:
       - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
 
   - package-ecosystem: "terraform"
     directory: "/tofu/modules/opencost"
@@ -51,6 +67,10 @@ updates:
       prefix: "deps(terraform)"
     labels:
       - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
 
   # Keep GitHub Actions up-to-date
   - package-ecosystem: "github-actions"
@@ -62,3 +82,7 @@ updates:
       prefix: "deps(actions)"
     labels:
       - dependencies
+    groups:
+      github-actions:
+        patterns:
+          - "*"
