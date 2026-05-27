@@ -4,6 +4,13 @@ prometheus:
     # Accept all ServiceMonitors and PodMonitors regardless of label selectors
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: ${prometheus_resources.requests.cpu}
+        memory: ${prometheus_resources.requests.memory}
+      limits:
+        cpu: ${prometheus_resources.limits.cpu}
+        memory: ${prometheus_resources.limits.memory}
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -24,6 +31,13 @@ prometheus:
 grafana:
   enabled: true
   adminPassword: ${grafana_admin_password}
+  resources:
+    requests:
+      cpu: ${grafana_resources.requests.cpu}
+      memory: ${grafana_resources.requests.memory}
+    limits:
+      cpu: ${grafana_resources.limits.cpu}
+      memory: ${grafana_resources.limits.memory}
   persistence:
     enabled: true
     size: ${grafana_storage_size}
@@ -32,6 +46,13 @@ grafana:
 alertmanager:
   enabled: true
   alertmanagerSpec:
+    resources:
+      requests:
+        cpu: ${alertmanager_resources.requests.cpu}
+        memory: ${alertmanager_resources.requests.memory}
+      limits:
+        cpu: ${alertmanager_resources.limits.cpu}
+        memory: ${alertmanager_resources.limits.memory}
     storage:
       volumeClaimTemplate:
         spec:

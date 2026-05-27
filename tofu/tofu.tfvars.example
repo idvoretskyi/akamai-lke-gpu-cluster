@@ -80,14 +80,23 @@ install_monitoring = true
 
 grafana_admin_password = "admin" # Change in production!
 
-prometheus_retention = "15d"
+# Default lowered for cost-efficient dev/test. Raise to "30d" for production.
+prometheus_retention = "7d"
 
 # Storage sizes — Linode block storage costs ~$0.10/GB/month.
 # Defaults are sized for cost-efficient dev/test use.
 # For production, increase prometheus_storage_size to 50Gi+.
-prometheus_storage_size   = "30Gi" # ~$3/month
+prometheus_storage_size   = "15Gi" # ~$1.50/month
 alertmanager_storage_size = "5Gi"  # ~$0.50/month
 grafana_storage_size      = "5Gi"  # ~$0.50/month
+
+# Optional: tune monitoring stack resource requests/limits to fit on a single
+# GPU node alongside workloads. Defaults are conservative; raise for high
+# cardinality / production. Example:
+# prometheus_resources = {
+#   requests = { cpu = "500m", memory = "2Gi" }
+#   limits   = { cpu = "2000m", memory = "8Gi" }
+# }
 
 # ============================================================================
 # Cost Monitoring (OpenCost)
@@ -97,6 +106,29 @@ install_opencost       = true
 opencost_chart_version = "2.5.14"
 
 # ============================================================================
+# Cost Guardrails
+# ============================================================================
+
+# Warn (non-blocking) when gpu_node_type is outside the known cost-efficient
+# allowlist. Set false to silence after intentionally picking a larger plan.
+warn_on_non_default_gpu = true
+
+# Soft monthly cost ceiling (USD). Coarse estimate over GPU nodes + HA flag;
+# storage and egress not included. Advisory only.
+cost_ceiling_usd_per_month = 500
+
+# ============================================================================
+# Pause / Resume (no Terraform changes)
+# ============================================================================
+# To stop paying for GPU compute without destroying the cluster:
+#   tofu/scripts/suspend-cluster.sh "$(tofu output -raw cluster_id)"
+# To resume:
+#   tofu/scripts/resume-cluster.sh "$(tofu output -raw cluster_id)" "" 1
+# Note: LKE autoscaler requires min >= 1, so these scripts bypass the
+# autoscaler via linode-cli. Run `tofu apply -refresh-only` afterwards
+# to reconcile state, or temporarily set gpu_node_count = 0 in tfvars.
+
+# ============================================================================
 # Example Configurations
 # ============================================================================
 
@@ -104,10 +136,11 @@ opencost_chart_version = "2.5.14"
 # gpu_node_count            = 1
 # autoscaler_max            = 2
 # ha_control_plane          = false   # saves ~$60/month
-# prometheus_storage_size   = "20Gi"
+# prometheus_retention      = "7d"
+# prometheus_storage_size   = "15Gi"
 # alertmanager_storage_size = "5Gi"
 # grafana_storage_size      = "5Gi"
-# Estimated total: ~$384/month (1 GPU node + ~$4 storage)
+# Estimated total: ~$382/month (1 GPU node + ~$2 storage)
 
 # Production AI Platform (full setup):
 # gpu_node_count            = 2

@@ -51,3 +51,9 @@ variable "resources" {
     }
   }
 }
+
+variable "extra_labels" {
+  description = "Additional Kubernetes labels to apply to OpenCost workloads and metrics. Useful for cost attribution alongside resource tags."
+  type        = map(string)
+  default     = {}
+}

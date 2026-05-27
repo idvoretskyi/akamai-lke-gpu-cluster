@@ -30,19 +30,27 @@ module "kube_prometheus_stack" {
   alertmanager_storage_size = var.alertmanager_storage_size
   grafana_storage_size      = var.grafana_storage_size
   enable_gpu_monitoring     = var.enable_gpu_monitoring && var.install_gpu_operator
+  prometheus_resources      = var.prometheus_resources
+  grafana_resources         = var.grafana_resources
+  alertmanager_resources    = var.alertmanager_resources
 
   depends_on = [module.gpu_operator, module.metrics_server]
 }
 
 # OpenCost Module — Kubernetes cost monitoring.
+# OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
+# the kube-prometheus-stack module output to avoid hardcoding the namespace and
+# release name. When monitoring is disabled, OpenCost should also be disabled
+# (see validation in variables.tf and the check in checks.tf).
 module "opencost" {
   count  = var.install_opencost ? 1 : 0
   source = "./modules/opencost"
 
   namespace              = "opencost"
   opencost_chart_version = var.opencost_chart_version
-  prometheus_url         = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  prometheus_url         = try(module.kube_prometheus_stack[0].prometheus_internal_url, "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090")
   enable_service_monitor = var.install_monitoring
+  extra_labels           = { for t in var.tags : t => "true" }
 
   depends_on = [module.kube_prometheus_stack]
 }

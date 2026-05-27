@@ -32,6 +32,7 @@ resource "helm_release" "opencost" {
       requests_memory        = var.resources.requests.memory
       limits_cpu             = var.resources.limits.cpu
       limits_memory          = var.resources.limits.memory
+      extra_labels           = var.extra_labels
     })
   ]
 }
