@@ -11,9 +11,9 @@ variable "metrics_server_version" {
 }
 
 variable "replicas" {
-  description = "Number of Metrics Server replicas (2 recommended for high availability)"
+  description = "Number of Metrics Server replicas. Default 1 suits single-node clusters; set to 2 for multi-node HA deployments."
   type        = number
-  default     = 2
+  default     = 1
 
   validation {
     condition     = var.replicas >= 1

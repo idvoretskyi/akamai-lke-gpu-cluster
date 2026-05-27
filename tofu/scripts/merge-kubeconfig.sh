@@ -8,6 +8,17 @@
 
 set -eu
 
+# Preflight: kubectl must be available on PATH for kubeconfig merge to work.
+# If it is absent, print an actionable error and exit cleanly so the operator
+# knows exactly what to do rather than seeing an opaque 'not found' failure.
+if ! command -v kubectl > /dev/null 2>&1; then
+  echo "Error: 'kubectl' not found on PATH." >&2
+  echo "  Install kubectl (https://kubernetes.io/docs/tasks/tools/) and re-run" >&2
+  echo "  'tofu apply', or set merge_kubeconfig = false in tofu.tfvars to skip" >&2
+  echo "  the automatic kubeconfig merge and manage it externally." >&2
+  exit 1
+fi
+
 if [ -z "${LKE_KUBECONFIG_B64:-}" ] || [ -z "${LKE_CLUSTER_ID:-}" ]; then
   echo "Error: LKE_KUBECONFIG_B64 and LKE_CLUSTER_ID must be set." >&2
   exit 1

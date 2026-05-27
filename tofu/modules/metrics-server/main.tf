@@ -6,7 +6,7 @@ resource "helm_release" "metrics_server" {
   version    = var.metrics_server_version
   namespace  = var.namespace
 
-  timeout = 300
+  timeout = 600
   wait    = true
 
   values = [
