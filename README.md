@@ -3,7 +3,7 @@
 [![CI](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.34-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
 OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) optimized for AI/ML workloads.
@@ -124,7 +124,7 @@ Default configuration deploys to Chicago (us-ord) with GPU operator and monitori
 # Basic cluster configuration
 # cluster_name_prefix = "my-cluster"  # Optional: defaults to your username
 region              = "us-ord"
-kubernetes_version  = "1.34"
+kubernetes_version  = "1.35"
 gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count      = 1
 autoscaler_min      = 1
@@ -159,7 +159,7 @@ See `tofu/tofu.tfvars.example` for all available configuration options.
 |-----------|--------------|
 | Platform | Linode Kubernetes Engine (LKE) |
 | Region | Chicago, IL (us-ord) |
-| Kubernetes | v1.34 (configurable) |
+| Kubernetes | v1.35 (configurable) |
 | GPU | NVIDIA RTX 4000 Ada (1 per node) |
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |

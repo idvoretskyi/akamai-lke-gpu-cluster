@@ -20,11 +20,11 @@ variable "region" {
 variable "kubernetes_version" {
   description = "Kubernetes version for the LKE cluster (format: 'X.Y')"
   type        = string
-  default     = "1.34"
+  default     = "1.35"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+$", var.kubernetes_version))
-    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.34')."
+    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.35')."
   }
 }
 
