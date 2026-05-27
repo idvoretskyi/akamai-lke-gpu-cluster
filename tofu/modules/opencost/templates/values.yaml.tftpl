@@ -17,5 +17,18 @@ opencost:
       cpu: ${limits_cpu}
       memory: ${limits_memory}
 
+%{ if length(extra_labels) > 0 ~}
+  extraLabels:
+%{ for k, v in extra_labels ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+
 serviceMonitor:
   enabled: ${enable_service_monitor}
+%{ if length(extra_labels) > 0 ~}
+  additionalLabels:
+%{ for k, v in extra_labels ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}

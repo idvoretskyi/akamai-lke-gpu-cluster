@@ -51,3 +51,39 @@ variable "enable_gpu_monitoring" {
   type        = bool
   default     = false
 }
+
+variable "prometheus_resources" {
+  description = "CPU/memory requests and limits for the Prometheus pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "200m", memory = "512Mi" }
+    limits   = { cpu = "1000m", memory = "2Gi" }
+  }
+}
+
+variable "grafana_resources" {
+  description = "CPU/memory requests and limits for the Grafana pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "50m", memory = "128Mi" }
+    limits   = { cpu = "200m", memory = "512Mi" }
+  }
+}
+
+variable "alertmanager_resources" {
+  description = "CPU/memory requests and limits for the Alertmanager pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "25m", memory = "64Mi" }
+    limits   = { cpu = "100m", memory = "256Mi" }
+  }
+}

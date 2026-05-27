@@ -173,9 +173,9 @@ variable "grafana_admin_password" {
 }
 
 variable "prometheus_retention" {
-  description = "Prometheus data retention period (e.g. '15d', '30d')"
+  description = "Prometheus data retention period (e.g. '7d', '15d', '30d'). Default lowered for cost-efficient dev/test; raise to '30d' for production."
   type        = string
-  default     = "15d"
+  default     = "7d"
 
   validation {
     condition     = can(regex("^[0-9]+(d|h|w|y)$", var.prometheus_retention))
@@ -188,9 +188,9 @@ variable "prometheus_retention" {
 # cost-efficient single-node dev/test cluster.
 
 variable "prometheus_storage_size" {
-  description = "Prometheus persistent storage size (e.g. '30Gi'). ~$3/month per 30Gi on Linode block storage."
+  description = "Prometheus persistent storage size (e.g. '15Gi'). Default lowered for cost-efficient dev/test; raise to '50Gi'+ for production. Linode block storage ~$0.10/GB/month."
   type        = string
-  default     = "30Gi"
+  default     = "15Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.prometheus_storage_size))
@@ -236,5 +236,64 @@ variable "opencost_chart_version" {
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
     error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
+  }
+}
+
+# ─── Cost Guardrails ──────────────────────────────────────────────────────────
+
+variable "warn_on_non_default_gpu" {
+  description = "Emit an advisory check warning when gpu_node_type is outside the known cost-efficient allowlist. Set false to silence."
+  type        = bool
+  default     = true
+}
+
+variable "cost_ceiling_usd_per_month" {
+  description = "Soft monthly cost ceiling (USD). An advisory check warns when the estimated compute cost (GPU nodes + HA control plane) exceeds this value. Storage and egress are not included in the estimate."
+  type        = number
+  default     = 500
+
+  validation {
+    condition     = var.cost_ceiling_usd_per_month > 0
+    error_message = "cost_ceiling_usd_per_month must be greater than 0."
+  }
+}
+
+# ─── Monitoring Resource Requests (cost / scheduling guardrails) ──────────────
+# Conservative defaults sized so the monitoring stack fits on a single GPU node
+# alongside GPU workloads. Raise for production workloads with high cardinality.
+
+variable "prometheus_resources" {
+  description = "CPU/memory requests and limits for the Prometheus pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "200m", memory = "512Mi" }
+    limits   = { cpu = "1000m", memory = "2Gi" }
+  }
+}
+
+variable "grafana_resources" {
+  description = "CPU/memory requests and limits for the Grafana pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "50m", memory = "128Mi" }
+    limits   = { cpu = "200m", memory = "512Mi" }
+  }
+}
+
+variable "alertmanager_resources" {
+  description = "CPU/memory requests and limits for the Alertmanager pod."
+  type = object({
+    requests = object({ cpu = string, memory = string })
+    limits   = object({ cpu = string, memory = string })
+  })
+  default = {
+    requests = { cpu = "25m", memory = "64Mi" }
+    limits   = { cpu = "100m", memory = "256Mi" }
   }
 }

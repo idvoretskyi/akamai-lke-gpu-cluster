@@ -85,7 +85,7 @@ linode-cli configure
     ├── variables.tf       # Configuration variables
     ├── outputs.tf         # Output values
     ├── tofu.tfvars.example # Configuration template
-    ├── scripts/           # Helper scripts
+    ├── scripts/           # Helper scripts (kubeconfig merge, suspend/resume)
     └── modules/           # Reusable modules
         ├── gpu-operator/       # NVIDIA GPU Operator
         ├── metrics-server/     # Kubernetes Metrics Server
@@ -173,11 +173,17 @@ See `tofu/tofu.tfvars.example` for all available configuration options.
 | GPU node (1×) | ~$0.52/hr (~$380/month) |
 | GPU node (2×) | ~$1.04/hr (~$760/month) |
 | HA control plane | +~$60/month (disabled by default) |
-| Monitoring storage (~40Gi) | ~$4/month |
+| Monitoring storage (~25Gi) | ~$2.50/month |
 
-**Minimum cost (1 node, no HA):** ~$384/month
+**Minimum cost (1 node, no HA):** ~$382/month
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
+
+### Cost guardrails
+
+- `warn_on_non_default_gpu` (advisory) — warns when `gpu_node_type` is outside the known cost-efficient allowlist.
+- `cost_ceiling_usd_per_month` (advisory) — non-blocking check; warns when the estimated monthly compute cost (GPU nodes + HA control plane) exceeds the ceiling. Storage and egress are not included.
+- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. LKE autoscaler requires `min >= 1`, so these scripts bypass the autoscaler via `linode-cli`.
 
 ## Security
 

@@ -33,6 +33,9 @@ resource "helm_release" "kube_prometheus_stack" {
       grafana_storage_size      = var.grafana_storage_size
       storage_class             = var.storage_class
       enable_gpu_monitoring     = var.enable_gpu_monitoring
+      prometheus_resources      = var.prometheus_resources
+      grafana_resources         = var.grafana_resources
+      alertmanager_resources    = var.alertmanager_resources
     })
   ]
 }

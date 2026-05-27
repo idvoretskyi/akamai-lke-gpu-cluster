@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write  # required for Trivy SARIF upload to GitHub Security tab
 
 jobs:
   tofu-validate:
@@ -99,12 +100,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Run Trivy IaC scan
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy IaC scan (SARIF)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: tofu
+          version: v0.70.0
           severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-results.sarif
+          limit-severities-for-sarif: "true"
+          exit-code: "0"
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-iac
+
+      - name: Run Trivy IaC scan (table, fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: tofu
+          version: v0.70.0
+          severity: HIGH,CRITICAL
+          format: table
           exit-code: "1"
 
   shellcheck:
