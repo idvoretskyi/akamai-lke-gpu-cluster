@@ -20,6 +20,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
+- **Kubeflow (optional)**: Full Kubeflow Platform with demo CPU & GPU pipelines
 - **Autoscaling**: Automatic node scaling (1-5 nodes)
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
@@ -74,6 +75,8 @@ linode-cli configure
 ├── README.md              # This file
 ├── LICENSE                # MIT License
 ├── .github/               # GitHub Actions CI and Dependabot config
+├── examples/              # Runnable examples
+│   └── kubeflow-pipelines/ # Demo KFP pipelines (CPU + GPU)
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
@@ -91,7 +94,8 @@ linode-cli configure
         ├── gpu-operator/       # NVIDIA GPU Operator
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
-        └── opencost/           # Kubernetes cost monitoring
+        ├── opencost/           # Kubernetes cost monitoring
+        └── kubeflow/           # Full Kubeflow Platform (optional)
 ```
 
 ## Workflow
@@ -201,6 +205,52 @@ spec:
 
 To disable the taint and allow general workloads back onto GPU nodes, set
 `dedicate_gpu_nodes = false`.
+
+## Kubeflow Platform
+
+The full Kubeflow Platform (Istio, Dex, Central Dashboard, Notebooks, Katib,
+KServe, Pipelines, Training Operator) can be installed as an optional module. It
+is **disabled by default** because it is resource-heavy.
+
+```hcl
+install_kubeflow           = true
+kubeflow_manifests_version = "v1.10.0"
+
+# Kubeflow's control plane runs on the system pool — give it real headroom:
+system_node_type      = "g6-standard-8"   # 8 vCPU / 16 GB
+system_autoscaler_max = 2
+```
+
+How it fits the dedicated-GPU design:
+
+- Kubeflow's control-plane pods carry no toleration for the GPU taint, so they
+  land on the **system pool** automatically — the GPU nodes stay reserved for
+  GPU work, with no per-component patching.
+- GPU pipeline steps opt back onto the GPU pool by requesting a GPU and adding
+  the `nvidia.com/gpu` toleration (see the demo pipelines).
+
+Requirements: `kubectl`, `kustomize`, and `git` on the host running
+`tofu apply` (the install uses the upstream kustomize manifests). The root
+config emits advisory checks if the system pool looks too small or if the GPU
+Operator is disabled while Kubeflow is on.
+
+Access the dashboard:
+
+```bash
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+# http://localhost:8080 — default user: user@example.com / 12341234 (change it!)
+```
+
+### Demo pipelines
+
+[`examples/kubeflow-pipelines/`](examples/kubeflow-pipelines/) contains two
+ready-to-run KFP v2 pipelines with compiled IR:
+
+- **Hello World** — CPU-only, runs on the system pool.
+- **GPU smoke test** — runs `nvidia-smi` on the dedicated GPU pool, demonstrating
+  the GPU request + taint toleration + node selector wiring end to end.
+
+See that directory's README to compile, upload, and run them.
 
 ## Cluster Specifications
 

@@ -62,3 +62,18 @@ module "opencost" {
 
   depends_on = [module.kube_prometheus_stack]
 }
+
+# Kubeflow Platform Module — full platform via upstream kustomize manifests.
+# Control-plane components land on the system pool automatically: they do not
+# tolerate the GPU taint, so they cannot schedule onto the dedicated GPU nodes.
+# Depends on the GPU Operator so GPU-backed pipeline steps have a working GPU.
+module "kubeflow" {
+  count  = var.install_kubeflow ? 1 : 0
+  source = "./modules/kubeflow"
+
+  manifests_version = var.kubeflow_manifests_version
+  kubeconfig_b64    = linode_lke_cluster.gpu_cluster.kubeconfig
+  cluster_id        = linode_lke_cluster.gpu_cluster.id
+
+  depends_on = [module.gpu_operator]
+}

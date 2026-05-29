@@ -127,6 +127,24 @@ install_opencost       = true
 opencost_chart_version = "2.5.14"
 
 # ============================================================================
+# Kubeflow Platform (full platform: Istio, Dex, Dashboard, Notebooks, Katib,
+# KServe, Pipelines, Training Operator)
+# ============================================================================
+# Disabled by default — the full platform is heavy. When enabling it:
+#   * use a larger system pool (Kubeflow's control plane lands there, since it
+#     does not tolerate the GPU taint) — g6-standard-8 or larger;
+#   * keep install_gpu_operator = true for GPU-backed pipeline steps;
+#   * ensure kubectl, kustomize, and git are installed on the apply host.
+# Demo pipelines (CPU + GPU) live in examples/kubeflow-pipelines/.
+
+install_kubeflow           = false
+kubeflow_manifests_version = "v1.10.0" # see github.com/kubeflow/manifests/releases
+
+# Recommended overrides when install_kubeflow = true:
+# system_node_type      = "g6-standard-8" # 8 vCPU / 16 GB (~$192/month)
+# system_autoscaler_max = 2
+
+# ============================================================================
 # Cost Guardrails
 # ============================================================================
 

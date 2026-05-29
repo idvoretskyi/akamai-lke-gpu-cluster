@@ -30,6 +30,20 @@ locals {
     + lookup(local.system_plan_monthly_cost, var.system_node_type, 0) * var.system_node_count
     + (var.ha_control_plane ? 60 : 0)
   )
+
+  # System plans with enough headroom (>= 8 vCPU / 16 GB) for the full Kubeflow
+  # Platform alongside the monitoring stack. Advisory only.
+  kubeflow_capable_system_plans = [
+    "g6-standard-8",
+    "g6-standard-16",
+    "g6-standard-20",
+    "g6-standard-24",
+    "g6-standard-32",
+    "g6-dedicated-8",
+    "g6-dedicated-16",
+    "g6-dedicated-32",
+    "g6-dedicated-48",
+  ]
 }
 
 # Warn if the user has selected a GPU plan outside the known cost-efficient set.
@@ -55,6 +69,25 @@ check "opencost_requires_monitoring" {
   assert {
     condition     = !var.install_opencost || var.install_monitoring
     error_message = "install_opencost = true requires install_monitoring = true (OpenCost queries an in-cluster Prometheus). Set install_opencost = false or enable monitoring."
+  }
+}
+
+# Warn if Kubeflow is enabled but the system pool looks too small for the full
+# platform. Kubeflow's control plane lands on the system pool (it does not
+# tolerate the GPU taint), so the system pool must have real headroom.
+check "kubeflow_system_pool_sizing" {
+  assert {
+    condition     = !var.install_kubeflow || contains(local.kubeflow_capable_system_plans, var.system_node_type)
+    error_message = "install_kubeflow = true but system_node_type '${var.system_node_type}' may be too small for the full Kubeflow Platform. Recommended: g6-standard-8 (8 vCPU/16 GB) or larger, with system_autoscaler_max >= 2. This is advisory; override intentionally if you have sized the pool deliberately."
+  }
+}
+
+# Warn if Kubeflow is enabled without the GPU Operator — GPU pipeline steps need
+# the GPU Operator (driver + device plugin) to obtain a working GPU.
+check "kubeflow_gpu_pipelines_need_operator" {
+  assert {
+    condition     = !var.install_kubeflow || var.install_gpu_operator
+    error_message = "install_kubeflow = true but install_gpu_operator = false. GPU-backed Kubeflow pipeline steps require the GPU Operator. Enable install_gpu_operator, or run only CPU pipelines."
   }
 }
 

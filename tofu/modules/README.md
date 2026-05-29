@@ -10,6 +10,7 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana + Alertmanager monitoring stack | `kube-prometheus-stack/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
+| [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (Istio, Dex, Dashboard, Notebooks, Katib, KServe, Pipelines) | `kubeflow/` |
 
 ## Dependency Graph
 
@@ -17,6 +18,7 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 linode_lke_cluster
     └─> terraform_data.merge_kubeconfig
         ├─> module.gpu_operator
+        │       └─> module.kubeflow        # full Kubeflow Platform (optional)
         ├─> module.metrics_server
         ├─> module.kube_prometheus_stack
         │       └─> module.opencost
