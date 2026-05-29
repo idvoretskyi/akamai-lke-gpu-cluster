@@ -28,10 +28,7 @@ if ! command -v linode-cli >/dev/null 2>&1; then
 fi
 
 if [[ -z "${POOL_ID}" ]]; then
-  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys
-pools = json.load(sys.stdin)
-gpu = [p for p in pools if p.get("type", "").startswith("g2-gpu")]
-print((gpu or pools)[0]["id"])')"
+  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys; pools = json.load(sys.stdin); gpu = [p for p in pools if p.get("type", "").startswith("g2-gpu")]; print((gpu or pools)[0]["id"])')"
 fi
 
 echo "Suspending cluster ${CLUSTER_ID}, pool ${POOL_ID}: setting node count to 0…"
