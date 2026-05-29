@@ -16,8 +16,18 @@ locals {
     "g2-gpu-rtx4000a1-l" = 1520
   }
 
+  # Coarse $/month estimate for common shared-CPU system pool plans (24/7).
+  system_plan_monthly_cost = {
+    "g6-standard-1" = 12
+    "g6-standard-2" = 24
+    "g6-standard-4" = 48
+    "g6-standard-6" = 96
+    "g6-standard-8" = 192
+  }
+
   estimated_monthly_cost = (
     lookup(local.gpu_plan_monthly_cost, var.gpu_node_type, 0) * var.gpu_node_count
+    + lookup(local.system_plan_monthly_cost, var.system_node_type, 0) * var.system_node_count
     + (var.ha_control_plane ? 60 : 0)
   )
 }

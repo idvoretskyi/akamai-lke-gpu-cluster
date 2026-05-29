@@ -16,6 +16,7 @@ resource "helm_release" "metrics_server" {
       requests_memory = var.resources.requests.memory
       limits_cpu      = var.resources.limits.cpu
       limits_memory   = var.resources.limits.memory
+      node_selector   = var.node_selector
     })
   ]
 }

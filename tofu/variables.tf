@@ -92,6 +92,62 @@ variable "autoscaler_max" {
   }
 }
 
+# ─── System Node Pool ─────────────────────────────────────────────────────────
+# A small, dedicated CPU node pool that hosts the cluster's "system" workloads
+# (monitoring stack, metrics-server, OpenCost, GPU Operator controller). Keeping
+# these off the GPU nodes means the expensive GPU is reserved purely for
+# GPU-intensive workloads, improving utilization and cost-efficiency.
+
+variable "system_node_type" {
+  description = "Linode instance type for the dedicated system node pool. A small shared-CPU plan is plenty for the monitoring/system stack. Default g6-standard-2 (2 vCPU, 4 GB, ~$24/month)."
+  type        = string
+  default     = "g6-standard-2"
+}
+
+variable "system_node_count" {
+  description = "Initial number of nodes in the system pool (must be within system_autoscaler_min..system_autoscaler_max)"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.system_node_count >= 1
+    error_message = "system_node_count must be at least 1."
+  }
+
+  validation {
+    condition     = var.system_node_count >= var.system_autoscaler_min && var.system_node_count <= var.system_autoscaler_max
+    error_message = "system_node_count must be within system_autoscaler_min..system_autoscaler_max."
+  }
+}
+
+variable "system_autoscaler_min" {
+  description = "Minimum number of nodes for the system pool autoscaler"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.system_autoscaler_min >= 1
+    error_message = "system_autoscaler_min must be at least 1."
+  }
+}
+
+variable "system_autoscaler_max" {
+  description = "Maximum number of nodes for the system pool autoscaler"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = var.system_autoscaler_max >= var.system_autoscaler_min
+    error_message = "system_autoscaler_max must be >= system_autoscaler_min (${var.system_autoscaler_min})."
+  }
+}
+
+variable "dedicate_gpu_nodes" {
+  description = "Taint the GPU node pool (nvidia.com/gpu=present:NoSchedule) so only workloads that tolerate the taint (GPU workloads and the GPU Operator's GPU operands) schedule there. System workloads are pinned to the system pool. Set false to allow general workloads back onto GPU nodes."
+  type        = bool
+  default     = true
+}
+
 # ─── Networking ───────────────────────────────────────────────────────────────
 
 variable "allowed_kubectl_ips" {

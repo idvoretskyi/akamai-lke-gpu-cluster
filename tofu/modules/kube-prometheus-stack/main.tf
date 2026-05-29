@@ -36,6 +36,7 @@ resource "helm_release" "kube_prometheus_stack" {
       prometheus_resources      = var.prometheus_resources
       grafana_resources         = var.grafana_resources
       alertmanager_resources    = var.alertmanager_resources
+      node_selector             = var.node_selector
     })
   ]
 }

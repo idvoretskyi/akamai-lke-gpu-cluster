@@ -44,6 +44,27 @@ autoscaler_min = 1
 autoscaler_max = 5
 
 # ============================================================================
+# System Node Pool (dedicated CPU nodes for the system/monitoring stack)
+# ============================================================================
+# A small, cheap CPU pool hosts the cluster's "system" workloads (Prometheus,
+# Grafana, Alertmanager, kube-state-metrics, metrics-server, OpenCost, and the
+# GPU Operator controller). This keeps the expensive GPU node reserved purely
+# for GPU-intensive workloads.
+#
+# List shared-CPU plans:
+#   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
+
+system_node_type      = "g6-standard-2" # 2 vCPU, 4 GB RAM (~$24/month)
+system_node_count     = 1
+system_autoscaler_min = 1
+system_autoscaler_max = 2
+
+# Taint the GPU pool (nvidia.com/gpu=present:NoSchedule) so only workloads that
+# tolerate it land there. Set false to allow general workloads on GPU nodes.
+# GPU workloads must add a matching toleration — see README.
+dedicate_gpu_nodes = true
+
+# ============================================================================
 # Security (restrict IPs in production)
 # ============================================================================
 
@@ -120,10 +141,11 @@ cost_ceiling_usd_per_month = 500
 # ============================================================================
 # Pause / Resume (no Terraform changes)
 # ============================================================================
-# To stop paying for GPU compute without destroying the cluster:
-#   tofu/scripts/suspend-cluster.sh "$(tofu output -raw cluster_id)"
+# To stop paying for GPU compute without destroying the cluster (the small
+# system pool keeps running so the cluster stays manageable):
+#   tofu/scripts/suspend-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)"
 # To resume:
-#   tofu/scripts/resume-cluster.sh "$(tofu output -raw cluster_id)" "" 1
+#   tofu/scripts/resume-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)" 1
 # Note: LKE autoscaler requires min >= 1, so these scripts bypass the
 # autoscaler via linode-cli. Run `tofu apply -refresh-only` afterwards
 # to reconcile state, or temporarily set gpu_node_count = 0 in tfvars.
@@ -132,19 +154,23 @@ cost_ceiling_usd_per_month = 500
 # Example Configurations
 # ============================================================================
 
-# Minimum cost setup (single node, no HA):
+# Minimum cost setup (single GPU node, no HA):
 # gpu_node_count            = 1
 # autoscaler_max            = 2
+# system_node_type          = "g6-standard-2"  # ~$24/month
+# system_node_count         = 1
 # ha_control_plane          = false   # saves ~$60/month
 # prometheus_retention      = "7d"
 # prometheus_storage_size   = "15Gi"
 # alertmanager_storage_size = "5Gi"
 # grafana_storage_size      = "5Gi"
-# Estimated total: ~$382/month (1 GPU node + ~$2 storage)
+# Estimated total: ~$406/month (1 GPU node + 1 system node + ~$2 storage)
 
 # Production AI Platform (full setup):
 # gpu_node_count            = 2
 # autoscaler_max            = 5
+# system_node_type          = "g6-standard-4"  # more headroom for monitoring
+# system_autoscaler_max     = 3
 # ha_control_plane          = true
 # install_gpu_operator      = true
 # enable_gpu_monitoring     = true

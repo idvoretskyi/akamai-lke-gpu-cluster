@@ -5,6 +5,9 @@
 #
 # Usage:
 #   ./resume-cluster.sh <cluster_id> [pool_id] [node_count=1]
+#
+# If pool_id is omitted, the GPU pool (instance type prefixed "g2-gpu") is used,
+# falling back to the first pool.
 
 set -euo pipefail
 
@@ -18,7 +21,10 @@ if ! command -v linode-cli >/dev/null 2>&1; then
 fi
 
 if [[ -z "${POOL_ID}" ]]; then
-  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys;print(json.load(sys.stdin)[0]["id"])')"
+  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys
+pools = json.load(sys.stdin)
+gpu = [p for p in pools if p.get("type", "").startswith("g2-gpu")]
+print((gpu or pools)[0]["id"])')"
 fi
 
 echo "Resuming cluster ${CLUSTER_ID}, pool ${POOL_ID}: setting node count to ${NODE_COUNT}…"

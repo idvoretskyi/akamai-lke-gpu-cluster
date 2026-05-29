@@ -35,16 +35,28 @@ output "cluster_dashboard_url" {
   value       = linode_lke_cluster.gpu_cluster.dashboard_url
 }
 
-# ─── Node Pool ────────────────────────────────────────────────────────────────
+# ─── Node Pools ───────────────────────────────────────────────────────────────
+# Pools are matched by instance type rather than list index, since the order of
+# the pool blocks is not guaranteed to be stable in state.
 
 output "gpu_node_pool_id" {
-  description = "The ID of the GPU node pool"
-  value       = linode_lke_cluster.gpu_cluster.pool[0].id
+  description = "The ID of the GPU node pool (use with scripts/suspend-cluster.sh)"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.gpu_node_type])
 }
 
 output "gpu_node_pool_count" {
   description = "Number of nodes in the GPU pool"
-  value       = linode_lke_cluster.gpu_cluster.pool[0].count
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.gpu_node_type])
+}
+
+output "system_node_pool_id" {
+  description = "The ID of the dedicated system node pool"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.system_node_type])
+}
+
+output "system_node_pool_count" {
+  description = "Number of nodes in the system pool"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.system_node_type])
 }
 
 # ─── Networking ───────────────────────────────────────────────────────────────

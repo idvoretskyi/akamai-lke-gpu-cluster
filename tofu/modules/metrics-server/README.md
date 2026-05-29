@@ -30,6 +30,7 @@ module "metrics_server" {
 | `metrics_server_version` | Helm chart version | `"3.12.2"` |
 | `replicas` | Number of replicas (2 for HA) | `2` |
 | `resources` | CPU/memory requests and limits | See variables.tf |
+| `node_selector` | nodeSelector to pin pods onto a node pool (e.g. the system pool) | `{}` |
 
 ## Outputs
 

@@ -29,6 +29,8 @@ resource "helm_release" "gpu_operator" {
       install_driver              = var.install_driver
       enable_dcgm_exporter        = var.enable_dcgm_exporter
       enable_node_status_exporter = var.enable_node_status_exporter
+      controller_node_selector    = var.controller_node_selector
+      gpu_node_toleration         = var.gpu_node_toleration
     })
   ]
 }

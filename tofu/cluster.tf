@@ -1,13 +1,42 @@
-# LKE Cluster with GPU nodes.
+# LKE Cluster with a dedicated system pool and a GPU pool.
+#
+# The cluster runs two node pools:
+#   * system — a small, cheap CPU pool that hosts cluster "system" workloads
+#     (monitoring, metrics-server, OpenCost, GPU Operator controller).
+#   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
+#     true so it is reserved purely for GPU-intensive workloads.
 resource "linode_lke_cluster" "gpu_cluster" {
   label       = "${local.cluster_prefix}-lke-gpu"
   k8s_version = var.kubernetes_version
   region      = var.region
   tags        = var.tags
 
+  # Dedicated system pool — keeps system/monitoring workloads off the GPU nodes.
   pool {
-    type  = var.gpu_node_type
-    count = var.gpu_node_count
+    type   = var.system_node_type
+    count  = var.system_node_count
+    labels = local.system_node_labels
+
+    autoscaler {
+      min = var.system_autoscaler_min
+      max = var.system_autoscaler_max
+    }
+  }
+
+  # GPU pool — reserved for GPU-intensive workloads via the taint below.
+  pool {
+    type   = var.gpu_node_type
+    count  = var.gpu_node_count
+    labels = local.gpu_node_labels
+
+    dynamic "taint" {
+      for_each = var.dedicate_gpu_nodes ? [local.gpu_node_taint] : []
+      content {
+        key    = taint.value.key
+        value  = taint.value.value
+        effect = taint.value.effect
+      }
+    }
 
     autoscaler {
       min = var.autoscaler_min

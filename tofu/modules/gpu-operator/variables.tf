@@ -27,3 +27,19 @@ variable "enable_node_status_exporter" {
   type        = bool
   default     = true
 }
+
+variable "controller_node_selector" {
+  description = "nodeSelector to pin the GPU Operator controller onto a specific node pool (e.g. the system pool). The GPU operands always run on the GPU nodes regardless. Empty schedules anywhere."
+  type        = map(string)
+  default     = {}
+}
+
+variable "gpu_node_toleration" {
+  description = "Taint that the GPU nodes carry, which the operator's DaemonSet operands (driver, toolkit, device-plugin, DCGM, GFD, NFD worker) must tolerate so they keep scheduling onto the GPU pool. Null when GPU nodes are not tainted (chart defaults apply)."
+  type = object({
+    key    = string
+    value  = string
+    effect = string
+  })
+  default = null
+}
