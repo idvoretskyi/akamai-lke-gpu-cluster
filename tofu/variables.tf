@@ -102,6 +102,11 @@ variable "system_node_type" {
   description = "Linode instance type for the dedicated system node pool. A small shared-CPU plan is plenty for the monitoring/system stack. Default g6-standard-2 (2 vCPU, 4 GB, ~$24/month)."
   type        = string
   default     = "g6-standard-2"
+
+  validation {
+    condition     = var.system_node_type != var.gpu_node_type
+    error_message = "system_node_type must differ from gpu_node_type. The two pools are distinguished by instance type (cost and pool-id outputs match pools via one([... if p.type == var.*_node_type])), so identical types would make those outputs ambiguous and fail."
+  }
 }
 
 variable "system_node_count" {
