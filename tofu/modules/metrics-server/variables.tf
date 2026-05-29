@@ -10,6 +10,12 @@ variable "metrics_server_version" {
   default     = "3.12.2"
 }
 
+variable "node_selector" {
+  description = "nodeSelector to pin Metrics Server pods onto a specific node pool (e.g. the system pool). Empty schedules anywhere."
+  type        = map(string)
+  default     = {}
+}
+
 variable "replicas" {
   description = "Number of Metrics Server replicas. Default 1 suits single-node clusters; set to 2 for multi-node HA deployments."
   type        = number

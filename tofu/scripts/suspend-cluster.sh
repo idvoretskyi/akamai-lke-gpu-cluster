@@ -12,7 +12,10 @@
 # Usage:
 #   ./suspend-cluster.sh <cluster_id> [pool_id]
 #
-# If pool_id is omitted, the first pool of the cluster is used.
+# If pool_id is omitted, the GPU pool (instance type prefixed "g2-gpu") is used,
+# falling back to the first pool. The dedicated system pool is left running so
+# the cluster stays manageable. Pass the pool id explicitly, e.g.
+#   ./suspend-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)"
 
 set -euo pipefail
 
@@ -25,7 +28,7 @@ if ! command -v linode-cli >/dev/null 2>&1; then
 fi
 
 if [[ -z "${POOL_ID}" ]]; then
-  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys;print(json.load(sys.stdin)[0]["id"])')"
+  POOL_ID="$(linode-cli lke pools-list "${CLUSTER_ID}" --json | python3 -c 'import json,sys; pools = json.load(sys.stdin); gpu = [p for p in pools if p.get("type", "").startswith("g2-gpu")]; print((gpu or pools)[0]["id"])')"
 fi
 
 echo "Suspending cluster ${CLUSTER_ID}, pool ${POOL_ID}: setting node count to 0…"

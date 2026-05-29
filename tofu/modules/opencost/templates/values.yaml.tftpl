@@ -8,6 +8,13 @@ opencost:
 
   ui:
     enabled: ${enable_ui}
+%{ if length(node_selector) > 0 ~}
+
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
 
   resources:
     requests:

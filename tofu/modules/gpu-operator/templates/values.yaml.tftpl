@@ -1,5 +1,22 @@
 operator:
   defaultRuntime: containerd
+%{ if length(controller_node_selector) > 0 ~}
+  # Pin the operator controller to the system pool — it needs no GPU itself.
+  nodeSelector:
+%{ for k, v in controller_node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+
+%{ if gpu_node_toleration != null ~}
+# Let the GPU operands tolerate the GPU node taint so they keep scheduling onto
+# the dedicated GPU pool. Uses Exists to match the taint regardless of value.
+daemonsets:
+  tolerations:
+    - key: "${gpu_node_toleration.key}"
+      operator: "Exists"
+      effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
 
 driver:
   enabled: ${install_driver}

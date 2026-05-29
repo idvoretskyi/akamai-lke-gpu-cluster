@@ -38,6 +38,8 @@ module "gpu_operator" {
 | `install_driver` | Install NVIDIA driver | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
+| `controller_node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
+| `gpu_node_toleration` | GPU node taint (`key`/`value`/`effect`) the operands tolerate; `null` when untainted | `null` |
 
 ## Outputs
 

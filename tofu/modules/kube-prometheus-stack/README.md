@@ -44,6 +44,7 @@ module "kube_prometheus_stack" {
 | `grafana_storage_size` | Grafana PVC size | `"5Gi"` |
 | `storage_class` | Kubernetes StorageClass | `"linode-block-storage-retain"` |
 | `enable_gpu_monitoring` | Add DCGM scrape config for GPU metrics | `false` |
+| `node_selector` | nodeSelector to pin control-plane components (Prometheus, Grafana, Alertmanager, kube-state-metrics, operator) onto a node pool. node-exporter stays cluster-wide. | `{}` |
 
 ## Outputs
 

@@ -52,6 +52,12 @@ variable "resources" {
   }
 }
 
+variable "node_selector" {
+  description = "nodeSelector to pin the OpenCost pod onto a specific node pool (e.g. the system pool). Empty schedules anywhere."
+  type        = map(string)
+  default     = {}
+}
+
 variable "extra_labels" {
   description = "Additional Kubernetes labels to apply to OpenCost workloads and metrics. Useful for cost attribution alongside resource tags."
   type        = map(string)

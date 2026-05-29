@@ -54,6 +54,7 @@ curl http://localhost:9003/allocation/compute?window=60m
 | `enable_ui` | Enable web UI | `true` |
 | `enable_service_monitor` | Create Prometheus ServiceMonitor | `true` |
 | `resources` | CPU/memory requests and limits | See variables.tf |
+| `node_selector` | nodeSelector to pin the OpenCost pod onto a node pool (e.g. the system pool) | `{}` |
 
 ## Outputs
 

@@ -35,16 +35,28 @@ output "cluster_dashboard_url" {
   value       = linode_lke_cluster.gpu_cluster.dashboard_url
 }
 
-# ─── Node Pool ────────────────────────────────────────────────────────────────
+# ─── Node Pools ───────────────────────────────────────────────────────────────
+# Pools are matched by instance type rather than list index, since the order of
+# the pool blocks is not guaranteed to be stable in state.
 
 output "gpu_node_pool_id" {
-  description = "The ID of the GPU node pool"
-  value       = linode_lke_cluster.gpu_cluster.pool[0].id
+  description = "The ID of the GPU node pool (use with scripts/suspend-cluster.sh)"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.gpu_node_type])
 }
 
 output "gpu_node_pool_count" {
   description = "Number of nodes in the GPU pool"
-  value       = linode_lke_cluster.gpu_cluster.pool[0].count
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.gpu_node_type])
+}
+
+output "system_node_pool_id" {
+  description = "The ID of the dedicated system node pool"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.system_node_type])
+}
+
+output "system_node_pool_count" {
+  description = "Number of nodes in the system pool"
+  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.system_node_type])
 }
 
 # ─── Networking ───────────────────────────────────────────────────────────────
@@ -147,6 +159,28 @@ output "opencost_service" {
 output "opencost_validation_commands" {
   description = "Commands to access and validate OpenCost (null when not installed)"
   value       = try(module.opencost[0].validation_commands, null)
+}
+
+# ─── Kubeflow Platform ────────────────────────────────────────────────────────
+
+output "kubeflow_namespace" {
+  description = "Primary Kubeflow namespace (null when not installed)"
+  value       = try(module.kubeflow[0].namespace, null)
+}
+
+output "kubeflow_version" {
+  description = "Installed Kubeflow manifests version (null when not installed)"
+  value       = try(module.kubeflow[0].version, null)
+}
+
+output "kubeflow_dashboard_command" {
+  description = "Command to reach the Kubeflow Central Dashboard (null when not installed)"
+  value       = try(module.kubeflow[0].dashboard_port_forward, null)
+}
+
+output "kubeflow_validation_commands" {
+  description = "Commands to validate the Kubeflow installation (null when not installed)"
+  value       = try(module.kubeflow[0].validation_commands, null)
 }
 
 # ─── Secrets ─────────────────────────────────────────────────────────────────

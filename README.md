@@ -15,10 +15,12 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 **Key Features:**
 
 - **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
+- **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
+- **Kubeflow (optional)**: Full Kubeflow Platform with demo CPU & GPU pipelines
 - **Autoscaling**: Automatic node scaling (1-5 nodes)
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
@@ -73,6 +75,8 @@ linode-cli configure
 ├── README.md              # This file
 ├── LICENSE                # MIT License
 ├── .github/               # GitHub Actions CI and Dependabot config
+├── examples/              # Runnable examples
+│   └── kubeflow-pipelines/ # Demo KFP pipelines (CPU + GPU)
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
@@ -90,7 +94,8 @@ linode-cli configure
         ├── gpu-operator/       # NVIDIA GPU Operator
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
-        └── opencost/           # Kubernetes cost monitoring
+        ├── opencost/           # Kubernetes cost monitoring
+        └── kubeflow/           # Full Kubeflow Platform (optional)
 ```
 
 ## Workflow
@@ -130,6 +135,11 @@ gpu_node_count      = 1
 autoscaler_min      = 1
 autoscaler_max      = 5
 
+# Dedicated system pool (keeps system/monitoring workloads off the GPU nodes)
+system_node_type   = "g6-standard-2"  # 2 vCPU / 4 GB (~$24/month)
+system_node_count  = 1
+dedicate_gpu_nodes = true             # taint GPU nodes for GPU workloads only
+
 # High availability (disabled by default to save ~$60/month)
 ha_control_plane = false
 
@@ -153,6 +163,95 @@ install_opencost = true
 
 See `tofu/tofu.tfvars.example` for all available configuration options.
 
+## Node Pools & Scheduling
+
+The cluster runs **two node pools** so the expensive GPU nodes are reserved
+purely for GPU-intensive workloads:
+
+| Pool | Default plan | Purpose |
+|------|--------------|---------|
+| **system** | `g6-standard-2` (2 vCPU / 4 GB, ~$24/mo) | Monitoring stack (Prometheus, Grafana, Alertmanager, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
+| **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only |
+
+How it works:
+
+- Each pool is labelled with `nodepool.lke/role` (`system` / `gpu`).
+- System components are pinned to the system pool via `nodeSelector`.
+- When `dedicate_gpu_nodes = true` (the default) the GPU pool is **tainted** with
+  `nvidia.com/gpu=present:NoSchedule`. Only pods that tolerate this taint land
+  on GPU nodes. The GPU Operator's GPU operands (driver, toolkit, device-plugin,
+  DCGM, GFD, NFD worker) tolerate it by default, and the `node-exporter`
+  DaemonSet keeps running cluster-wide so GPU node metrics are still scraped.
+
+Because GPU nodes are tainted, **your GPU workloads must add a matching
+toleration** (and request a GPU):
+
+```yaml
+spec:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  nodeSelector:
+    nodepool.lke/role: gpu        # optional: force onto the GPU pool
+  containers:
+    - name: cuda
+      image: nvidia/cuda:12.4.1-base-ubuntu22.04
+      command: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+```
+
+To disable the taint and allow general workloads back onto GPU nodes, set
+`dedicate_gpu_nodes = false`.
+
+## Kubeflow Platform
+
+The full Kubeflow Platform (Istio, Dex, Central Dashboard, Notebooks, Katib,
+KServe, Pipelines, Training Operator) can be installed as an optional module. It
+is **disabled by default** because it is resource-heavy.
+
+```hcl
+install_kubeflow           = true
+kubeflow_manifests_version = "v1.10.0"
+
+# Kubeflow's control plane runs on the system pool — give it real headroom:
+system_node_type      = "g6-standard-8"   # 8 vCPU / 16 GB
+system_autoscaler_max = 2
+```
+
+How it fits the dedicated-GPU design:
+
+- Kubeflow's control-plane pods carry no toleration for the GPU taint, so they
+  land on the **system pool** automatically — the GPU nodes stay reserved for
+  GPU work, with no per-component patching.
+- GPU pipeline steps opt back onto the GPU pool by requesting a GPU and adding
+  the `nvidia.com/gpu` toleration (see the demo pipelines).
+
+Requirements: `kubectl`, `kustomize`, and `git` on the host running
+`tofu apply` (the install uses the upstream kustomize manifests). The root
+config emits advisory checks if the system pool looks too small or if the GPU
+Operator is disabled while Kubeflow is on.
+
+Access the dashboard:
+
+```bash
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+# http://localhost:8080 — default user: user@example.com / 12341234 (change it!)
+```
+
+### Demo pipelines
+
+[`examples/kubeflow-pipelines/`](examples/kubeflow-pipelines/) contains two
+ready-to-run KFP v2 pipelines with compiled IR:
+
+- **Hello World** — CPU-only, runs on the system pool.
+- **GPU smoke test** — runs `nvidia-smi` on the dedicated GPU pool, demonstrating
+  the GPU request + taint toleration + node selector wiring end to end.
+
+See that directory's README to compile, upload, and run them.
+
 ## Cluster Specifications
 
 | Component | Specification |
@@ -164,7 +263,8 @@ See `tofu/tofu.tfvars.example` for all available configuration options.
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |
 | Storage | 512 GB SSD per node |
-| Nodes | 1 default, autoscaling 1-5 |
+| GPU nodes | 1 default, autoscaling 1-5 |
+| System pool | `g6-standard-2` (2 vCPU / 4 GB), autoscaling 1-2 |
 
 ## Cost Estimation
 
@@ -172,10 +272,11 @@ See `tofu/tofu.tfvars.example` for all available configuration options.
 |---|---|
 | GPU node (1×) | ~$0.52/hr (~$380/month) |
 | GPU node (2×) | ~$1.04/hr (~$760/month) |
+| System node (`g6-standard-2`) | ~$24/month |
 | HA control plane | +~$60/month (disabled by default) |
 | Monitoring storage (~25Gi) | ~$2.50/month |
 
-**Minimum cost (1 node, no HA):** ~$382/month
+**Minimum cost (1 GPU node + 1 system node, no HA):** ~$406/month
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
@@ -262,6 +363,8 @@ cd tofu && tofu destroy
 ### Infrastructure
 
 - LKE cluster with GPU nodes (NVIDIA RTX 4000 Ada)
+- Dedicated CPU system pool keeping system/monitoring workloads off GPU nodes
+- GPU nodes tainted for exclusive GPU-workload scheduling (toggleable)
 - NVIDIA GPU Operator with automated driver installation
 - Optional HA control plane (disabled by default)
 - Autoscaling configuration (1-5 nodes)

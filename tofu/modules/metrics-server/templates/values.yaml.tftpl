@@ -16,3 +16,10 @@ resources:
 podDisruptionBudget:
   enabled: ${replicas > 1 ? "true" : "false"}
   minAvailable: 1
+%{ if length(node_selector) > 0 ~}
+
+nodeSelector:
+%{ for k, v in node_selector ~}
+  ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}

@@ -46,6 +46,12 @@ variable "storage_class" {
   default     = "linode-block-storage-retain"
 }
 
+variable "node_selector" {
+  description = "nodeSelector to pin the monitoring control-plane components (Prometheus, Grafana, Alertmanager, kube-state-metrics, Prometheus Operator) onto a specific node pool (e.g. the system pool). The node-exporter DaemonSet is intentionally left cluster-wide so it still scrapes GPU nodes. Empty schedules anywhere."
+  type        = map(string)
+  default     = {}
+}
+
 variable "enable_gpu_monitoring" {
   description = "Enable GPU monitoring via DCGM exporter (requires GPU Operator with DCGM enabled)"
   type        = bool

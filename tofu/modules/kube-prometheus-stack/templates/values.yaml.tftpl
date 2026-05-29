@@ -4,6 +4,12 @@ prometheus:
     # Accept all ServiceMonitors and PodMonitors regardless of label selectors
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
+%{ if length(node_selector) > 0 ~}
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
     resources:
       requests:
         cpu: ${prometheus_resources.requests.cpu}
@@ -31,6 +37,12 @@ prometheus:
 grafana:
   enabled: true
   adminPassword: ${grafana_admin_password}
+%{ if length(node_selector) > 0 ~}
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
   resources:
     requests:
       cpu: ${grafana_resources.requests.cpu}
@@ -46,6 +58,12 @@ grafana:
 alertmanager:
   enabled: true
   alertmanagerSpec:
+%{ if length(node_selector) > 0 ~}
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
     resources:
       requests:
         cpu: ${alertmanager_resources.requests.cpu}
@@ -61,8 +79,32 @@ alertmanager:
             requests:
               storage: ${alertmanager_storage_size}
 
+# node-exporter is a DaemonSet that must run on every node (including GPU nodes)
+# to export host metrics, so it is intentionally NOT pinned to the system pool.
+# Its default tolerations (operator: Exists) let it run on the tainted GPU pool.
 nodeExporter:
   enabled: true
 
 kubeStateMetrics:
   enabled: true
+
+%{ if length(node_selector) > 0 ~}
+# Pin the Prometheus Operator and kube-state-metrics (subchart) to the system pool.
+prometheusOperator:
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+%{ for k, v in node_selector ~}
+        ${k}: "${v}"
+%{ endfor ~}
+
+kube-state-metrics:
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
