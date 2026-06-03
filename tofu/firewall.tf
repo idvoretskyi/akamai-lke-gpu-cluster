@@ -22,7 +22,11 @@ resource "linode_firewall" "lke_firewall" {
   inbound_policy  = "DROP"
   outbound_policy = "ACCEPT"
 
-  linodes = [for node in linode_lke_cluster.gpu_cluster.pool[0].nodes : node.instance_id]
+  linodes = flatten([
+    for p in linode_lke_cluster.gpu_cluster.pool : [
+      for n in p.nodes : n.instance_id
+    ]
+  ])
 
   depends_on = [linode_lke_cluster.gpu_cluster]
 }
