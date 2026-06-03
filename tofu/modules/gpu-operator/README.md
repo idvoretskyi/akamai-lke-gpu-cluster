@@ -13,7 +13,7 @@ The GPU Operator provides:
 - Node Status Exporter
 - Validation workloads
 
-This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime).
+This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime — supports containerd 2.x config version 3).
 
 ## Usage
 
@@ -22,7 +22,7 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = "v24.9.0"
+  gpu_operator_version        = "v26.3.2"
   install_driver              = true
   enable_dcgm_exporter        = true
   enable_node_status_exporter = true
@@ -34,7 +34,7 @@ module "gpu_operator" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
-| `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v24.9.0"` |
+| `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
 | `install_driver` | Install NVIDIA driver | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |

@@ -139,11 +139,11 @@ variable "install_gpu_operator" {
 variable "gpu_operator_version" {
   description = "Version of the NVIDIA GPU Operator Helm chart (format: 'vX.Y.Z')"
   type        = string
-  default     = "v24.9.0"
+  default     = "v26.3.2"
 
   validation {
     condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.gpu_operator_version))
-    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v24.9.0')."
+    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.3.2')."
   }
 }
 
