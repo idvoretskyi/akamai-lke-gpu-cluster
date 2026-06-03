@@ -40,7 +40,9 @@ variable "tags" {
   default     = ["lke", "gpu", "ml", "ai"]
 }
 
-# ─── Node Pool & Autoscaling ──────────────────────────────────────────────────
+# ─── Node Pool ────────────────────────────────────────────────────────────────
+# Autoscaling is disabled. Both pools run a fixed node count to keep costs
+# fully predictable and eliminate surprise scale-up charges on GPU nodes.
 
 variable "gpu_node_type" {
   description = "Linode instance type for GPU nodes. Default is the cheapest available GPU plan: NVIDIA RTX 4000 Ada x1 Small (~$0.52/hr, ~$380/mo)."
@@ -50,45 +52,13 @@ variable "gpu_node_type" {
 }
 
 variable "gpu_node_count" {
-  description = "Initial number of GPU nodes in the cluster (must be within autoscaler_min..autoscaler_max)"
+  description = "Number of GPU nodes in the cluster. Autoscaling is disabled; this is the fixed node count."
   type        = number
   default     = 1
 
   validation {
     condition     = var.gpu_node_count >= 1
     error_message = "gpu_node_count must be at least 1."
-  }
-
-  validation {
-    condition     = var.gpu_node_count >= var.autoscaler_min
-    error_message = "gpu_node_count must be >= autoscaler_min (${var.autoscaler_min})."
-  }
-
-  validation {
-    condition     = var.gpu_node_count <= var.autoscaler_max
-    error_message = "gpu_node_count must be <= autoscaler_max (${var.autoscaler_max})."
-  }
-}
-
-variable "autoscaler_min" {
-  description = "Minimum number of nodes for autoscaling"
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.autoscaler_min >= 1
-    error_message = "autoscaler_min must be at least 1."
-  }
-}
-
-variable "autoscaler_max" {
-  description = "Maximum number of nodes for autoscaling"
-  type        = number
-  default     = 5
-
-  validation {
-    condition     = var.autoscaler_max >= var.autoscaler_min
-    error_message = "autoscaler_max must be >= autoscaler_min (${var.autoscaler_min})."
   }
 }
 
@@ -110,40 +80,13 @@ variable "system_node_type" {
 }
 
 variable "system_node_count" {
-  description = "Initial number of nodes in the system pool (must be within system_autoscaler_min..system_autoscaler_max)"
+  description = "Number of nodes in the system pool. Autoscaling is disabled; this is the fixed node count."
   type        = number
   default     = 1
 
   validation {
     condition     = var.system_node_count >= 1
     error_message = "system_node_count must be at least 1."
-  }
-
-  validation {
-    condition     = var.system_node_count >= var.system_autoscaler_min && var.system_node_count <= var.system_autoscaler_max
-    error_message = "system_node_count must be within system_autoscaler_min..system_autoscaler_max."
-  }
-}
-
-variable "system_autoscaler_min" {
-  description = "Minimum number of nodes for the system pool autoscaler"
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.system_autoscaler_min >= 1
-    error_message = "system_autoscaler_min must be at least 1."
-  }
-}
-
-variable "system_autoscaler_max" {
-  description = "Maximum number of nodes for the system pool autoscaler"
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.system_autoscaler_max >= var.system_autoscaler_min
-    error_message = "system_autoscaler_max must be >= system_autoscaler_min (${var.system_autoscaler_min})."
   }
 }
 

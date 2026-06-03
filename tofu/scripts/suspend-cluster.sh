@@ -3,11 +3,10 @@
 # compute spend without destroying the cluster, persistent volumes, or the
 # control plane. Uses `linode-cli`; requires LINODE_TOKEN or a configured CLI.
 #
-# Note: LKE autoscaler does NOT support min=0 (Linode requires min>=1). This
-# script bypasses the autoscaler by directly updating pool count via the API.
-# Subsequent `tofu apply` will re-introduce drift unless you also temporarily
-# set gpu_node_count = 0 (and a matching autoscaler_min) in your tfvars, OR
-# accept the drift and run `tofu apply -refresh-only` before resuming.
+# Autoscaling is disabled in this repo. The script directly sets the pool count
+# via the Linode API. Run `tofu apply -refresh-only` afterwards to reconcile
+# state. (gpu_node_count is validated >= 1, so a suspended pool cannot be
+# expressed in tfvars — the scripts intentionally bypass Terraform.)
 #
 # Usage:
 #   ./suspend-cluster.sh <cluster_id> [pool_id]

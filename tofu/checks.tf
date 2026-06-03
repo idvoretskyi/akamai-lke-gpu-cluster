@@ -54,11 +54,11 @@ check "cost_efficient_gpu_plan" {
   }
 }
 
-# Warn if HA control plane is disabled but autoscaler_max > 1 (production-like scale).
+# Warn if HA control plane is disabled but gpu_node_count > 1 (production-like scale).
 check "ha_recommended_for_scale" {
   assert {
-    condition     = var.autoscaler_max <= 2 || var.ha_control_plane == true
-    error_message = "autoscaler_max is ${var.autoscaler_max} but ha_control_plane is false. Consider enabling HA control plane for production-scale clusters."
+    condition     = var.gpu_node_count <= 1 || var.ha_control_plane == true
+    error_message = "gpu_node_count is ${var.gpu_node_count} but ha_control_plane is false. Consider enabling HA control plane for multi-node GPU clusters."
   }
 }
 
@@ -78,7 +78,7 @@ check "opencost_requires_monitoring" {
 check "kubeflow_system_pool_sizing" {
   assert {
     condition     = !var.install_kubeflow || contains(local.kubeflow_capable_system_plans, var.system_node_type)
-    error_message = "install_kubeflow = true but system_node_type '${var.system_node_type}' may be too small for the full Kubeflow Platform. Recommended: g6-standard-8 (8 vCPU/16 GB) or larger, with system_autoscaler_max >= 2. This is advisory; override intentionally if you have sized the pool deliberately."
+    error_message = "install_kubeflow = true but system_node_type '${var.system_node_type}' may be too small for the full Kubeflow Platform. Recommended: g6-standard-8 (8 vCPU/16 GB) or larger. This is advisory; override intentionally if you have sized the pool deliberately."
   }
 }
 

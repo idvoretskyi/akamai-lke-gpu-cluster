@@ -5,6 +5,9 @@
 #     (monitoring, metrics-server, OpenCost, GPU Operator controller).
 #   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
 #     true so it is reserved purely for GPU-intensive workloads.
+#
+# Autoscaling is intentionally disabled on both pools. Fixed node counts keep
+# costs fully predictable — no surprise scale-up events on expensive GPU nodes.
 resource "linode_lke_cluster" "gpu_cluster" {
   label       = "${local.cluster_prefix}-lke-gpu"
   k8s_version = var.kubernetes_version
@@ -16,11 +19,6 @@ resource "linode_lke_cluster" "gpu_cluster" {
     type   = var.system_node_type
     count  = var.system_node_count
     labels = local.system_node_labels
-
-    autoscaler {
-      min = var.system_autoscaler_min
-      max = var.system_autoscaler_max
-    }
   }
 
   # GPU pool — reserved for GPU-intensive workloads via the taint below.
@@ -36,11 +34,6 @@ resource "linode_lke_cluster" "gpu_cluster" {
         value  = taint.value.value
         effect = taint.value.effect
       }
-    }
-
-    autoscaler {
-      min = var.autoscaler_min
-      max = var.autoscaler_max
     }
   }
 
