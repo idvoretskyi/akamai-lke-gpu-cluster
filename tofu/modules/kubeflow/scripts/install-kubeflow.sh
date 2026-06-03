@@ -75,9 +75,17 @@ spec:
           effect: "NoSchedule"
 EOF
 
+  # Image replacements for images that are no longer available on gcr.io.
+  # gcr.io/ml-pipeline/minio:RELEASE.2019-08-14T20-37-41Z-license-compliance
+  # was removed from gcr.io; replace with the equivalent Docker Hub image.
   cat > "${WORKDIR}/manifests/overlay-gpu/kustomization.yaml" <<EOF
 resources:
   - ../example
+
+images:
+  - name: gcr.io/ml-pipeline/minio
+    newName: minio/minio
+    newTag: RELEASE.2019-08-14T20-37-41Z
 
 patches:
   - path: toleration.yaml
