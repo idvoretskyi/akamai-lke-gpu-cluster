@@ -7,8 +7,10 @@
 # that use them apply cleanly), so this script retries with backoff.
 #
 # Environment variables (set by OpenTofu):
-#   LKE_KUBECONFIG_B64    - base64-encoded kubeconfig for the target cluster
-#   KF_MANIFESTS_VERSION  - git tag of kubeflow/manifests to install (vX.Y.Z)
+#   LKE_KUBECONFIG_B64      - base64-encoded kubeconfig for the target cluster
+#   KF_MANIFESTS_VERSION    - git tag of kubeflow/manifests to install (vX.Y.Z)
+#   KF_GPU_TOLERATION_KEY   - taint key to tolerate on GPU nodes (default: nvidia.com/gpu)
+#                             Set to "" to skip adding the toleration overlay.
 
 set -eu
 
@@ -45,10 +47,54 @@ git clone --depth 1 --branch "${KF_MANIFESTS_VERSION}" \
 
 cd "${WORKDIR}/manifests"
 
+# Build the kustomize target. If KF_GPU_TOLERATION_KEY is set (non-empty),
+# create an overlay on top of 'example' that patches every Deployment and
+# StatefulSet to tolerate the GPU node taint. This lets Kubeflow control-plane
+# pods schedule onto the GPU node when the system pool has insufficient memory.
+GPU_TOL_KEY="${KF_GPU_TOLERATION_KEY:-nvidia.com/gpu}"
+BUILD_TARGET="example"
+
+if [ -n "$GPU_TOL_KEY" ]; then
+  echo "Creating GPU toleration overlay (key=${GPU_TOL_KEY})…"
+  # Overlay must live inside the cloned tree so kustomize can use a relative
+  # path to the base — kustomize 5.x rejects absolute paths in resources.
+  mkdir -p "${WORKDIR}/manifests/overlay-gpu"
+
+  # Toleration patch — applied via strategic merge to every matched resource.
+  cat > "${WORKDIR}/manifests/overlay-gpu/toleration.yaml" <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder
+spec:
+  template:
+    spec:
+      tolerations:
+        - key: "${GPU_TOL_KEY}"
+          operator: "Exists"
+          effect: "NoSchedule"
+EOF
+
+  cat > "${WORKDIR}/manifests/overlay-gpu/kustomization.yaml" <<EOF
+resources:
+  - ../example
+
+patches:
+  - path: toleration.yaml
+    target:
+      kind: Deployment
+  - path: toleration.yaml
+    target:
+      kind: StatefulSet
+EOF
+
+  BUILD_TARGET="${WORKDIR}/manifests/overlay-gpu"
+fi
+
 echo "Applying Kubeflow manifests (full platform; this can take 10–20 minutes)…"
 attempt=1
 max_attempts=30
-until kustomize build example | kubectl apply --server-side --force-conflicts -f -; do
+until kustomize build "${BUILD_TARGET}" | kubectl apply --server-side --force-conflicts -f -; do
   if [ "$attempt" -ge "$max_attempts" ]; then
     echo "Error: Kubeflow apply did not converge after ${max_attempts} attempts." >&2
     exit 1

@@ -14,15 +14,17 @@
 resource "terraform_data" "kubeflow" {
   # Re-apply when the manifests version changes or the cluster is recreated.
   triggers_replace = {
-    manifests_version = var.manifests_version
-    cluster_id        = var.cluster_id
+    manifests_version  = var.manifests_version
+    cluster_id         = var.cluster_id
+    gpu_toleration_key = var.gpu_toleration_key
   }
 
   provisioner "local-exec" {
     command = "${path.module}/scripts/install-kubeflow.sh"
     environment = {
-      LKE_KUBECONFIG_B64   = var.kubeconfig_b64
-      KF_MANIFESTS_VERSION = var.manifests_version
+      LKE_KUBECONFIG_B64    = var.kubeconfig_b64
+      KF_MANIFESTS_VERSION  = var.manifests_version
+      KF_GPU_TOLERATION_KEY = var.gpu_toleration_key
     }
   }
 }
