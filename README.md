@@ -21,7 +21,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
 - **Kubeflow (optional)**: Full Kubeflow Platform with demo CPU & GPU pipelines
-- **Autoscaling**: Automatic node scaling (1-5 nodes)
+- **Fixed Node Counts**: Autoscaling disabled — predictable, bounded costs with no surprise scale-up events
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
 
@@ -132,8 +132,6 @@ region              = "us-ord"
 kubernetes_version  = "1.35"
 gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count      = 1
-autoscaler_min      = 1
-autoscaler_max      = 5
 
 # Dedicated system pool (keeps system/monitoring workloads off the GPU nodes)
 system_node_type   = "g6-standard-2"  # 2 vCPU / 4 GB (~$24/month)
@@ -263,8 +261,8 @@ See that directory's README to compile, upload, and run them.
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |
 | Storage | 512 GB SSD per node |
-| GPU nodes | 1 default, autoscaling 1-5 |
-| System pool | `g6-standard-2` (2 vCPU / 4 GB), autoscaling 1-2 |
+| GPU nodes | 1 (fixed, autoscaling disabled) |
+| System pool | `g6-standard-2` (2 vCPU / 4 GB), 1 node (fixed) |
 
 ## Cost Estimation
 
@@ -284,7 +282,7 @@ Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) f
 
 - `warn_on_non_default_gpu` (advisory) — warns when `gpu_node_type` is outside the known cost-efficient allowlist.
 - `cost_ceiling_usd_per_month` (advisory) — non-blocking check; warns when the estimated monthly compute cost (GPU nodes + HA control plane) exceeds the ceiling. Storage and egress are not included.
-- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. LKE autoscaler requires `min >= 1`, so these scripts bypass the autoscaler via `linode-cli`.
+- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. With autoscaling removed you can also set `gpu_node_count = 0` in `tfvars` and re-apply.
 
 ## Security
 
@@ -367,7 +365,7 @@ cd tofu && tofu destroy
 - GPU nodes tainted for exclusive GPU-workload scheduling (toggleable)
 - NVIDIA GPU Operator with automated driver installation
 - Optional HA control plane (disabled by default)
-- Autoscaling configuration (1-5 nodes)
+- Fixed node counts (autoscaling disabled) — predictable, bounded costs
 - Firewall rules and network policies
 - OpenTofu-based automation
 - Kubeconfig auto-merge to ~/.kube/config (no local files)

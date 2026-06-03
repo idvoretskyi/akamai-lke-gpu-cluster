@@ -31,8 +31,8 @@ matching toleration (and a GPU resource request); see
 - A reachable cluster (this module is wired to the LKE cluster's kubeconfig).
 - `kubectl`, `kustomize`, and `git` on the host running `tofu apply`.
 - A **large enough system pool**. The full platform needs meaningful CPU/RAM;
-  use `system_node_type = "g6-standard-8"` (8 vCPU / 16 GB) or larger and
-  `system_autoscaler_max >= 2`. The root module emits an advisory check when the
+  use `system_node_type = "g6-standard-8"` (8 vCPU / 16 GB) or larger and set
+  `system_node_count` to the desired fixed size. The root module emits an advisory check when the
   system pool looks too small.
 
 ## Usage
@@ -43,7 +43,7 @@ Enable from the root module:
 install_kubeflow           = true
 kubeflow_manifests_version = "v1.10.0"
 system_node_type           = "g6-standard-8"
-system_autoscaler_max      = 2
+system_node_count          = 2
 ```
 
 ## Inputs
