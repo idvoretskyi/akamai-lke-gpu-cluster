@@ -5,7 +5,8 @@
 #
 # Autoscaling is disabled in this repo. The script directly sets the pool count
 # via the Linode API. Run `tofu apply -refresh-only` afterwards to reconcile
-# state, or set gpu_node_count = 0 in tfvars and re-apply.
+# state. (gpu_node_count is validated >= 1, so a suspended pool cannot be
+# expressed in tfvars — the scripts intentionally bypass Terraform.)
 #
 # Usage:
 #   ./suspend-cluster.sh <cluster_id> [pool_id]

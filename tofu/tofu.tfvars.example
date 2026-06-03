@@ -161,8 +161,9 @@ cost_ceiling_usd_per_month = 500
 #   tofu/scripts/suspend-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)"
 # To resume:
 #   tofu/scripts/resume-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)" 1
-# Run `tofu apply -refresh-only` afterwards to reconcile state, or set
-# gpu_node_count = 0 in tfvars and re-apply.
+# Run `tofu apply -refresh-only` afterwards to reconcile state. (gpu_node_count
+# is validated >= 1, so the scripts intentionally bypass Terraform rather than
+# scaling the pool to 0 via tfvars.)
 
 # ============================================================================
 # Example Configurations

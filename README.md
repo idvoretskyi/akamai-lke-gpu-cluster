@@ -282,7 +282,7 @@ Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) f
 
 - `warn_on_non_default_gpu` (advisory) — warns when `gpu_node_type` is outside the known cost-efficient allowlist.
 - `cost_ceiling_usd_per_month` (advisory) — non-blocking check; warns when the estimated monthly compute cost (GPU nodes + HA control plane) exceeds the ceiling. Storage and egress are not included.
-- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. With autoscaling removed you can also set `gpu_node_count = 0` in `tfvars` and re-apply.
+- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. Run `tofu apply -refresh-only` afterwards to reconcile state (`gpu_node_count` is validated `>= 1`, so the scripts intentionally bypass Terraform rather than scaling via tfvars).
 
 ## Security
 
