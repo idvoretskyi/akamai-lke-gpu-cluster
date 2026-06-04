@@ -1,12 +1,10 @@
-operator:
 %{ if length(controller_node_selector) > 0 ~}
+operator:
   # Pin the operator controller to the system pool — it needs no GPU itself.
   nodeSelector:
 %{ for k, v in controller_node_selector ~}
     ${k}: "${v}"
 %{ endfor ~}
-%{ else ~}
-  {}
 %{ endif ~}
 
 %{ if gpu_node_toleration != null ~}
