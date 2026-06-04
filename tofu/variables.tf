@@ -69,9 +69,9 @@ variable "gpu_node_count" {
 # GPU-intensive workloads, improving utilization and cost-efficiency.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. A small shared-CPU plan is plenty for the monitoring/system stack. Default g6-standard-2 (2 vCPU, 4 GB, ~$24/month)."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-4 (4 vCPU, 8 GB, ~$48/month) is the minimum recommended when Kubeflow is installed — the monitoring stack + Kubeflow system pods exceed 4 GB. g6-standard-2 works for clusters without Kubeflow."
   type        = string
-  default     = "g6-standard-2"
+  default     = "g6-standard-4"
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
