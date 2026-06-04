@@ -207,12 +207,12 @@ To disable the taint and allow general workloads back onto GPU nodes, set
 ## Kubeflow Platform
 
 The full Kubeflow Platform (Istio, Dex, Central Dashboard, Notebooks, Katib,
-KServe, Pipelines, Training Operator) can be installed as an optional module. It
-is **disabled by default** because it is resource-heavy.
+KServe, Pipelines, Trainer v2 / JobSet) can be installed as an optional module.
+It is **disabled by default** because it is resource-heavy.
 
 ```hcl
 install_kubeflow           = true
-kubeflow_manifests_version = "v1.10.0"
+kubeflow_manifests_version = "26.03"
 
 # Kubeflow's control plane runs on the system pool — give it real headroom:
 system_node_type      = "g6-standard-8"   # 8 vCPU / 16 GB
@@ -224,8 +224,8 @@ How it fits the dedicated-GPU design:
 - Kubeflow's control-plane pods carry no toleration for the GPU taint, so they
   land on the **system pool** automatically — the GPU nodes stay reserved for
   GPU work, with no per-component patching.
-- GPU pipeline steps opt back onto the GPU pool by requesting a GPU and adding
-  the `nvidia.com/gpu` toleration (see the demo pipelines).
+- GPU pipeline steps and training jobs opt back onto the GPU pool by requesting
+  a GPU and adding the `nvidia.com/gpu` toleration.
 
 Requirements: `kubectl`, `kustomize`, and `git` on the host running
 `tofu apply` (the install uses the upstream kustomize manifests). The root
@@ -239,7 +239,7 @@ kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
 # http://localhost:8080 — default user: user@example.com / 12341234 (change it!)
 ```
 
-### Demo pipelines
+### Demo pipelines and training jobs
 
 [`examples/kubeflow-pipelines/`](examples/kubeflow-pipelines/) contains two
 ready-to-run KFP v2 pipelines with compiled IR:
@@ -248,7 +248,16 @@ ready-to-run KFP v2 pipelines with compiled IR:
 - **GPU smoke test** — runs `nvidia-smi` on the dedicated GPU pool, demonstrating
   the GPU request + taint toleration + node selector wiring end to end.
 
-See that directory's README to compile, upload, and run them.
+[`examples/pytorch-training/`](examples/pytorch-training/) contains a
+GPU validation job using the Kubeflow Trainer v2 (`TrainJob` API):
+
+```bash
+kubectl apply -f examples/pytorch-training/pytorch-mnist-gpu.yaml
+# Runs a 200-step MLP on CUDA; prints "VALIDATION PASSED" on success.
+# Verified on NVIDIA RTX 4000 Ada (20 GB) — 150 k samples/s.
+```
+
+See each directory's README for details.
 
 ## Cluster Specifications
 
@@ -289,14 +298,22 @@ Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) f
 - API token read from the `LINODE_TOKEN` environment variable
 - Kubeconfig excluded from git tracking (auto-merged to ~/.kube/config)
 - Configurable firewall rules for kubectl and monitoring access
+- Intra-cluster firewall rules allow the Kubernetes API server (Linode control-plane) to reach kubelet (`:10250`) and admission webhooks (`:9443`) — required for Trainer v2 / JobSet to work
 - Support for Kubernetes RBAC and Network Policies
 - Grafana admin password (configurable, sensitive)
 
-For production deployments, restrict access by IP:
+For production deployments, restrict external access by IP:
 
 ```hcl
 allowed_kubectl_ips    = ["YOUR_IP/32"]
 allowed_monitoring_ips = ["YOUR_IP/32"]
+```
+
+The intra-cluster CIDR variables default to Linode LKE ranges and should not need changes:
+
+```hcl
+node_cidrs = ["192.168.128.0/17"]   # Linode node + control-plane private IPs
+pod_cidrs  = ["10.2.0.0/16"]        # LKE pod CIDR
 ```
 
 ## Cluster Management

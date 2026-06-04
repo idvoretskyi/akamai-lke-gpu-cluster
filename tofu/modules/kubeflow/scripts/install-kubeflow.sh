@@ -157,6 +157,57 @@ echo "Kubeflow ${KF_MANIFESTS_VERSION} applied. Waiting for the pipeline API…"
 kubectl -n kubeflow rollout status deploy/ml-pipeline --timeout=600s || \
   echo "Note: ml-pipeline not ready yet; check 'kubectl get pods -n kubeflow'."
 
+# ---------------------------------------------------------------------------
+# Trainer v2 post-install: apply ClusterTrainingRuntimes.
+#
+# kubeflow/manifests 26.03 ships Trainer v2 (trainer.kubeflow.org/v1alpha1)
+# which requires ClusterTrainingRuntime objects (e.g. torch-distributed) to be
+# present before TrainJobs can reference them. These are distributed as a
+# separate kustomize overlay in the manifests tree.
+# ---------------------------------------------------------------------------
+RUNTIMES_OVERLAY="${WORKDIR}/manifests/applications/trainer/upstream/overlays/runtimes"
+if [ -d "${RUNTIMES_OVERLAY}" ]; then
+  echo "Applying ClusterTrainingRuntimes overlay…"
+  kustomize build "${RUNTIMES_OVERLAY}" | kubectl apply --server-side --force-conflicts -f - || \
+    echo "Warning: ClusterTrainingRuntimes overlay failed; TrainJobs may not work." >&2
+else
+  echo "Warning: ClusterTrainingRuntimes overlay not found at ${RUNTIMES_OVERLAY}; skipping." >&2
+fi
+
+# ---------------------------------------------------------------------------
+# Networking fix: allow Kubernetes API server to reach webhook pods.
+#
+# The default-allow-same-namespace-kubeflow-system NetworkPolicy (applied by
+# the upstream manifests) restricts ingress to kubeflow-system pods to
+# same-namespace pods only. This blocks the API server (which runs on Linode
+# control-plane nodes in the 192.168.128.0/17 range) from calling admission
+# webhooks (jobset-controller-manager, kubeflow-trainer-controller-manager).
+# Without this patch, TrainJob creation times out with "context deadline
+# exceeded" even when the Linode Cloud Firewall allows the traffic.
+#
+# We add ipBlock rules for the Linode node CIDR and pod CIDR to the policy so
+# the API server can reach webhook pods on port 9443.
+# ---------------------------------------------------------------------------
+echo "Patching kubeflow-system NetworkPolicy to allow API-server → webhook traffic…"
+kubectl patch networkpolicy default-allow-same-namespace-kubeflow-system \
+  -n kubeflow-system \
+  --type='json' \
+  -p='[{"op":"replace","path":"/spec/ingress","value":[{"from":[{"podSelector":{}},{"ipBlock":{"cidr":"192.168.128.0/17"}},{"ipBlock":{"cidr":"10.2.0.0/16"}}]}]}]' || \
+  echo "Warning: NetworkPolicy patch failed; webhooks may not be reachable." >&2
+
+# ---------------------------------------------------------------------------
+# PodSecurity: allow GPU workloads in the kubeflow namespace.
+#
+# The kubeflow namespace is labeled enforce=restricted by the upstream
+# manifests, which blocks GPU training pods (they run as root and need
+# unrestricted capabilities). Relabel to privileged for lab use.
+# ---------------------------------------------------------------------------
+echo "Relabeling kubeflow namespace PodSecurity to privileged…"
+kubectl label namespace kubeflow \
+  pod-security.kubernetes.io/enforce=privileged \
+  --overwrite || \
+  echo "Warning: namespace label failed; GPU training pods may be blocked by PodSecurity." >&2
+
 echo "Done. Access the Central Dashboard with:"
 echo "  kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80"
 echo "  then open http://localhost:8080 (default: user@example.com / 12341234)"

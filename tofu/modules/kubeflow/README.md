@@ -97,3 +97,23 @@ KF_MANIFESTS_VERSION=26.03 ./scripts/uninstall-kubeflow.sh
 - Install is idempotent: bumping `manifests_version` re-applies (upgrades) the
   platform in place on the next `tofu apply`.
 - First install typically takes 10–20 minutes while images pull and CRDs settle.
+
+## Networking notes (Linode LKE)
+
+Two post-install fixes are baked into `install-kubeflow.sh` to make Trainer v2
+and admission webhooks work on Linode LKE:
+
+1. **Cloud Firewall** — the `linode_firewall` resource (see `tofu/firewall.tf`)
+   must allow TCP/UDP from the Linode node CIDR (`192.168.128.0/17`) and pod
+   CIDR (`10.2.0.0/16`) to all ports.  Without this the Kubernetes API server
+   cannot reach kubelet (`:10250`) or in-cluster webhook services (`:9443`).
+
+2. **NetworkPolicy** — the upstream `default-allow-same-namespace-kubeflow-system`
+   NetworkPolicy restricts ingress to kubeflow-system pods to same-namespace
+   traffic only.  The install script patches it to also allow ingress from the
+   node/pod CIDRs so the API server can call admission webhooks on the JobSet
+   and Trainer controllers.
+
+3. **PodSecurity** — the `kubeflow` namespace ships labeled
+   `pod-security.kubernetes.io/enforce=restricted`, which blocks GPU training
+   pods (they run as root).  The install script relabels it to `privileged`.

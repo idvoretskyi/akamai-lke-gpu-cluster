@@ -120,6 +120,28 @@ variable "allowed_monitoring_ips" {
   }
 }
 
+variable "node_cidrs" {
+  description = "Private CIDRs used by LKE nodes and the Linode control plane (used for intra-cluster firewall rules). The default covers the full Linode LKE private node range."
+  type        = list(string)
+  default     = ["192.168.128.0/17"]
+
+  validation {
+    condition     = alltrue([for cidr in var.node_cidrs : can(cidrhost(cidr, 0))])
+    error_message = "Each node_cidrs entry must be a valid CIDR (e.g. '192.168.128.0/17')."
+  }
+}
+
+variable "pod_cidrs" {
+  description = "Pod network CIDRs assigned by the LKE CNI. The default covers the full Linode LKE pod range."
+  type        = list(string)
+  default     = ["10.2.0.0/16"]
+
+  validation {
+    condition     = alltrue([for cidr in var.pod_cidrs : can(cidrhost(cidr, 0))])
+    error_message = "Each pod_cidrs entry must be a valid CIDR (e.g. '10.2.0.0/16')."
+  }
+}
+
 # ─── Kubeconfig ──────────────────────────────────────────────────────────────
 
 variable "merge_kubeconfig" {
