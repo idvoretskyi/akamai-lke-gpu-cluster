@@ -20,7 +20,7 @@ for bin in kubectl kustomize git base64; do
   fi
 done
 
-: "${KF_MANIFESTS_VERSION:?KF_MANIFESTS_VERSION must be set (e.g. v1.10.0)}"
+: "${KF_MANIFESTS_VERSION:?KF_MANIFESTS_VERSION must be set (e.g. 26.03 or v1.10.0)}"
 
 WORKDIR="$(mktemp -d)"
 KUBECONFIG_FILE=""
@@ -44,14 +44,20 @@ cd "${WORKDIR}/manifests"
 echo "Deleting Kubeflow resources (best effort)…"
 kustomize build example | kubectl delete --ignore-not-found=true -f - || true
 
-# SeaweedFS is not part of the example kustomization; delete it explicitly.
-echo "Removing SeaweedFS resources…"
+# Since kubeflow/manifests 26.03, SeaweedFS is part of the upstream example
+# kustomization and is deleted by the kustomize build above.
+# Explicitly clean up any residual SeaweedFS resources for older installs.
+echo "Removing any residual SeaweedFS resources…"
 kubectl delete --ignore-not-found -n kubeflow \
   deployment/seaweedfs \
   persistentvolumeclaim/seaweedfs-pvc \
   networkpolicy/seaweedfs \
-  service/minio-service \
   authorizationpolicies.security.istio.io/seaweedfs-service \
   destinationrules.networking.istio.io/ml-pipeline-seaweedfs || true
+
+# For clusters upgraded from < 26.03: remove the legacy minio-service Service
+# that was kept in place during the v1.10.0 era. It is absent from 26.03+.
+kubectl delete --ignore-not-found -n kubeflow \
+  service/minio-service || true
 
 echo "Kubeflow ${KF_MANIFESTS_VERSION} removed. Verify with 'kubectl get ns'."

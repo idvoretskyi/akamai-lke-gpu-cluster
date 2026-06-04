@@ -1,11 +1,11 @@
 variable "manifests_version" {
-  description = "Git tag of kubeflow/manifests to install (format 'vX.Y.Z'). See https://github.com/kubeflow/manifests/releases."
+  description = "Git tag of kubeflow/manifests to install. Accepts the legacy semver format 'vX.Y.Z' (e.g. 'v1.10.0') and the new CalVer format 'YY.MM[.patch]' (e.g. '26.03'). See https://github.com/kubeflow/manifests/releases."
   type        = string
-  default     = "v1.10.0"
+  default     = "26.03"
 
   validation {
-    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.manifests_version))
-    error_message = "manifests_version must be in the format 'vX.Y.Z' (e.g. 'v1.10.0')."
+    condition     = can(regex("^(v[0-9]+\\.[0-9]+\\.[0-9]+|[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?)$", var.manifests_version))
+    error_message = "manifests_version must be 'vX.Y.Z' (e.g. 'v1.10.0') or CalVer 'YY.MM[.patch]' (e.g. '26.03')."
   }
 }
 

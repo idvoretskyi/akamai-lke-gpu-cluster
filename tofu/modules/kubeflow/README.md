@@ -17,6 +17,13 @@ that:
 3. clones `kubeflow/manifests` at the pinned tag;
 4. applies the `example` overlay with retry/backoff until it succeeds.
 
+### Object store: SeaweedFS (upstream default since 26.03)
+
+Kubeflow Pipelines uses **SeaweedFS** as its S3-compatible artifact store.
+Since Kubeflow manifests `26.03`, SeaweedFS is the upstream default — no custom
+overlay is required. The store is exposed as `Service/seaweedfs` in the
+`kubeflow` namespace.
+
 ### Scheduling on a dedicated-GPU cluster
 
 Every Kubeflow control-plane pod runs **without** a toleration for the GPU node
@@ -24,7 +31,8 @@ taint (`nvidia.com/gpu=present:NoSchedule`), so the scheduler keeps them off the
 GPU nodes and on the system pool automatically — no per-component `nodeSelector`
 patching required. GPU pipeline steps opt back onto the GPU pool by adding the
 matching toleration (and a GPU resource request); see
-[`examples/kubeflow-pipelines`](../../../examples/kubeflow-pipelines).
+[`examples/kubeflow-pipelines`](../../../examples/kubeflow-pipelines) and
+[`examples/pytorch-training`](../../../examples/pytorch-training).
 
 ## Requirements
 
@@ -41,7 +49,7 @@ Enable from the root module:
 
 ```hcl
 install_kubeflow           = true
-kubeflow_manifests_version = "v1.10.0"
+kubeflow_manifests_version = "26.03"
 system_node_type           = "g6-standard-8"
 system_node_count          = 2
 ```
@@ -50,7 +58,7 @@ system_node_count          = 2
 
 | Name | Description | Default |
 |---|---|---|
-| `manifests_version` | Git tag of `kubeflow/manifests` (`vX.Y.Z`) | `"v1.10.0"` |
+| `manifests_version` | Git tag of `kubeflow/manifests` (semver `vX.Y.Z` or CalVer `YY.MM`) | `"26.03"` |
 | `kubeconfig_b64` | Base64 kubeconfig for the target cluster (sensitive) | — |
 | `cluster_id` | LKE cluster ID (re-apply trigger) | — |
 
@@ -81,7 +89,7 @@ kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
 keeping the cluster, run:
 
 ```bash
-KF_MANIFESTS_VERSION=v1.10.0 ./scripts/uninstall-kubeflow.sh
+KF_MANIFESTS_VERSION=26.03 ./scripts/uninstall-kubeflow.sh
 ```
 
 ## Notes

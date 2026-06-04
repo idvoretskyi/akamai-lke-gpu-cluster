@@ -82,7 +82,7 @@ merge_kubeconfig = true
 # ============================================================================
 
 install_gpu_operator  = true
-gpu_operator_version  = "v24.9.0"
+gpu_operator_version  = "v26.3.2"
 enable_gpu_monitoring = true
 
 # ============================================================================
@@ -136,7 +136,7 @@ opencost_chart_version = "2.5.14"
 # Demo pipelines (CPU + GPU) live in examples/kubeflow-pipelines/.
 
 install_kubeflow           = false
-kubeflow_manifests_version = "v1.10.0" # see github.com/kubeflow/manifests/releases
+kubeflow_manifests_version = "26.03" # see github.com/kubeflow/manifests/releases
 
 # Recommended overrides when install_kubeflow = true:
 # system_node_type  = "g6-standard-8" # 8 vCPU / 16 GB (~$192/month)
