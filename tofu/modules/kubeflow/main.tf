@@ -6,11 +6,14 @@
 # resource runs that flow via a guarded local-exec (the script preflights the
 # required CLIs), mirroring the kubeconfig-merge pattern used elsewhere.
 #
-# Scheduling note: every Kubeflow control-plane pod runs without a toleration
-# for the GPU node taint (nvidia.com/gpu=present:NoSchedule), so the scheduler
-# keeps them off the dedicated GPU nodes and on the system pool automatically.
-# GPU pipeline steps opt back onto GPU nodes by adding the matching toleration
-# (see examples/kubeflow-pipelines).
+# Object store: the upstream minio Deployment is replaced with SeaweedFS via a
+# kustomize overlay. The minio-service Service is repointed to SeaweedFS so all
+# KFP consumers continue to work without configuration changes.
+#
+# Scheduling: when gpu_toleration_key is non-empty, a strategic-merge patch is
+# applied to every Deployment and StatefulSet in the generated manifests (all
+# namespaces), allowing those workloads to tolerate the GPU node taint and
+# schedule onto the dedicated GPU pool when the system pool is under pressure.
 resource "terraform_data" "kubeflow" {
   # Re-apply when the manifests version changes or the cluster is recreated.
   triggers_replace = {
