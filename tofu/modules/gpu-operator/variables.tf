@@ -7,7 +7,7 @@ variable "namespace" {
 variable "gpu_operator_version" {
   description = "Version of NVIDIA GPU Operator Helm chart"
   type        = string
-  default     = "v24.9.0" # Latest stable version
+  default     = "v26.3.2" # Latest stable version
 }
 
 variable "install_driver" {

@@ -44,4 +44,14 @@ cd "${WORKDIR}/manifests"
 echo "Deleting Kubeflow resources (best effort)…"
 kustomize build example | kubectl delete --ignore-not-found=true -f - || true
 
+# SeaweedFS is not part of the example kustomization; delete it explicitly.
+echo "Removing SeaweedFS resources…"
+kubectl delete --ignore-not-found -n kubeflow \
+  deployment/seaweedfs \
+  persistentvolumeclaim/seaweedfs-pvc \
+  networkpolicy/seaweedfs \
+  service/minio-service \
+  authorizationpolicies.security.istio.io/seaweedfs-service \
+  destinationrules.networking.istio.io/ml-pipeline-seaweedfs || true
+
 echo "Kubeflow ${KF_MANIFESTS_VERSION} removed. Verify with 'kubectl get ns'."

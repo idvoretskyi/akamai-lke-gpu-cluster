@@ -42,8 +42,9 @@ KUBECONFIG=~/.kube/config:"${TEMP_KUBECONFIG}" kubectl config view --flatten > ~
 mv ~/.kube/config.tmp ~/.kube/config
 chmod 600 ~/.kube/config
 
-# Activate the new context
-kubectl config use-context "lke${LKE_CLUSTER_ID}-ctx"
+# Activate the new context (explicitly target only ~/.kube/config to avoid
+# permission errors from other entries in a multi-path KUBECONFIG).
+KUBECONFIG=~/.kube/config kubectl config use-context "lke${LKE_CLUSTER_ID}-ctx"
 
 # Cleanup
 rm -f "${TEMP_KUBECONFIG}"

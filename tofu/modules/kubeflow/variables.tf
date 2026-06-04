@@ -19,3 +19,9 @@ variable "cluster_id" {
   description = "LKE cluster ID. Used as a trigger so Kubeflow is re-applied if the cluster is recreated."
   type        = string
 }
+
+variable "gpu_toleration_key" {
+  description = "Taint key to tolerate on GPU nodes (e.g. 'nvidia.com/gpu'). When non-empty, a kustomize strategic-merge patch is applied to every Deployment and StatefulSet rendered by the manifest build (across all namespaces) so those workloads can schedule onto tainted GPU nodes. Set to empty string to disable."
+  type        = string
+  default     = "nvidia.com/gpu"
+}
