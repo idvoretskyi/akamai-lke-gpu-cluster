@@ -46,7 +46,7 @@ kubectl get pytorchjob pytorch-mnist-gpu -n kubeflow -w
 
 ## Validation result (cluster lke609184, Kubeflow 26.03)
 
-```
+```text
 PyTorch version : 2.3.0+cu121
 CUDA available  : True
 GPU device      : NVIDIA RTX 4000 Ada Generation
