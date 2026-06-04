@@ -63,19 +63,3 @@ module "opencost" {
   depends_on = [module.kube_prometheus_stack]
 }
 
-# Kubeflow Platform Module — full platform via upstream kustomize manifests.
-# Control-plane components are patched via a kustomize overlay to tolerate the
-# GPU node taint, allowing them to schedule onto the GPU node when the system
-# pool is under memory pressure. GPU pipeline steps get the GPU by requesting
-# the nvidia.com/gpu resource as usual.
-module "kubeflow" {
-  count  = var.install_kubeflow ? 1 : 0
-  source = "./modules/kubeflow"
-
-  manifests_version  = var.kubeflow_manifests_version
-  kubeconfig_b64     = linode_lke_cluster.gpu_cluster.kubeconfig
-  cluster_id         = linode_lke_cluster.gpu_cluster.id
-  gpu_toleration_key = var.dedicate_gpu_nodes ? local.gpu_node_taint.key : ""
-
-  depends_on = [module.gpu_operator]
-}

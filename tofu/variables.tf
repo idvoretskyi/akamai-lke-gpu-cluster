@@ -265,25 +265,6 @@ variable "opencost_chart_version" {
   }
 }
 
-# ─── Kubeflow Platform ────────────────────────────────────────────────────────
-
-variable "install_kubeflow" {
-  description = "Install the full Kubeflow Platform (Istio, Dex, Central Dashboard, Notebooks, Katib, KServe, Pipelines, Training Operator) from the upstream kustomize manifests. Heavy: requires a larger system pool (see system_node_type) and the kubectl, kustomize, and git CLIs on the apply host. Disabled by default."
-  type        = bool
-  default     = false
-}
-
-variable "kubeflow_manifests_version" {
-  description = "Git tag of kubeflow/manifests to install. Accepts the legacy semver format 'vX.Y.Z' (e.g. 'v1.10.0') and the new CalVer format 'YY.MM[.patch]' (e.g. '26.03'). See https://github.com/kubeflow/manifests/releases."
-  type        = string
-  default     = "26.03"
-
-  validation {
-    condition     = can(regex("^(v[0-9]+\\.[0-9]+\\.[0-9]+|[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?)$", var.kubeflow_manifests_version))
-    error_message = "kubeflow_manifests_version must be 'vX.Y.Z' (e.g. 'v1.10.0') or CalVer 'YY.MM[.patch]' (e.g. '26.03')."
-  }
-}
-
 # ─── Cost Guardrails ──────────────────────────────────────────────────────────
 
 variable "warn_on_non_default_gpu" {

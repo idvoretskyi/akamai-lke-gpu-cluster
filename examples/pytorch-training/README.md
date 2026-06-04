@@ -6,7 +6,7 @@ NVIDIA GPU stack on this cluster. Uses a 3-layer fully-connected network
 
 ## Prerequisites
 
-- Kubeflow installed (`install_kubeflow = true` in `tofu.tfvars`)
+- Kubeflow installed (see [kubeflow-cv-lab](https://github.com/idvoretskyi/kubeflow-cv-lab) — `make platform-install`)
 - GPU Operator running (`nvidia.com/gpu` capacity on GPU node)
 - `kubectl` configured to the cluster context
 
