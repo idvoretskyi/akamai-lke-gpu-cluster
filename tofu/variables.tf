@@ -69,9 +69,9 @@ variable "gpu_node_count" {
 # GPU-intensive workloads, improving utilization and cost-efficiency.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. A small shared-CPU plan is plenty for the monitoring/system stack. Default g6-standard-2 (2 vCPU, 4 GB, ~$24/month)."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-4 (4 vCPU, 8 GB, ~$48/month) is the minimum recommended when Kubeflow is installed — the monitoring stack + Kubeflow system pods exceed 4 GB. g6-standard-2 works for clusters without Kubeflow."
   type        = string
-  default     = "g6-standard-2"
+  default     = "g6-standard-4"
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
@@ -117,6 +117,28 @@ variable "allowed_monitoring_ips" {
   validation {
     condition     = alltrue([for ip in var.allowed_monitoring_ips : can(cidrhost(ip, 0))])
     error_message = "Each allowed_monitoring_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
+  }
+}
+
+variable "node_cidrs" {
+  description = "Private CIDRs used by LKE nodes and the Linode control plane (used for intra-cluster firewall rules). The default covers the full Linode LKE private node range."
+  type        = list(string)
+  default     = ["192.168.128.0/17"]
+
+  validation {
+    condition     = alltrue([for cidr in var.node_cidrs : can(cidrhost(cidr, 0))])
+    error_message = "Each node_cidrs entry must be a valid CIDR (e.g. '192.168.128.0/17')."
+  }
+}
+
+variable "pod_cidrs" {
+  description = "Pod network CIDRs assigned by the LKE CNI. The default covers the full Linode LKE pod range."
+  type        = list(string)
+  default     = ["10.2.0.0/16"]
+
+  validation {
+    condition     = alltrue([for cidr in var.pod_cidrs : can(cidrhost(cidr, 0))])
+    error_message = "Each pod_cidrs entry must be a valid CIDR (e.g. '10.2.0.0/16')."
   }
 }
 
@@ -240,25 +262,6 @@ variable "opencost_chart_version" {
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
     error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
-  }
-}
-
-# ─── Kubeflow Platform ────────────────────────────────────────────────────────
-
-variable "install_kubeflow" {
-  description = "Install the full Kubeflow Platform (Istio, Dex, Central Dashboard, Notebooks, Katib, KServe, Pipelines, Training Operator) from the upstream kustomize manifests. Heavy: requires a larger system pool (see system_node_type) and the kubectl, kustomize, and git CLIs on the apply host. Disabled by default."
-  type        = bool
-  default     = false
-}
-
-variable "kubeflow_manifests_version" {
-  description = "Git tag of kubeflow/manifests to install (format 'vX.Y.Z'). See https://github.com/kubeflow/manifests/releases."
-  type        = string
-  default     = "v1.10.0"
-
-  validation {
-    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.kubeflow_manifests_version))
-    error_message = "kubeflow_manifests_version must be in the format 'vX.Y.Z' (e.g. 'v1.10.0')."
   }
 }
 

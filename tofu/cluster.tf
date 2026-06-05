@@ -1,8 +1,10 @@
 # LKE Cluster with a dedicated system pool and a GPU pool.
 #
 # The cluster runs two node pools:
-#   * system — a small, cheap CPU pool that hosts cluster "system" workloads
-#     (monitoring, metrics-server, OpenCost, GPU Operator controller).
+#   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
+#     metrics-server, OpenCost, GPU Operator controller). g6-standard-4 (8 GB)
+#     is the minimum when Kubeflow is installed; the Kubeflow control plane
+#     spills onto the GPU node when the system pool is undersized.
 #   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
 #     true so it is reserved purely for GPU-intensive workloads.
 #

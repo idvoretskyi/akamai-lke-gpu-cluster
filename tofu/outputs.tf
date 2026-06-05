@@ -161,28 +161,6 @@ output "opencost_validation_commands" {
   value       = try(module.opencost[0].validation_commands, null)
 }
 
-# ─── Kubeflow Platform ────────────────────────────────────────────────────────
-
-output "kubeflow_namespace" {
-  description = "Primary Kubeflow namespace (null when not installed)"
-  value       = try(module.kubeflow[0].namespace, null)
-}
-
-output "kubeflow_version" {
-  description = "Installed Kubeflow manifests version (null when not installed)"
-  value       = try(module.kubeflow[0].version, null)
-}
-
-output "kubeflow_dashboard_command" {
-  description = "Command to reach the Kubeflow Central Dashboard (null when not installed)"
-  value       = try(module.kubeflow[0].dashboard_port_forward, null)
-}
-
-output "kubeflow_validation_commands" {
-  description = "Commands to validate the Kubeflow installation (null when not installed)"
-  value       = try(module.kubeflow[0].validation_commands, null)
-}
-
 # ─── Secrets ─────────────────────────────────────────────────────────────────
 
 output "grafana_admin_password" {

@@ -54,7 +54,7 @@ gpu_node_count = 1
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
-system_node_type  = "g6-standard-2" # 2 vCPU, 4 GB RAM (~$24/month)
+system_node_type  = "g6-standard-4" # 4 vCPU, 8 GB RAM (~$48/month) — minimum when Kubeflow is installed
 system_node_count = 1
 
 # Taint the GPU pool (nvidia.com/gpu=present:NoSchedule) so only workloads that
@@ -82,7 +82,7 @@ merge_kubeconfig = true
 # ============================================================================
 
 install_gpu_operator  = true
-gpu_operator_version  = "v24.9.0"
+gpu_operator_version  = "v26.3.2"
 enable_gpu_monitoring = true
 
 # ============================================================================
@@ -125,21 +125,15 @@ install_opencost       = true
 opencost_chart_version = "2.5.14"
 
 # ============================================================================
-# Kubeflow Platform (full platform: Istio, Dex, Dashboard, Notebooks, Katib,
-# KServe, Pipelines, Training Operator)
+# ML Platforms (Kubeflow, etc.)
 # ============================================================================
-# Disabled by default — the full platform is heavy. When enabling it:
-#   * use a larger system pool (Kubeflow's control plane lands there, since it
-#     does not tolerate the GPU taint) — g6-standard-8 or larger;
-#   * keep install_gpu_operator = true for GPU-backed pipeline steps;
-#   * ensure kubectl, kustomize, and git are installed on the apply host.
-# Demo pipelines (CPU + GPU) live in examples/kubeflow-pipelines/.
-
-install_kubeflow           = false
-kubeflow_manifests_version = "v1.10.0" # see github.com/kubeflow/manifests/releases
-
-# Recommended overrides when install_kubeflow = true:
-# system_node_type  = "g6-standard-8" # 8 vCPU / 16 GB (~$192/month)
+# Kubeflow installation has moved to the kubeflow-cv-lab repo:
+#   https://github.com/idvoretskyi/kubeflow-cv-lab
+#
+# After tofu apply (cluster + GPU operator):
+#   cd /path/to/kubeflow-cv-lab
+#   cp platform/config.env.example platform/config.env   # adjust CIDRs if needed
+#   make platform-install
 
 # ============================================================================
 # Cost Guardrails
@@ -171,14 +165,14 @@ cost_ceiling_usd_per_month = 500
 
 # Minimum cost setup (single GPU node, no HA):
 # gpu_node_count            = 1
-# system_node_type          = "g6-standard-2"  # ~$24/month
+# system_node_type          = "g6-standard-4"  # ~$48/month (min for Kubeflow)
 # system_node_count         = 1
 # ha_control_plane          = false   # saves ~$60/month
 # prometheus_retention      = "7d"
 # prometheus_storage_size   = "15Gi"
 # alertmanager_storage_size = "5Gi"
 # grafana_storage_size      = "5Gi"
-# Estimated total: ~$406/month (1 GPU node + 1 system node + ~$2 storage)
+# Estimated total: ~$430/month (1 GPU node + 1 system node + ~$2 storage)
 
 # Production AI Platform (full setup):
 # gpu_node_count            = 2
