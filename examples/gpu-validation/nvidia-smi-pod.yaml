@@ -1,0 +1,27 @@
+# GPU substrate validation — requires NO additional software beyond the GPU Operator.
+# Runs nvidia-smi in a bare CUDA Pod and exits immediately.
+# Use this to confirm the cluster can schedule a GPU workload right after
+# `tofu apply` — before installing Kubeflow or any ML platform.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-validation
+  # No namespace pinned — placement is controlled by `kubectl -n <ns>` and
+  # the Makefile NAMESPACE variable (default: default).
+  labels:
+    app: gpu-validation
+spec:
+  restartPolicy: Never
+  tolerations:
+    # Tolerate the GPU node taint applied by akamai-lke-gpu-cluster
+    # when dedicate_gpu_nodes = true (the default).
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: cuda
+      image: nvidia/cuda:12.4.1-base-ubuntu22.04
+      command: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu: "1"

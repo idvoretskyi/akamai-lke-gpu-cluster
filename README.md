@@ -76,7 +76,7 @@ linode-cli configure
 ├── LICENSE                # MIT License
 ├── .github/               # GitHub Actions CI and Dependabot config
 ├── examples/              # Runnable examples
-│   └── kubeflow-pipelines/ # Demo KFP pipelines (CPU + GPU)
+│   └── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
@@ -227,14 +227,19 @@ make platform-install
 - Tolerate the taint: `nvidia.com/gpu=present:NoSchedule`
 - Pin to the GPU pool: node selector `nodepool.lke/role=gpu`
 
-**Training job validation** — [`examples/pytorch-training/`](examples/pytorch-training/)
-contains a GPU validation job using the Kubeflow Trainer v2 (`TrainJob` API):
+**GPU substrate validation** — [`examples/gpu-validation/`](examples/gpu-validation/)
+confirms the GPU substrate is working right after `tofu apply`, before installing any
+ML platform:
 
 ```bash
-kubectl apply -f examples/pytorch-training/pytorch-mnist-gpu.yaml
-# Runs a 200-step MLP on CUDA; prints "VALIDATION PASSED" on success.
-# Verified on NVIDIA RTX 4000 Ada (20 GB) — 150 k samples/s.
+make -C examples/gpu-validation apply wait logs
+# Schedules a bare CUDA Pod, runs nvidia-smi, prints GPU info.
+# No Kubeflow required — only the GPU Operator must be running.
 ```
+
+For the **Trainer v2 GPU example** (requires Kubeflow), see
+[`examples/pytorch-training/`](https://github.com/idvoretskyi/kubeflow-cv-lab/tree/main/examples/pytorch-training)
+in `kubeflow-cv-lab`.
 
 ## Cluster Specifications
 
