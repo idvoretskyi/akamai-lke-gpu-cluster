@@ -133,7 +133,7 @@ gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count      = 1
 
 # Dedicated system pool (keeps system/monitoring workloads off the GPU nodes)
-system_node_type   = "g6-standard-2"  # 2 vCPU / 4 GB (~$24/month)
+system_node_type   = "g6-standard-4"  # 4 vCPU / 8 GB (~$48/month)
 system_node_count  = 1
 dedicate_gpu_nodes = true             # taint GPU nodes for GPU workloads only
 
@@ -167,7 +167,7 @@ purely for GPU-intensive workloads:
 
 | Pool | Default plan | Purpose |
 |------|--------------|---------|
-| **system** | `g6-standard-2` (2 vCPU / 4 GB, ~$24/mo) | Monitoring stack (Prometheus, Grafana, Alertmanager, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
+| **system** | `g6-standard-4` (4 vCPU / 8 GB, ~$48/mo) | Monitoring stack (Prometheus, Grafana, Alertmanager, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
 | **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only |
 
 How it works:
@@ -253,7 +253,7 @@ in `kubeflow-cv-lab`.
 | Memory | 16 GB per node |
 | Storage | 512 GB SSD per node |
 | GPU nodes | 1 (fixed, autoscaling disabled) |
-| System pool | `g6-standard-2` (2 vCPU / 4 GB), 1 node (fixed) |
+| System pool | `g6-standard-4` (4 vCPU / 8 GB), 1 node (fixed) |
 
 ## Cost Estimation
 
@@ -261,11 +261,11 @@ in `kubeflow-cv-lab`.
 |---|---|
 | GPU node (1×) | ~$0.52/hr (~$380/month) |
 | GPU node (2×) | ~$1.04/hr (~$760/month) |
-| System node (`g6-standard-2`) | ~$24/month |
+| System node (`g6-standard-4`) | ~$48/month |
 | HA control plane | +~$60/month (disabled by default) |
 | Monitoring storage (~25Gi) | ~$2.50/month |
 
-**Minimum cost (1 GPU node + 1 system node, no HA):** ~$406/month
+**Minimum cost (1 GPU node + 1 system node, no HA):** ~$430/month
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
