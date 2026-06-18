@@ -6,7 +6,7 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
-OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) optimized for AI/ML workloads.
+OpenTofu infrastructure code for deploying cost-effective, GPU-enabled Kubernetes lab clusters on Linode Kubernetes Engine (LKE) for AI/ML workloads.
 
 ## Overview
 
@@ -89,7 +89,7 @@ linode-cli configure
     ├── variables.tf       # Configuration variables
     ├── outputs.tf         # Output values
     ├── tofu.tfvars.example # Configuration template
-    ├── scripts/           # Helper scripts (kubeconfig merge, suspend/resume)
+    ├── scripts/           # Helper scripts (kubeconfig merge)
     └── modules/           # Reusable modules
         ├── gpu-operator/       # NVIDIA GPU Operator
         ├── metrics-server/     # Kubernetes Metrics Server
@@ -122,43 +122,34 @@ For detailed module documentation, see `tofu/modules/README.md`.
 
 ## Configuration
 
-Default configuration deploys to Chicago (us-ord) with GPU operator and monitoring enabled. Customize by creating `tofu/tofu.tfvars`:
+Copy `tofu/tofu.tfvars.example` to `tofu/tofu.tfvars` and adjust as needed:
 
 ```hcl
-# Basic cluster configuration
-# cluster_name_prefix = "my-cluster"  # Optional: defaults to your username
-region              = "us-ord"
-kubernetes_version  = "1.35"
-gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
-gpu_node_count      = 1
+region             = "us-ord"
+kubernetes_version = "1.35"
+gpu_node_type      = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
+gpu_node_count     = 1
 
-# Dedicated system pool (keeps system/monitoring workloads off the GPU nodes)
-system_node_type   = "g6-standard-4"  # 4 vCPU / 8 GB (~$48/month)
-system_node_count  = 1
-dedicate_gpu_nodes = true             # taint GPU nodes for GPU workloads only
+# System pool — 4 GB fits the monitoring stack and GPU Operator controller
+system_node_type  = "g6-standard-2"  # 2 vCPU / 4 GB (~$24/month)
+system_node_count = 1
+dedicate_gpu_nodes = true
 
-# High availability (disabled by default to save ~$60/month)
 ha_control_plane = false
 
-# GPU Operator (automated NVIDIA driver installation)
-install_gpu_operator  = true
-enable_gpu_monitoring = true
-
-# Metrics Server (kubectl top, HPA support)
+install_gpu_operator   = true
+enable_gpu_monitoring  = true
 install_metrics_server = true
 
-# Monitoring Stack (Prometheus + Grafana + Alertmanager)
+# Monitoring (Prometheus + Grafana)
 install_monitoring      = true
-grafana_admin_password  = "admin"  # Change in production!
-prometheus_retention    = "15d"
-prometheus_storage_size = "30Gi"
+grafana_admin_password  = "admin"
+prometheus_retention    = "7d"
+prometheus_storage_size = "15Gi"
 grafana_storage_size    = "5Gi"
 
-# Cost Monitoring (OpenCost)
 install_opencost = true
 ```
-
-See `tofu/tofu.tfvars.example` for all available configuration options.
 
 ## Node Pools & Scheduling
 
@@ -167,7 +158,7 @@ purely for GPU-intensive workloads:
 
 | Pool | Default plan | Purpose |
 |------|--------------|---------|
-| **system** | `g6-standard-4` (4 vCPU / 8 GB, ~$48/mo) | Monitoring stack (Prometheus, Grafana, Alertmanager, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
+| **system** | `g6-standard-2` (2 vCPU / 4 GB, ~$24/mo) | Monitoring stack (Prometheus, Grafana, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
 | **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only |
 
 How it works:
@@ -253,27 +244,33 @@ in `kubeflow-cv-lab`.
 | Memory | 16 GB per node |
 | Storage | 512 GB SSD per node |
 | GPU nodes | 1 (fixed, autoscaling disabled) |
-| System pool | `g6-standard-4` (4 vCPU / 8 GB), 1 node (fixed) |
+| System pool | `g6-standard-2` (2 vCPU / 4 GB), 1 node (fixed) |
 
 ## Cost Estimation
 
 | Resource | Cost |
 |---|---|
-| GPU node (1×) | ~$0.52/hr (~$380/month) |
-| GPU node (2×) | ~$1.04/hr (~$760/month) |
-| System node (`g6-standard-4`) | ~$48/month |
-| HA control plane | +~$60/month (disabled by default) |
-| Monitoring storage (~25Gi) | ~$2.50/month |
+| GPU node (`g2-gpu-rtx4000a1-s`) | ~$0.52/hr (~$380/month) |
+| System node (`g6-standard-2`) | ~$24/month |
+| Monitoring storage (~20Gi) | ~$2/month |
 
-**Minimum cost (1 GPU node + 1 system node, no HA):** ~$430/month
+**Estimated running cost:** ~$406/month. Destroy the cluster when not in use to stop paying.
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
-### Cost guardrails
+### Cost management
 
-- `warn_on_non_default_gpu` (advisory) — warns when `gpu_node_type` is outside the known cost-efficient allowlist.
-- `cost_ceiling_usd_per_month` (advisory) — non-blocking check; warns when the estimated monthly compute cost (GPU nodes + HA control plane) exceeds the ceiling. Storage and egress are not included.
-- `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` — scale the GPU node pool to 0 (and back) without destroying the cluster. Run `tofu apply -refresh-only` afterwards to reconcile state (`gpu_node_count` is validated `>= 1`, so the scripts intentionally bypass Terraform rather than scaling via tfvars).
+To stop paying for compute, destroy the cluster:
+
+```bash
+cd tofu && tofu destroy
+```
+
+To bring it back up:
+
+```bash
+cd tofu && tofu apply
+```
 
 ## Security
 
@@ -284,7 +281,7 @@ Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) f
 - Support for Kubernetes RBAC and Network Policies
 - Grafana admin password (configurable, sensitive)
 
-For production deployments, restrict external access by IP:
+`allowed_kubectl_ips` and `allowed_monitoring_ips` default to `0.0.0.0/0`. Restrict to your IP if you expose the cluster:
 
 ```hcl
 allowed_kubectl_ips    = ["YOUR_IP/32"]

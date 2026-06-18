@@ -56,28 +56,7 @@ grafana:
     storageClassName: ${storage_class}
 
 alertmanager:
-  enabled: true
-  alertmanagerSpec:
-%{ if length(node_selector) > 0 ~}
-    nodeSelector:
-%{ for k, v in node_selector ~}
-      ${k}: "${v}"
-%{ endfor ~}
-%{ endif ~}
-    resources:
-      requests:
-        cpu: ${alertmanager_resources.requests.cpu}
-        memory: ${alertmanager_resources.requests.memory}
-      limits:
-        cpu: ${alertmanager_resources.limits.cpu}
-        memory: ${alertmanager_resources.limits.memory}
-    storage:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: ${storage_class}
-          resources:
-            requests:
-              storage: ${alertmanager_storage_size}
+  enabled: false
 
 # node-exporter is a DaemonSet that must run on every node (including GPU nodes)
 # to export host metrics, so it is intentionally NOT pinned to the system pool.

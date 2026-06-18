@@ -36,10 +36,8 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
 
 - `system_node_type` must differ from `gpu_node_type` (`variables.tf:77`): pool
   outputs match pools by instance type, so identical types break those outputs.
-- `gpu_node_count` is validated `>= 1`, so the GPU pool cannot be suspended via
-  tfvars. Use `tofu/scripts/suspend-cluster.sh` / `resume-cluster.sh` (they
-  bypass Terraform via `linode-cli`), then `tofu apply -refresh-only` to
-  reconcile drift.
+- Cost is managed by destroying and recreating the cluster (`tofu destroy` /
+  `tofu apply`). There are no suspend/resume scripts.
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
   The GPU pool is tainted `nvidia.com/gpu=present:NoSchedule` when
   `dedicate_gpu_nodes = true` (default); system workloads are pinned via
@@ -58,8 +56,8 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
   `templates/values.yaml.tftpl`, `README.md`. New modules must mirror this and
   be added to the CI matrix in `.github/workflows/ci.yml` and to
   `.github/dependabot.yml`.
-- Default `system_node_type` is `g6-standard-4` (`variables.tf:74`);
-  `g6-standard-2` only works for clusters without Kubeflow.
+- Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
+  `g6-standard-4` is recommended only when adding Kubeflow.
 
 ## Conventions
 

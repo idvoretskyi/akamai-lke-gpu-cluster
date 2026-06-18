@@ -28,12 +28,6 @@ variable "prometheus_storage_size" {
   default     = "50Gi"
 }
 
-variable "alertmanager_storage_size" {
-  description = "Alertmanager persistent storage size (e.g. '10Gi')"
-  type        = string
-  default     = "10Gi"
-}
-
 variable "grafana_storage_size" {
   description = "Grafana persistent storage size (e.g. '10Gi')"
   type        = string
@@ -79,17 +73,5 @@ variable "grafana_resources" {
   default = {
     requests = { cpu = "50m", memory = "128Mi" }
     limits   = { cpu = "200m", memory = "512Mi" }
-  }
-}
-
-variable "alertmanager_resources" {
-  description = "CPU/memory requests and limits for the Alertmanager pod."
-  type = object({
-    requests = object({ cpu = string, memory = string })
-    limits   = object({ cpu = string, memory = string })
-  })
-  default = {
-    requests = { cpu = "25m", memory = "64Mi" }
-    limits   = { cpu = "100m", memory = "256Mi" }
   }
 }
