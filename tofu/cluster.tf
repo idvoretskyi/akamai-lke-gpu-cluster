@@ -2,9 +2,9 @@
 #
 # The cluster runs two node pools:
 #   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
-#     metrics-server, OpenCost, GPU Operator controller). g6-standard-4 (8 GB)
-#     is the minimum when Kubeflow is installed; the Kubeflow control plane
-#     spills onto the GPU node when the system pool is undersized.
+#     metrics-server, OpenCost, GPU Operator controller). g6-standard-4 is
+#     recommended when adding Kubeflow — the monitoring stack + Kubeflow system
+#     pods exceed 4 GB.
 #   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
 #     true so it is reserved purely for GPU-intensive workloads.
 #

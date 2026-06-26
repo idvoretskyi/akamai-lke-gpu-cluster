@@ -29,17 +29,15 @@ module "kube_prometheus_stack" {
   count  = var.install_monitoring ? 1 : 0
   source = "./modules/kube-prometheus-stack"
 
-  namespace                 = "monitoring"
-  grafana_admin_password    = var.grafana_admin_password
-  prometheus_retention      = var.prometheus_retention
-  prometheus_storage_size   = var.prometheus_storage_size
-  alertmanager_storage_size = var.alertmanager_storage_size
-  grafana_storage_size      = var.grafana_storage_size
-  enable_gpu_monitoring     = var.enable_gpu_monitoring && var.install_gpu_operator
-  prometheus_resources      = var.prometheus_resources
-  grafana_resources         = var.grafana_resources
-  alertmanager_resources    = var.alertmanager_resources
-  node_selector             = local.system_node_selector
+  namespace               = "monitoring"
+  grafana_admin_password  = var.grafana_admin_password
+  prometheus_retention    = var.prometheus_retention
+  prometheus_storage_size = var.prometheus_storage_size
+  grafana_storage_size    = var.grafana_storage_size
+  enable_gpu_monitoring   = var.enable_gpu_monitoring && var.install_gpu_operator
+  prometheus_resources    = var.prometheus_resources
+  grafana_resources       = var.grafana_resources
+  node_selector           = local.system_node_selector
 
   depends_on = [module.gpu_operator, module.metrics_server]
 }

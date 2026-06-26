@@ -1,69 +1,45 @@
 # ============================================================================
-# Linode GPU Kubernetes Infrastructure Configuration
+# Linode GPU Kubernetes Lab — Configuration
 # ============================================================================
-# Linode API Token is automatically read from the LINODE_TOKEN environment
-# variable. No need to set it here.
-# To set it: export LINODE_TOKEN=$(linode-cli configure get token)
+# Copy this file to tofu.tfvars and adjust as needed.
+#
+# Linode API token is read from the LINODE_TOKEN environment variable:
+#   export LINODE_TOKEN="your-token"
 
 # ============================================================================
-# Cluster Configuration
+# Cluster
 # ============================================================================
 
-# Cluster name prefix (optional — defaults to your system username)
-# cluster_name_prefix = "my-cluster"
-
-# Linode region
-region = "us-ord" # Chicago, US
-
-# Kubernetes version (format: 'X.Y')
+# cluster_name_prefix = "my-cluster"  # optional — defaults to system username
+region             = "us-ord" # Chicago, US
 kubernetes_version = "1.35"
-
-# High availability control plane.
-# Set true for production (~$60/month extra). Default false for cost savings.
-ha_control_plane = false
-
-# Resource tags applied to Linode resources
-tags = ["lke", "gpu", "ml", "ai"]
+ha_control_plane   = false
+tags               = ["lke", "gpu", "ml", "ai"]
 
 # ============================================================================
-# GPU Node Configuration
+# GPU Node Pool
 # ============================================================================
-# Cheapest Linode GPU: NVIDIA RTX 4000 Ada x1 Small
-#   SKU:    g2-gpu-rtx4000a1-s
-#   Specs:  1 GPU, 4 vCPU, 16 GB RAM, 512 GB SSD
-#   Cost:   ~$0.52/hr (~$380/month per node)
-#
-# List all available GPU plans:
+# Cheapest Linode GPU: NVIDIA RTX 4000 Ada x1 Small (~$0.52/hr, ~$380/month)
+# List available GPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="gpu")'
-#
-# Autoscaling is disabled. Use a fixed gpu_node_count to keep costs predictable.
-# To temporarily stop paying for GPU compute without destroying the cluster, use:
-#   tofu/scripts/suspend-cluster.sh / resume-cluster.sh
 
 gpu_node_type  = "g2-gpu-rtx4000a1-s"
 gpu_node_count = 1
 
 # ============================================================================
-# System Node Pool (dedicated CPU nodes for the system/monitoring stack)
+# System Node Pool
 # ============================================================================
-# A small, cheap CPU pool hosts the cluster's "system" workloads (Prometheus,
-# Grafana, Alertmanager, kube-state-metrics, metrics-server, OpenCost, and the
-# GPU Operator controller). This keeps the expensive GPU node reserved purely
-# for GPU-intensive workloads. Fixed node count; autoscaling is disabled.
-#
+# Small CPU pool for monitoring and system workloads (~$24/month).
+# Use g6-standard-4 only if adding Kubeflow (see kubeflow-cv-lab repo).
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
-system_node_type  = "g6-standard-4" # 4 vCPU, 8 GB RAM (~$48/month) — minimum when Kubeflow is installed
+system_node_type  = "g6-standard-2"
 system_node_count = 1
-
-# Taint the GPU pool (nvidia.com/gpu=present:NoSchedule) so only workloads that
-# tolerate it land there. Set false to allow general workloads on GPU nodes.
-# GPU workloads must add a matching toleration — see README.
 dedicate_gpu_nodes = true
 
 # ============================================================================
-# Security (restrict IPs in production)
+# Networking
 # ============================================================================
 
 allowed_kubectl_ips    = ["0.0.0.0/0"]
@@ -73,8 +49,6 @@ allowed_monitoring_ips = ["0.0.0.0/0"]
 # Kubeconfig
 # ============================================================================
 
-# Automatically merge cluster kubeconfig into ~/.kube/config.
-# Set to false in CI pipelines or when managing kubeconfig externally.
 merge_kubeconfig = true
 
 # ============================================================================
@@ -92,30 +66,14 @@ enable_gpu_monitoring = true
 install_metrics_server = true
 
 # ============================================================================
-# Monitoring Stack (Prometheus + Grafana + Alertmanager)
+# Monitoring Stack (Prometheus + Grafana)
 # ============================================================================
 
-install_monitoring = true
-
-grafana_admin_password = "admin" # Change in production!
-
-# Default lowered for cost-efficient dev/test. Raise to "30d" for production.
-prometheus_retention = "7d"
-
-# Storage sizes — Linode block storage costs ~$0.10/GB/month.
-# Defaults are sized for cost-efficient dev/test use.
-# For production, increase prometheus_storage_size to 50Gi+.
-prometheus_storage_size   = "15Gi" # ~$1.50/month
-alertmanager_storage_size = "5Gi"  # ~$0.50/month
-grafana_storage_size      = "5Gi"  # ~$0.50/month
-
-# Optional: tune monitoring stack resource requests/limits to fit on a single
-# GPU node alongside workloads. Defaults are conservative; raise for high
-# cardinality / production. Example:
-# prometheus_resources = {
-#   requests = { cpu = "500m", memory = "2Gi" }
-#   limits   = { cpu = "2000m", memory = "8Gi" }
-# }
+install_monitoring     = true
+grafana_admin_password = "admin"
+prometheus_retention   = "7d"
+prometheus_storage_size = "15Gi" # ~$1.50/month
+grafana_storage_size    = "5Gi"  # ~$0.50/month
 
 # ============================================================================
 # Cost Monitoring (OpenCost)
@@ -125,70 +83,9 @@ install_opencost       = true
 opencost_chart_version = "2.5.14"
 
 # ============================================================================
-# ML Platforms (Kubeflow, etc.)
+# Cost Management
 # ============================================================================
-# Kubeflow installation has moved to the kubeflow-cv-lab repo:
-#   https://github.com/idvoretskyi/kubeflow-cv-lab
-#
-# After tofu apply (cluster + GPU operator):
-#   cd /path/to/kubeflow-cv-lab
-#   cp platform/config.env.example platform/config.env   # adjust CIDRs if needed
-#   make platform-install
-
-# ============================================================================
-# Cost Guardrails
-# ============================================================================
-
-# Warn (non-blocking) when gpu_node_type is outside the known cost-efficient
-# allowlist. Set false to silence after intentionally picking a larger plan.
-warn_on_non_default_gpu = true
-
-# Soft monthly cost ceiling (USD). Coarse estimate over GPU nodes + HA flag;
-# storage and egress not included. Advisory only.
-cost_ceiling_usd_per_month = 500
-
-# ============================================================================
-# Pause / Resume (no Terraform changes)
-# ============================================================================
-# To stop paying for GPU compute without destroying the cluster (the small
-# system pool keeps running so the cluster stays manageable):
-#   tofu/scripts/suspend-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)"
-# To resume:
-#   tofu/scripts/resume-cluster.sh "$(tofu output -raw cluster_id)" "$(tofu output -raw gpu_node_pool_id)" 1
-# Run `tofu apply -refresh-only` afterwards to reconcile state. (gpu_node_count
-# is validated >= 1, so the scripts intentionally bypass Terraform rather than
-# scaling the pool to 0 via tfvars.)
-
-# ============================================================================
-# Example Configurations
-# ============================================================================
-
-# Minimum cost setup (single GPU node, no HA):
-# gpu_node_count            = 1
-# system_node_type          = "g6-standard-4"  # ~$48/month (min for Kubeflow)
-# system_node_count         = 1
-# ha_control_plane          = false   # saves ~$60/month
-# prometheus_retention      = "7d"
-# prometheus_storage_size   = "15Gi"
-# alertmanager_storage_size = "5Gi"
-# grafana_storage_size      = "5Gi"
-# Estimated total: ~$430/month (1 GPU node + 1 system node + ~$2 storage)
-
-# Production AI Platform (full setup):
-# gpu_node_count            = 2
-# system_node_type          = "g6-standard-4"  # more headroom for monitoring
-# ha_control_plane          = true
-# install_gpu_operator      = true
-# enable_gpu_monitoring     = true
-# install_metrics_server    = true
-# install_monitoring        = true
-# install_opencost          = true
-# prometheus_retention      = "30d"
-# prometheus_storage_size   = "100Gi"
-# alertmanager_storage_size = "10Gi"
-# grafana_admin_password    = "your-secure-password-here"
-
-# Security-hardened setup:
-# allowed_kubectl_ips    = ["YOUR_IP/32"]
-# allowed_monitoring_ips = ["YOUR_IP/32"]
-# ha_control_plane       = true
+# Destroy the cluster to stop paying for compute:
+#   tofu destroy
+# Re-create when needed:
+#   tofu apply

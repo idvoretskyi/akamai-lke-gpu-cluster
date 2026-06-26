@@ -33,11 +33,6 @@ output "prometheus_internal_url" {
   value       = "http://${helm_release.kube_prometheus_stack.name}-prometheus.${kubernetes_namespace_v1.monitoring.metadata[0].name}.svc.cluster.local:9090"
 }
 
-output "alertmanager_service" {
-  description = "Alertmanager service name for port-forwarding"
-  value       = "${helm_release.kube_prometheus_stack.name}-alertmanager"
-}
-
 output "validation_commands" {
   description = "Commands to validate monitoring stack functionality"
   value       = <<-EOT
@@ -51,9 +46,5 @@ output "validation_commands" {
     # Access Prometheus (port 9090)
     kubectl port-forward -n ${kubernetes_namespace_v1.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-prometheus 9090:9090
     # Then visit: http://localhost:9090/targets
-
-    # Access Alertmanager (port 9093)
-    kubectl port-forward -n ${kubernetes_namespace_v1.monitoring.metadata[0].name} svc/${helm_release.kube_prometheus_stack.name}-alertmanager 9093:9093
-    # Then visit: http://localhost:9093
   EOT
 }

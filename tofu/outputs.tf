@@ -40,7 +40,7 @@ output "cluster_dashboard_url" {
 # the pool blocks is not guaranteed to be stable in state.
 
 output "gpu_node_pool_id" {
-  description = "The ID of the GPU node pool (use with scripts/suspend-cluster.sh)"
+  description = "The ID of the GPU node pool"
   value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.gpu_node_type])
 }
 
@@ -132,11 +132,6 @@ output "grafana_service" {
 output "prometheus_service" {
   description = "Prometheus service name for port-forwarding (null when not installed)"
   value       = try(module.kube_prometheus_stack[0].prometheus_service, null)
-}
-
-output "alertmanager_service" {
-  description = "Alertmanager service name for port-forwarding (null when not installed)"
-  value       = try(module.kube_prometheus_stack[0].alertmanager_service, null)
 }
 
 # ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────

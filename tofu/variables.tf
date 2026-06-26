@@ -29,7 +29,7 @@ variable "kubernetes_version" {
 }
 
 variable "ha_control_plane" {
-  description = "Enable high availability for the control plane (~$60/month extra). Set true for production; false to minimize cost."
+  description = "Enable high availability for the control plane (~$60/month extra)."
   type        = bool
   default     = false
 }
@@ -69,9 +69,9 @@ variable "gpu_node_count" {
 # GPU-intensive workloads, improving utilization and cost-efficiency.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. g6-standard-4 (4 vCPU, 8 GB, ~$48/month) is the minimum recommended when Kubeflow is installed — the monitoring stack + Kubeflow system pods exceed 4 GB. g6-standard-2 works for clusters without Kubeflow."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster. Use g6-standard-4 if adding Kubeflow (the monitoring stack + Kubeflow system pods exceed 4 GB)."
   type        = string
-  default     = "g6-standard-4"
+  default     = "g6-standard-2"
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
@@ -99,7 +99,7 @@ variable "dedicate_gpu_nodes" {
 # ─── Networking ───────────────────────────────────────────────────────────────
 
 variable "allowed_kubectl_ips" {
-  description = "CIDR ranges allowed to reach the Kubernetes API (port 443). Restrict in production."
+  description = "CIDR ranges allowed to reach the Kubernetes API (port 443)."
   type        = list(string)
   default     = ["0.0.0.0/0"]
 
@@ -110,7 +110,7 @@ variable "allowed_kubectl_ips" {
 }
 
 variable "allowed_monitoring_ips" {
-  description = "CIDR ranges allowed to reach monitoring UIs (Grafana, Prometheus). Restrict in production."
+  description = "CIDR ranges allowed to reach monitoring UIs (Grafana, Prometheus)."
   type        = list(string)
   default     = ["0.0.0.0/0"]
 
@@ -192,14 +192,14 @@ variable "install_monitoring" {
 }
 
 variable "grafana_admin_password" {
-  description = "Admin password for Grafana (use a strong password in production)"
+  description = "Admin password for Grafana."
   type        = string
   default     = "admin"
   sensitive   = true
 }
 
 variable "prometheus_retention" {
-  description = "Prometheus data retention period (e.g. '7d', '15d', '30d'). Default lowered for cost-efficient dev/test; raise to '30d' for production."
+  description = "Prometheus data retention period (e.g. '7d', '15d', '30d')."
   type        = string
   default     = "7d"
 
@@ -214,24 +214,13 @@ variable "prometheus_retention" {
 # cost-efficient single-node dev/test cluster.
 
 variable "prometheus_storage_size" {
-  description = "Prometheus persistent storage size (e.g. '15Gi'). Default lowered for cost-efficient dev/test; raise to '50Gi'+ for production. Linode block storage ~$0.10/GB/month."
+  description = "Prometheus persistent storage size (e.g. '15Gi'). Linode block storage ~$0.10/GB/month."
   type        = string
   default     = "15Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.prometheus_storage_size))
     error_message = "prometheus_storage_size must be a Kubernetes quantity like '30Gi'."
-  }
-}
-
-variable "alertmanager_storage_size" {
-  description = "Alertmanager persistent storage size (e.g. '5Gi')"
-  type        = string
-  default     = "5Gi"
-
-  validation {
-    condition     = can(regex("^[0-9]+(Mi|Gi|Ti)$", var.alertmanager_storage_size))
-    error_message = "alertmanager_storage_size must be a Kubernetes quantity like '5Gi'."
   }
 }
 
@@ -265,28 +254,7 @@ variable "opencost_chart_version" {
   }
 }
 
-# ─── Cost Guardrails ──────────────────────────────────────────────────────────
-
-variable "warn_on_non_default_gpu" {
-  description = "Emit an advisory check warning when gpu_node_type is outside the known cost-efficient allowlist. Set false to silence."
-  type        = bool
-  default     = true
-}
-
-variable "cost_ceiling_usd_per_month" {
-  description = "Soft monthly cost ceiling (USD). An advisory check warns when the estimated compute cost (GPU nodes + HA control plane) exceeds this value. Storage and egress are not included in the estimate."
-  type        = number
-  default     = 500
-
-  validation {
-    condition     = var.cost_ceiling_usd_per_month > 0
-    error_message = "cost_ceiling_usd_per_month must be greater than 0."
-  }
-}
-
-# ─── Monitoring Resource Requests (cost / scheduling guardrails) ──────────────
-# Conservative defaults sized so the monitoring stack fits on a single GPU node
-# alongside GPU workloads. Raise for production workloads with high cardinality.
+# ─── Monitoring Resource Requests ────────────────────────────────────────────
 
 variable "prometheus_resources" {
   description = "CPU/memory requests and limits for the Prometheus pod."
@@ -309,17 +277,5 @@ variable "grafana_resources" {
   default = {
     requests = { cpu = "50m", memory = "128Mi" }
     limits   = { cpu = "200m", memory = "512Mi" }
-  }
-}
-
-variable "alertmanager_resources" {
-  description = "CPU/memory requests and limits for the Alertmanager pod."
-  type = object({
-    requests = object({ cpu = string, memory = string })
-    limits   = object({ cpu = string, memory = string })
-  })
-  default = {
-    requests = { cpu = "25m", memory = "64Mi" }
-    limits   = { cpu = "100m", memory = "256Mi" }
   }
 }

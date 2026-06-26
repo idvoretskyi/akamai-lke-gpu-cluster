@@ -8,12 +8,11 @@ Includes:
 
 - **Prometheus** — metrics collection and storage
 - **Grafana** — dashboards and visualization
-- **Alertmanager** — alert routing and silencing
 - **Node Exporter** — hardware and OS metrics
 - **Kube State Metrics** — Kubernetes object metrics
 - **DCGM Exporter integration** — GPU metrics (when enabled)
 
-Storage uses `linode-block-storage-retain` by default to prevent data loss on pod restarts.
+Alertmanager is disabled by default. Storage uses `linode-block-storage-retain` to prevent data loss on pod restarts.
 
 ## Usage
 
@@ -21,13 +20,12 @@ Storage uses `linode-block-storage-retain` by default to prevent data loss on po
 module "kube_prometheus_stack" {
   source = "./modules/kube-prometheus-stack"
 
-  namespace                 = "monitoring"
-  grafana_admin_password    = "secure-password"
-  prometheus_retention      = "15d"
-  prometheus_storage_size   = "30Gi"
-  alertmanager_storage_size = "5Gi"
-  grafana_storage_size      = "5Gi"
-  enable_gpu_monitoring     = true
+  namespace               = "monitoring"
+  grafana_admin_password  = "secure-password"
+  prometheus_retention    = "7d"
+  prometheus_storage_size = "15Gi"
+  grafana_storage_size    = "5Gi"
+  enable_gpu_monitoring   = true
 }
 ```
 
@@ -39,12 +37,11 @@ module "kube_prometheus_stack" {
 | `kube_prometheus_stack_version` | Helm chart version | `"80.8.0"` |
 | `grafana_admin_password` | Grafana admin password (sensitive) | — |
 | `prometheus_retention` | Data retention period | `"15d"` |
-| `prometheus_storage_size` | Prometheus PVC size | `"30Gi"` |
-| `alertmanager_storage_size` | Alertmanager PVC size | `"5Gi"` |
-| `grafana_storage_size` | Grafana PVC size | `"5Gi"` |
+| `prometheus_storage_size` | Prometheus PVC size | `"50Gi"` |
+| `grafana_storage_size` | Grafana PVC size | `"10Gi"` |
 | `storage_class` | Kubernetes StorageClass | `"linode-block-storage-retain"` |
 | `enable_gpu_monitoring` | Add DCGM scrape config for GPU metrics | `false` |
-| `node_selector` | nodeSelector to pin control-plane components (Prometheus, Grafana, Alertmanager, kube-state-metrics, operator) onto a node pool. node-exporter stays cluster-wide. | `{}` |
+| `node_selector` | nodeSelector to pin control-plane components (Prometheus, Grafana, kube-state-metrics, operator) onto a node pool. node-exporter stays cluster-wide. | `{}` |
 
 ## Outputs
 
@@ -56,7 +53,7 @@ module "kube_prometheus_stack" {
 | `status` | Helm release status |
 | `grafana_service` | Grafana service name |
 | `prometheus_service` | Prometheus service name |
-| `alertmanager_service` | Alertmanager service name |
+| `prometheus_internal_url` | In-cluster Prometheus URL |
 | `validation_commands` | Port-forward and access commands |
 
 ## Accessing the Stack
@@ -69,8 +66,4 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 # Prometheus (port 9090)
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
 # http://localhost:9090
-
-# Alertmanager (port 9093)
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093
-# http://localhost:9093
 ```
