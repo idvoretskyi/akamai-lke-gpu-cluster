@@ -8,18 +8,34 @@ data "external" "username" {
   program = ["sh", "-c", "echo '{\"username\":\"'$(whoami)'\"}'"]
 }
 
-# Resolve the Linode API token: LINODE_TOKEN env var if set, else the default
-# user's token from ~/.config/linode-cli (see providers.tf and
-# scripts/get-linode-token.sh). Sensitive — never logged or shown in plans.
-data "external" "linode_token" {
-  program = ["${path.module}/scripts/get-linode-token.sh"]
-}
-
+# Resolve a Linode API token fallback from the default user in
+# ~/.config/linode-cli (linode-cli's own config file), for machines that are
+# already `linode-cli configure`'d and don't want a separate
+# `export LINODE_TOKEN`. Implemented with plain HCL functions (file/regex),
+# NOT a data source — data source results are persisted into OpenTofu state,
+# and this repo doesn't want the token to end up there even though state is
+# local/gitignored (see AGENTS.md). Locals are never written to state.
+#
+# Precedence note: because there's no built-in way to read an arbitrary
+# environment variable from HCL (only TF_VAR_* via variables), this can't
+# check whether LINODE_TOKEN is already set and prefer it — if the
+# linode-cli config file resolves to a token, it takes priority here over
+# LINODE_TOKEN. For this single-owner lab repo that's an acceptable
+# trade-off; if you need to override with a different token, temporarily
+# rename ~/.config/linode-cli or update its default user's token instead.
 locals {
-  # null when neither source has a token, so the linode provider falls back
-  # to its own LINODE_TOKEN env lookup (e.g. `tofu validate` in CI, with no
-  # credentials at all, keeps working instead of erroring on an empty token).
-  linode_token = data.external.linode_token.result.token != "" ? sensitive(data.external.linode_token.result.token) : null
+  linode_cli_config_path  = pathexpand("~/.config/linode-cli")
+  linode_cli_config       = fileexists(local.linode_cli_config_path) ? file(local.linode_cli_config_path) : ""
+  linode_cli_default_user = try(regex("(?m)^default-user\\s*=\\s*(\\S+)", local.linode_cli_config)[0], null)
+  linode_cli_token = local.linode_cli_default_user == null ? null : try(
+    regex("(?s)\\[${local.linode_cli_default_user}\\].*?\\ntoken\\s*=\\s*(\\S+)", local.linode_cli_config)[0],
+    null
+  )
+
+  # null falls through to the linode provider's own LINODE_TOKEN env lookup
+  # (e.g. `tofu validate`/`plan` in CI, with no linode-cli config at all,
+  # keeps working instead of erroring on an empty token).
+  linode_token = local.linode_cli_token != null ? sensitive(local.linode_cli_token) : null
 }
 
 # Node-pool scheduling primitives.

@@ -25,9 +25,12 @@ instead.
 
 - `kubectl`, `kustomize`, `git`, `timeout`, and `realpath` must be on `PATH`
   where `tofu apply` runs (the latter two ship with GNU coreutils — present
-  by default on Linux; on macOS, install via `brew install coreutils`).
-  `scripts/install.sh` checks for all five up front and fails fast with a
-  clear message if any are missing.
+  by default on Linux). On macOS, `brew install coreutils` installs GNU
+  timeout/realpath as `gtimeout`/`grealpath` (to avoid clashing with BSD
+  tools of the same name) — `scripts/install.sh` detects and uses those
+  automatically if the unprefixed names aren't found. It checks for all
+  required tools up front and fails fast with a clear message if any are
+  missing.
 - Upstream recommends 16+ GB RAM / 8 CPU cores for the full platform across
   the cluster. Use `system_node_type = "g6-standard-8"` (32 GB — measured
   usage with the full stack is ~9-10 GB; see root `variables.tf`) and/or size

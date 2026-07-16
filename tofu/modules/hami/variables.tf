@@ -106,47 +106,44 @@ variable "scheduler_leader_elect" {
 }
 
 variable "default_gpu_memory" {
-  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu WITHOUT an explicit nvidia.com/gpumem limit (HAMi scheduler-config nvidia.defaultMemory). 0 (chart default) means such a Pod gets the whole physical GPU, which defeats virtualization for workloads that have no easy way to set that extra resource key (e.g. Kubeflow Pipelines components via the kfp SDK, which only supports one accelerator resource type). HAMi v2.9.0's chart hardcodes this value with no Helm knob for it, so this module patches the hami-scheduler-device ConfigMap directly after each Helm apply — see main.tf for details. Set to 0 to disable (chart default, whole-GPU behavior)."
+  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu WITHOUT an explicit nvidia.com/gpumem limit (HAMi scheduler-config nvidia.defaultMemory). 0 (chart default) means such a Pod gets the whole physical GPU, which defeats virtualization for workloads that have no easy way to set that extra resource key (e.g. Kubeflow Pipelines components via the kfp SDK, which only supports one accelerator resource type). HAMi v2.9.0's chart hardcodes this value with no Helm knob for it, so this module always patches the hami-scheduler-device ConfigMap directly after each Helm apply (and restarts the scheduler) regardless of this value, so that setting it back to 0 actually restores whole-GPU behavior too — see main.tf for details."
   type        = number
   default     = 8000
 
   validation {
     condition     = var.default_gpu_memory >= 0
-    error_message = "default_gpu_memory must be >= 0 (0 disables the override)."
+    error_message = "default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
   }
 }
 
 variable "k8s_host" {
-  description = "Kubernetes API server URL. Only used (to build a scratch kubeconfig for a `kubectl rollout restart`) when default_gpu_memory > 0 — the ConfigMap patch above requires a scheduler restart to take effect, since HAMi only reads it at startup."
+  description = "Kubernetes API server URL. Used to build a scratch kubeconfig for the `kubectl rollout restart` that's always run after patching the hami-scheduler-device ConfigMap (see default_gpu_memory) — required regardless of that value, since even resetting it to 0 needs the scheduler restarted to take effect."
   type        = string
-  default     = ""
 
   validation {
-    condition     = var.default_gpu_memory == 0 || var.k8s_host != ""
-    error_message = "k8s_host must be set when default_gpu_memory > 0 (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.host from the root module."
+    condition     = var.k8s_host != ""
+    error_message = "k8s_host must be set (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.host from the root module."
   }
 }
 
 variable "k8s_token" {
   description = "Kubernetes API bearer token. See k8s_host."
   type        = string
-  default     = ""
   sensitive   = true
 
   validation {
-    condition     = var.default_gpu_memory == 0 || var.k8s_token != ""
-    error_message = "k8s_token must be set when default_gpu_memory > 0 (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.token from the root module."
+    condition     = var.k8s_token != ""
+    error_message = "k8s_token must be set (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.token from the root module."
   }
 }
 
 variable "k8s_cluster_ca_certificate" {
   description = "Base64-decoded cluster CA certificate (PEM). See k8s_host."
   type        = string
-  default     = ""
   sensitive   = true
 
   validation {
-    condition     = var.default_gpu_memory == 0 || var.k8s_cluster_ca_certificate != ""
-    error_message = "k8s_cluster_ca_certificate must be set when default_gpu_memory > 0 (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.cluster_ca_certificate from the root module."
+    condition     = var.k8s_cluster_ca_certificate != ""
+    error_message = "k8s_cluster_ca_certificate must be set (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.cluster_ca_certificate from the root module."
   }
 }

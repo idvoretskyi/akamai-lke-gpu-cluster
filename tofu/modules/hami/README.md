@@ -21,9 +21,10 @@ toolkit, and DCGM/GFD — HAMi only takes over the device-plugin and scheduling
 layer (see `device_plugin_enabled` on the `gpu-operator` module, which the
 root module sets to `false` when HAMi is installed).
 
-`kubectl` must be on `PATH` when `default_gpu_memory > 0` (the default) — it's
-used to restart `hami-scheduler` after patching its config (see "Memory
-slicing defaults" below).
+`kubectl` must be on `PATH` — it's always used to restart `hami-scheduler`
+after patching its config (see "Memory slicing defaults" below), which the
+module manages unconditionally (including to reset back to the chart's
+whole-GPU default when `default_gpu_memory = 0`).
 
 ## Usage
 
@@ -65,7 +66,7 @@ module "hami" {
 | `wait_for_toolkit_ready` | Gate devicePlugin startup on the GPU Operator's toolkit readiness marker | `true` |
 | `scheduler_leader_elect` | HAMi scheduler leader election; `false` avoids an anti-affinity deadlock on single-node system pools | `false` |
 | `default_gpu_memory` | vGPU memory (MB) given to `nvidia.com/gpu` requests with no explicit `gpumem`; `0` disables (whole-GPU) | `8000` |
-| `k8s_host` / `k8s_token` / `k8s_cluster_ca_certificate` | Cluster auth, only used to restart the scheduler after a `default_gpu_memory` change | `""` |
+| `k8s_host` / `k8s_token` / `k8s_cluster_ca_certificate` | Cluster auth, always required — used to restart the scheduler after every ConfigMap patch (including resetting to `default_gpu_memory = 0`) | *(required)* |
 
 ## Outputs
 
@@ -91,7 +92,10 @@ directly (`kubernetes_config_map_v1_data`, `force = true`) with our own
 `default_gpu_memory` value, then restarting `hami-scheduler` — the scheduler
 only reads this file at process startup, not on ConfigMap change, so a
 restart is required for the new value to take effect. Both happen
-automatically on every `tofu apply` when `default_gpu_memory > 0`.
+automatically on every `tofu apply`, **unconditionally** — including when
+`default_gpu_memory = 0`, since restoring the chart's own whole-GPU default
+also needs the live ConfigMap reset and the scheduler restarted, not just
+"do nothing".
 
 Set `default_gpu_memory = 0` to restore the chart's own default (whole GPU
 for unslotted requests).

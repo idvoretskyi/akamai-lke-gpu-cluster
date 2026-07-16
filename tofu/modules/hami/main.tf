@@ -63,10 +63,12 @@ resource "helm_release" "hami" {
 #
 # Every `tofu apply` re-applies this after Helm's own apply runs (see
 # depends_on), so it converges even though Helm has no idea this field is
-# being overridden out-of-band.
+# being overridden out-of-band. Unconditional (not gated on
+# default_gpu_memory > 0): toggling back to 0 must actually reset the live
+# ConfigMap (and restart the scheduler) to the chart's whole-GPU default too
+# — skipping management entirely at 0 would leave a previously-patched
+# non-zero value in place indefinitely.
 resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
-  count = var.default_gpu_memory > 0 ? 1 : 0
-
   metadata {
     name      = "${helm_release.hami.name}-scheduler-device"
     namespace = kubernetes_namespace_v1.hami.metadata[0].name
@@ -95,8 +97,6 @@ resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
 # only talks to the cluster via the Helm/Kubernetes Terraform providers,
 # neither of which can trigger a Deployment rollout restart directly.
 resource "local_sensitive_file" "kubeconfig" {
-  count = var.default_gpu_memory > 0 ? 1 : 0
-
   filename = "${path.module}/.kubeconfig-hami"
   content = templatefile("${path.module}/templates/kubeconfig.yaml.tftpl", {
     host        = var.k8s_host
@@ -107,11 +107,10 @@ resource "local_sensitive_file" "kubeconfig" {
 }
 
 resource "terraform_data" "restart_scheduler" {
-  count = var.default_gpu_memory > 0 ? 1 : 0
-
   triggers_replace = {
-    # Re-run whenever the patched ConfigMap content actually changes.
-    device_config_sha = sha256(kubernetes_config_map_v1_data.device_config_default_memory[0].data["device-config.yaml"])
+    # Re-run whenever the patched ConfigMap content actually changes
+    # (including changing back to the 0/whole-GPU default).
+    device_config_sha = sha256(kubernetes_config_map_v1_data.device_config_default_memory.data["device-config.yaml"])
   }
 
   provisioner "local-exec" {
@@ -122,9 +121,9 @@ resource "terraform_data" "restart_scheduler" {
     # does not stop on error between statements.
     command     = <<-EOT
       set -euo pipefail
-      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig[0].filename)} \
+      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig.filename)} \
         rollout restart deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name}
-      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig[0].filename)} \
+      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig.filename)} \
         rollout status deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name} --timeout=120s
     EOT
     interpreter = ["/usr/bin/env", "bash", "-c"]

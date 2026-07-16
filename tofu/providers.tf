@@ -1,6 +1,6 @@
-# Token resolution order: LINODE_TOKEN environment variable, else the
-# default user's token from ~/.config/linode-cli (see
-# data.external.linode_token in locals.tf and scripts/get-linode-token.sh).
+# Token resolution: the default user's token from ~/.config/linode-cli if
+# present (local.linode_token in locals.tf), else null — which falls through
+# to the provider's own LINODE_TOKEN environment variable lookup.
 provider "linode" {
   token = local.linode_token
 }
