@@ -8,6 +8,20 @@ data "external" "username" {
   program = ["sh", "-c", "echo '{\"username\":\"'$(whoami)'\"}'"]
 }
 
+# Resolve the Linode API token: LINODE_TOKEN env var if set, else the default
+# user's token from ~/.config/linode-cli (see providers.tf and
+# scripts/get-linode-token.sh). Sensitive — never logged or shown in plans.
+data "external" "linode_token" {
+  program = ["${path.module}/scripts/get-linode-token.sh"]
+}
+
+locals {
+  # null when neither source has a token, so the linode provider falls back
+  # to its own LINODE_TOKEN env lookup (e.g. `tofu validate` in CI, with no
+  # credentials at all, keeps working instead of erroring on an empty token).
+  linode_token = data.external.linode_token.result.token != "" ? sensitive(data.external.linode_token.result.token) : null
+}
+
 # Node-pool scheduling primitives.
 #
 # Both pools are labelled with `nodepool.lke/role` so workloads can be pinned to

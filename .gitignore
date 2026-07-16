@@ -27,6 +27,7 @@ tofu.rc
 # Kubeconfig files
 kubeconfig*.yaml
 *.kubeconfig
+.kubeconfig-*
 .kube/
 
 # Kubeflow module scratch clone dir (git clone of upstream manifests at apply time)

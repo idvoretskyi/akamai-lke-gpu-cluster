@@ -1,7 +1,8 @@
-# Provider will automatically use LINODE_TOKEN environment variable.
-# Set via: export LINODE_TOKEN=$(linode-cli configure get token)
+# Token resolution order: LINODE_TOKEN environment variable, else the
+# default user's token from ~/.config/linode-cli (see
+# data.external.linode_token in locals.tf and scripts/get-linode-token.sh).
 provider "linode" {
-  # token is read from LINODE_TOKEN environment variable
+  token = local.linode_token
 }
 
 # Kubernetes provider — uses kubeconfig from the LKE cluster resource.
