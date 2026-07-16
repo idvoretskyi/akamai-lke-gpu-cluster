@@ -7,6 +7,16 @@
 # Usage: install.sh <kubeconfig-path> <git-ref> <work-dir>
 set -euo pipefail
 
+# Fail fast with an actionable message if a required tool is missing, rather
+# than burning through the ~5 minute retry loop below on every attempt only
+# to discover e.g. kustomize isn't on PATH.
+for cmd in git kubectl kustomize timeout realpath; do
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    echo "Required command '${cmd}' not found on PATH — see modules/kubeflow/README.md prerequisites." >&2
+    exit 1
+  fi
+done
+
 KUBECONFIG_PATH="$1"
 GIT_REF="$2"
 WORK_DIR="$3"

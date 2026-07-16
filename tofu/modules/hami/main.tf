@@ -115,12 +115,19 @@ resource "terraform_data" "restart_scheduler" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
+    # set -e (via explicit bash interpreter, matching modules/kubeflow) so a
+    # failed `rollout restart` (RBAC issue, wrong Deployment name, ...)
+    # actually fails the apply instead of `rollout status` papering over it
+    # with an unrelated success — the local-exec provisioner's default shell
+    # does not stop on error between statements.
+    command     = <<-EOT
+      set -euo pipefail
       kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig[0].filename)} \
         rollout restart deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name}
       kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig[0].filename)} \
         rollout status deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name} --timeout=120s
     EOT
+    interpreter = ["/usr/bin/env", "bash", "-c"]
   }
 
   depends_on = [

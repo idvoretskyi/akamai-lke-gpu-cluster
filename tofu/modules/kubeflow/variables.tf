@@ -22,7 +22,7 @@ variable "k8s_cluster_ca_certificate" {
 }
 
 variable "install_timeout" {
-  description = "Timeout (seconds) for the full Kubeflow install script (it retries kubectl apply until all CRDs/resources settle)."
+  description = "Timeout (seconds) for EACH kubectl apply attempt inside the install script's retry loop (up to 15 attempts, 20s apart) — not a cap on the total install time, which can therefore run considerably longer than this value across all retries."
   type        = number
   default     = 1800
 }

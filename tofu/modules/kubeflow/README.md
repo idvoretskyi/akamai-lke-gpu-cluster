@@ -23,7 +23,11 @@ instead.
 
 ## Prerequisites
 
-- `kubectl`, `kustomize`, and `git` must be on `PATH` where `tofu apply` runs.
+- `kubectl`, `kustomize`, `git`, `timeout`, and `realpath` must be on `PATH`
+  where `tofu apply` runs (the latter two ship with GNU coreutils — present
+  by default on Linux; on macOS, install via `brew install coreutils`).
+  `scripts/install.sh` checks for all five up front and fails fast with a
+  clear message if any are missing.
 - Upstream recommends 16+ GB RAM / 8 CPU cores for the full platform across
   the cluster. Use `system_node_type = "g6-standard-8"` (32 GB — measured
   usage with the full stack is ~9-10 GB; see root `variables.tf`) and/or size
