@@ -1,0 +1,35 @@
+scheduler:
+  defaultSchedulerPolicy:
+    gpuSchedulerPolicy: "${scheduler_policy}"
+%{ if length(node_selector) > 0 ~}
+  # Pin the webhook cert-generation job to the system pool — control-plane
+  # bits need no GPU. (The scheduler/extender pods themselves are lightweight
+  # and the chart does not expose a first-class nodeSelector for them.)
+  patch:
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+
+devicePlugin:
+  enabled: true
+  deviceSplitCount: ${device_split_count}
+  deviceMemoryScaling: ${device_memory_scaling}
+  deviceCoreScaling: ${device_core_scaling}
+  nvidiaNodeSelector:
+%{ for k, v in nvidia_node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ if gpu_node_toleration != null ~}
+  # Let the devicePlugin DaemonSet tolerate the GPU node taint so it keeps
+  # scheduling onto the dedicated GPU pool. Uses Exists to match the taint
+  # regardless of value.
+  tolerations:
+    - key: "${gpu_node_toleration.key}"
+      operator: "Exists"
+      effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
+
+prometheus:
+  enabled: true
