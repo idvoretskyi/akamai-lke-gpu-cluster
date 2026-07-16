@@ -184,6 +184,11 @@ variable "install_hami" {
   description = "Install HAMi for GPU virtualization/sharing (splits physical GPUs into schedulable vGPU slices). Disables the GPU Operator's stock device plugin when true. Requires install_gpu_operator = true."
   type        = bool
   default     = true
+
+  validation {
+    condition     = !var.install_hami || var.install_gpu_operator
+    error_message = "install_hami = true requires install_gpu_operator = true (HAMi relies on the operator's NVIDIA driver and container toolkit)."
+  }
 }
 
 variable "hami_version" {

@@ -1,5 +1,11 @@
 # Advisory (non-blocking) checks — warnings only, never fail `tofu apply`.
 # See AGENTS.md: OpenTofu `check` blocks (>= 1.9).
+#
+# Note: install_hami requiring install_gpu_operator is a hard error (variable
+# validation on install_hami in variables.tf), not just advisory here — HAMi
+# is entirely non-functional without the operator's driver/toolkit, so it's
+# treated as a real misconfiguration rather than a "you might want to
+# reconsider" suggestion.
 
 # Shared-CPU Linode plans known to be smaller than the ~9-10 GB Kubeflow +
 # monitoring stack measurably uses (g6-standard-1/2/4 = 2/4/8 GB RAM).
@@ -11,13 +17,6 @@ locals {
     "g6-standard-2",
     "g6-standard-4",
   ]
-}
-
-check "hami_requires_gpu_operator" {
-  assert {
-    condition     = !var.install_hami || var.install_gpu_operator
-    error_message = "install_hami = true has no effect without install_gpu_operator = true (HAMi relies on the operator's NVIDIA driver and container toolkit)."
-  }
 }
 
 check "kubeflow_recommends_hami" {
