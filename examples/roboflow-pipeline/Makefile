@@ -3,7 +3,7 @@ KUBEFLOW_USER      ?= user@example.com
 LOCAL_PORT         ?= 8888
 VENV               ?= .venv
 
-.PHONY: venv port-forward compile submit run stop-port-forward clean
+.PHONY: venv port-forward compile submit run clean
 
 ## Create a local virtualenv with the kfp SDK.
 venv:

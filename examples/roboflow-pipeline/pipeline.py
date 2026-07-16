@@ -27,9 +27,9 @@ Roboflow API key — keeping this example runnable with zero external secrets.
 from kfp import compiler, dsl
 from kfp import kubernetes
 
-# Matches the CUDA userspace already present on the GPU node's driver
-# (NVIDIA 610.x, CUDA UMD 13.x) — the container CUDA runtime just needs to be
-# no newer than what the host driver supports, and 12.4 comfortably is.
+# CUDA 12.4 in the container; the NVIDIA driver on the host only needs to be
+# new enough to support it (drivers are backward-compatible with older CUDA
+# runtimes) — this comfortably covers any GPU Operator-installed driver.
 BASE_IMAGE = "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
 
 # The GPU node taint applied by this repo when dedicate_gpu_nodes = true

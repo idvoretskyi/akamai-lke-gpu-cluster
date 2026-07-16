@@ -122,7 +122,7 @@ svc/istio-ingressgateway 8080:80` — since the dashboard isn't served by
 | File | Purpose |
 |---|---|
 | `pipeline.py` | KFP v2 pipeline definition; run directly to compile `pipeline.yaml` |
-| `submit.py` | Submits the compiled pipeline to a port-forwarded KFP API server and (optionally) waits for completion |
+| `submit.py` | Submits the compiled pipeline to a port-forwarded KFP API server and (optionally) waits for completion. Flags: `--host` (ml-pipeline API, default `http://localhost:8888`), `--ui-host` (dashboard, default `http://localhost:8080`), `--user`, `--namespace`, `--no-wait`, `--timeout` (seconds, default 1800) |
 | `Makefile` | `venv`, `compile`, `port-forward`, `submit`, `run`, `clean` |
 
 ## Cleanup
