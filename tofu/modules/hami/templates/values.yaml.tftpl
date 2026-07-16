@@ -1,6 +1,9 @@
 scheduler:
   defaultSchedulerPolicy:
     gpuSchedulerPolicy: "${scheduler_policy}"
+  # Anti-affinity is only added by the chart when leaderElect is true, and it
+  # deadlocks rolling updates on a single-node system pool (see variables.tf).
+  leaderElect: ${scheduler_leader_elect}
 %{ if length(node_selector) > 0 ~}
   # Pin the webhook cert-generation job to the system pool — control-plane
   # bits need no GPU. (The scheduler/extender pods themselves are lightweight
@@ -17,6 +20,20 @@ devicePlugin:
   deviceSplitCount: ${device_split_count}
   deviceMemoryScaling: ${device_memory_scaling}
   deviceCoreScaling: ${device_core_scaling}
+  # Run under the GPU Operator's RuntimeClass so the NVIDIA container runtime
+  # hook actually injects GPU devices/libraries into this pod (containerd's
+  # default runtime is plain runc unless the operator is configured
+  # otherwise).
+  runtimeClassName: "${runtime_class_name}"
+  # The GPU Operator installs the driver into this host path (containerized
+  # driver), not directly under the host root — point the plugin at it so it
+  # can load the NVIDIA driver/NVML libraries.
+  nvidiaDriverRoot: "${nvidia_driver_root}"
+%{ if wait_for_toolkit_ready ~}
+  gpuOperatorToolkitReady:
+    enabled: true
+    hostPath: "/run/nvidia/validations"
+%{ endif ~}
   nvidiaNodeSelector:
 %{ for k, v in nvidia_node_selector ~}
     ${k}: "${v}"

@@ -57,7 +57,8 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
   be added to the CI matrix in `.github/workflows/ci.yml` and to
   `.github/dependabot.yml`.
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
-  `g6-standard-4` is recommended only when adding Kubeflow.
+  `g6-standard-8` is recommended only when adding Kubeflow (measured usage
+  with the full stack is ~9-10 GB).
 
 ## Conventions
 

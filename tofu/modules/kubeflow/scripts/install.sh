@@ -12,6 +12,11 @@ GIT_REF="$2"
 WORK_DIR="$3"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-1800}"
 
+# Resolve to absolute paths up front — we `cd` below, and relative paths
+# passed in would stop resolving correctly after that.
+KUBECONFIG_PATH="$(realpath "${KUBECONFIG_PATH}")"
+WORK_DIR="$(mkdir -p "${WORK_DIR}" && realpath "${WORK_DIR}")"
+
 export KUBECONFIG="${KUBECONFIG_PATH}"
 
 mkdir -p "${WORK_DIR}"

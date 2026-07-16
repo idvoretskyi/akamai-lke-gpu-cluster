@@ -69,7 +69,7 @@ variable "gpu_node_count" {
 # GPU-intensive workloads, improving utilization and cost-efficiency.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster. Use g6-standard-4 if adding Kubeflow (the monitoring stack + Kubeflow system pods exceed 4 GB)."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster. Use g6-standard-8 if adding Kubeflow (the monitoring stack + Kubeflow system pods measure ~9-10 GB in practice, exceeding smaller pools)."
   type        = string
   default     = "g6-standard-2"
 
@@ -214,7 +214,7 @@ variable "hami_device_split_count" {
 # Helm chart.
 
 variable "install_kubeflow" {
-  description = "Install the full Kubeflow Platform (kubeflow/community-distribution). Heavy — recommend system_node_type = 'g6-standard-4' and a generous GPU pool. Opt-in even for a lab cluster."
+  description = "Install the full Kubeflow Platform (kubeflow/community-distribution). Heavy — recommend system_node_type = 'g6-standard-8' (32 GB; measured usage is ~9-10 GB) and a generous GPU pool. Opt-in even for a lab cluster."
   type        = bool
   default     = false
 }

@@ -70,3 +70,27 @@ variable "nvidia_node_selector" {
   type        = map(string)
   default     = { gpu = "on" }
 }
+
+variable "runtime_class_name" {
+  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods, so the driver/libraries are actually visible. Must be a legacy (non-CDI) NVIDIA runtime: HAMi's GPU sharing relies on hijacking the driver library via LD_PRELOAD + NVIDIA_VISIBLE_DEVICES, which conflicts with the modern CDI-based runtime path (the GPU Operator's default 'nvidia' RuntimeClass has CDI enabled and fails to resolve HAMi's device references). The GPU Operator's toolkit also registers a 'nvidia-legacy' RuntimeClass (no CDI) that works correctly here."
+  type        = string
+  default     = "nvidia-legacy"
+}
+
+variable "nvidia_driver_root" {
+  description = "Host path where the NVIDIA driver is installed, as mounted by the GPU Operator's containerized driver (devicePlugin.nvidiaDriverRoot). Required for the devicePlugin to find the driver/NVML libraries when the driver is installed by the GPU Operator rather than directly on the host at '/'."
+  type        = string
+  default     = "/run/nvidia/driver"
+}
+
+variable "wait_for_toolkit_ready" {
+  description = "Gate the devicePlugin startup on the GPU Operator's toolkit readiness marker (devicePlugin.gpuOperatorToolkitReady), avoiding a race where the plugin starts before the container toolkit/runtime is configured."
+  type        = bool
+  default     = true
+}
+
+variable "scheduler_leader_elect" {
+  description = "Enable HAMi scheduler leader election (scheduler.leaderElect). The chart adds hard pod anti-affinity to the scheduler Deployment whenever this is true, which deadlocks rolling updates on a single-node system pool (the new replica can never schedule alongside the old one, and the GPU pool is tainted). Defaults to false for this repo's single system-node lab topology; only 1 replica runs either way when false."
+  type        = bool
+  default     = false
+}

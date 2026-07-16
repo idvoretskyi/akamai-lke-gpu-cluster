@@ -29,13 +29,17 @@ resource "helm_release" "hami" {
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
-      device_split_count    = var.device_split_count
-      device_memory_scaling = var.device_memory_scaling
-      device_core_scaling   = var.device_core_scaling
-      scheduler_policy      = var.scheduler_policy
-      node_selector         = var.node_selector
-      gpu_node_toleration   = var.gpu_node_toleration
-      nvidia_node_selector  = var.nvidia_node_selector
+      device_split_count     = var.device_split_count
+      device_memory_scaling  = var.device_memory_scaling
+      device_core_scaling    = var.device_core_scaling
+      scheduler_policy       = var.scheduler_policy
+      node_selector          = var.node_selector
+      gpu_node_toleration    = var.gpu_node_toleration
+      nvidia_node_selector   = var.nvidia_node_selector
+      runtime_class_name     = var.runtime_class_name
+      nvidia_driver_root     = var.nvidia_driver_root
+      wait_for_toolkit_ready = var.wait_for_toolkit_ready
+      scheduler_leader_elect = var.scheduler_leader_elect
     })
   ]
 }

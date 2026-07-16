@@ -18,6 +18,6 @@ check "kubeflow_recommends_hami" {
 check "kubeflow_recommends_larger_system_pool" {
   assert {
     condition     = !var.install_kubeflow || var.system_node_type != "g6-standard-2"
-    error_message = "install_kubeflow is enabled with system_node_type = 'g6-standard-2' — the monitoring stack plus Kubeflow's system pods (Istio, Knative, Dex, dashboard, etc.) typically exceed 4 GB. Recommend system_node_type = 'g6-standard-4' or larger."
+    error_message = "install_kubeflow is enabled with system_node_type = 'g6-standard-2' — the monitoring stack plus Kubeflow's system pods (Istio, Knative, Dex, dashboard, etc.) typically use ~9-10 GB in practice. Recommend system_node_type = 'g6-standard-8' (32 GB) or larger."
   }
 }
