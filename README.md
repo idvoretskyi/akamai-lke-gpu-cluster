@@ -79,7 +79,9 @@ linode-cli configure
 ├── LICENSE                # MIT License
 ├── .github/               # GitHub Actions CI and Dependabot config
 ├── examples/              # Runnable examples
-│   └── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
+│   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
+│   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
+│   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
@@ -208,25 +210,17 @@ To disable the taint and allow general workloads back onto GPU nodes, set
 
 ## Running ML Platforms on This Cluster
 
-This repo provisions the cluster and installs the NVIDIA GPU operator. ML
-platforms (Kubeflow, MLflow, KServe, etc.) are managed separately so that
-platform updates don't require re-running `tofu apply`.
-
-**Kubeflow 26.03** — see
-[`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab) for the
-portable installer and an end-to-end CV MLOps lab:
-
-```bash
-# After tofu apply (cluster + GPU operator are up):
-git clone https://github.com/idvoretskyi/kubeflow-cv-lab
-cd kubeflow-cv-lab
-cp platform/config.env.example platform/config.env   # LKE defaults work as-is
-make platform-install
-```
+This repo can provision the GPU substrate only (GPU Operator + HAMi), or the
+full stack including Kubeflow — both are installed in-repo via
+`install_gpu_operator`, `install_hami`, and `install_kubeflow` (see
+`tofu/modules/`). For platform updates that shouldn't require re-running
+`tofu apply`, or a more elaborate CV MLOps lab, see
+[`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab).
 
 **GPU scheduling contract** (applies to any GPU workload on this cluster):
 
-- Request a GPU: `nvidia.com/gpu` resource limit = 1
+- Request a GPU: `nvidia.com/gpu` resource limit = 1 (add `nvidia.com/gpumem`
+  for a HAMi vGPU slice instead of the whole card)
 - Tolerate the taint: `nvidia.com/gpu=present:NoSchedule`
 - Pin to the GPU pool: node selector `nodepool.lke/role=gpu`
 
@@ -240,9 +234,26 @@ make -C examples/gpu-validation apply wait logs
 # No Kubeflow required — only the GPU Operator must be running.
 ```
 
-For the **Trainer v2 GPU example** (requires Kubeflow), see
-[`examples/pytorch-training/`](https://github.com/idvoretskyi/kubeflow-cv-lab/tree/main/examples/pytorch-training)
-in `kubeflow-cv-lab`.
+**HAMi GPU virtualization validation** — [`examples/hami-validation/`](examples/hami-validation/)
+proves two Pods can share one physical GPU via vGPU memory slices (requires
+`install_hami = true`):
+
+```bash
+make -C examples/hami-validation apply wait logs clean
+```
+
+**Roboflow RF-DETR on Kubeflow Pipelines** — [`examples/roboflow-pipeline/`](examples/roboflow-pipeline/)
+runs a real, keyless object-detection workload through Kubeflow Pipelines,
+validating that HAMi's admission webhook correctly intercepts GPU pods
+created by Argo Workflows (no explicit scheduler hint needed, unlike the two
+examples above). Requires `install_kubeflow = true` and `install_hami = true`:
+
+```bash
+cd examples/roboflow-pipeline
+make venv compile
+# In one terminal: make port-forward
+# In another:      make run
+```
 
 ## Cluster Specifications
 

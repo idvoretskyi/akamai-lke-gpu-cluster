@@ -174,3 +174,6 @@ htmlcov/
 # Documentation builds
 docs/_build/
 site/
+
+# Compiled Kubeflow Pipelines IR (examples/roboflow-pipeline)
+examples/roboflow-pipeline/pipeline.yaml

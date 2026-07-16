@@ -1,0 +1,125 @@
+"""Roboflow RF-DETR object-detection pipeline for Kubeflow Pipelines.
+
+Validates the full HAMi + Kubeflow + GPU Operator stack end-to-end: a single
+GPU component, orchestrated by Kubeflow Pipelines (Argo Workflows under the
+hood), requests a `nvidia.com/gpu` resource. HAMi's mutating webhook should
+intercept the Argo-created Pod and route it through `hami-scheduler` onto a
+vGPU slice — this is a genuinely different code path from our earlier manual
+Pod tests (which set `schedulerName` explicitly), because Argo/KFP has no
+concept of a custom scheduler name to set.
+
+Model: RF-DETR (https://github.com/roboflow/rf-detr), Roboflow's open-source,
+Apache-2.0-licensed real-time object detector. Uses the smallest checkpoint
+(RFDETRNano) and pretrained COCO weights, both of which download without any
+Roboflow API key — keeping this example runnable with zero external secrets.
+"""
+
+from kfp import compiler, dsl
+from kfp import kubernetes
+
+# Matches the CUDA userspace already present on the GPU node's driver
+# (NVIDIA 610.x, CUDA UMD 13.x) — the container CUDA runtime just needs to be
+# no newer than what the host driver supports, and 12.4 comfortably is.
+BASE_IMAGE = "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+
+# The GPU node taint applied by this repo when dedicate_gpu_nodes = true
+# (tofu/locals.tf: local.gpu_node_taint).
+GPU_TAINT_KEY = "nvidia.com/gpu"
+GPU_TAINT_EFFECT = "NoSchedule"
+
+SAMPLE_IMAGE_URL = "https://media.roboflow.com/dog.jpeg"
+
+
+@dsl.component(base_image=BASE_IMAGE, packages_to_install=["rfdetr", "supervision"])
+def detect_objects(image_url: str, confidence_threshold: float) -> str:
+    """Runs RF-DETR object detection on a sample image using the GPU.
+
+    Prints CUDA/device diagnostics (confirming the pod actually got a GPU —
+    HAMi vGPU slice or otherwise) plus the detected classes, and returns a
+    short summary string as the component output.
+    """
+    import torch
+
+    print(f"torch.cuda.is_available() = {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"torch.cuda.get_device_name(0) = {torch.cuda.get_device_name(0)}")
+        props = torch.cuda.get_device_properties(0)
+        print(f"torch.cuda memory (total) = {props.total_memory / (1024 ** 2):.0f} MiB")
+    else:
+        raise RuntimeError(
+            "CUDA is not available inside the pod — the GPU was not "
+            "injected (check the HAMi/GPU Operator RuntimeClass wiring)."
+        )
+
+    # `supervision` (an rfdetr dependency) pulls in the GUI build of OpenCV
+    # (`opencv-python`), which needs libxcb/libGL — not present in the slim
+    # CUDA runtime base image. Force the headless build (no system deps)
+    # before anything imports cv2; this overwrites the GUI build's files in
+    # site-packages, which is the standard fix for this exact conflict.
+    import subprocess
+    import sys
+
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-q", "opencv-python-headless"],
+        check=True,
+    )
+
+    from rfdetr import RFDETRNano
+    from rfdetr.assets.coco_classes import COCO_CLASSES
+
+    model = RFDETRNano()
+    detections = model.predict(image_url, threshold=confidence_threshold)
+
+    labels = [COCO_CLASSES[class_id] for class_id in detections.class_id]
+    print(f"Detected {len(labels)} object(s): {labels}")
+    for label, confidence in zip(labels, detections.confidence):
+        print(f"  - {label}: {confidence:.2f}")
+
+    if len(labels) == 0:
+        raise RuntimeError("RF-DETR returned zero detections on the sample image.")
+
+    return f"{len(labels)} detection(s): {', '.join(sorted(set(labels)))}"
+
+
+@dsl.pipeline(
+    name="roboflow-rfdetr-gpu-validation",
+    description=(
+        "Runs Roboflow's RF-DETR object detector on a HAMi-managed GPU "
+        "slice inside a Kubeflow user namespace, validating GPU Operator + "
+        "HAMi + Kubeflow Pipelines end-to-end."
+    ),
+)
+def roboflow_pipeline(
+    image_url: str = SAMPLE_IMAGE_URL,
+    confidence_threshold: float = 0.5,
+):
+    task = detect_objects(
+        image_url=image_url,
+        confidence_threshold=confidence_threshold,
+    )
+    task.set_display_name("rfdetr-gpu-detect")
+    task.set_caching_options(False)
+
+    # Request one whole GPU. HAMi's admission webhook intercepts pods
+    # requesting nvidia.com/gpu regardless of scheduler, mutating them onto
+    # hami-scheduler + the vGPU-aware RuntimeClass — see module README at
+    # tofu/modules/hami/README.md for how the slice count is configured.
+    task.set_accelerator_type("nvidia.com/gpu")
+    task.set_accelerator_limit(1)
+
+    # Argo/KFP has no first-class "schedulerName" setting, so the taint
+    # toleration must be added directly; without it the pod can never even
+    # be considered for the (tainted) GPU node in the first place.
+    kubernetes.add_toleration(
+        task,
+        key=GPU_TAINT_KEY,
+        operator="Exists",
+        effect=GPU_TAINT_EFFECT,
+    )
+
+
+if __name__ == "__main__":
+    compiler.Compiler().compile(
+        pipeline_func=roboflow_pipeline,
+        package_path="pipeline.yaml",
+    )
