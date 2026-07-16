@@ -111,6 +111,12 @@ chain when going through the dashboard. `submit.py` talks to the
 chain, so it sets the same header manually (defaults to the standard demo
 user `user@example.com` / namespace `kubeflow-user-example-com`).
 
+The "UI:" link `submit.py` prints after submitting points at a *separate*
+port-forward of the Istio ingress gateway (`--ui-host`, defaults to
+`http://localhost:8080`) — `kubectl port-forward -n istio-system
+svc/istio-ingressgateway 8080:80` — since the dashboard isn't served by
+`ml-pipeline` itself.
+
 ## Files
 
 | File | Purpose |

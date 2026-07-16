@@ -56,8 +56,15 @@ if [ ! -d "${REPO_DIR}" ]; then
   git clone --depth 1 --branch "${GIT_REF}" \
     https://github.com/kubeflow/community-distribution.git "${REPO_DIR}"
 else
+  # A shallow `fetch <ref>` populates FETCH_HEAD but doesn't necessarily
+  # create/update a local ref named ${GIT_REF} (particularly across shallow
+  # fetches of different refs) -- `checkout "${GIT_REF}"` can then fail even
+  # though the desired commit was fetched. Checking out FETCH_HEAD directly
+  # always lands on exactly what was just fetched; the resulting detached
+  # HEAD is fine here since this is a one-shot working copy, not a repo
+  # anyone develops against.
   git -C "${REPO_DIR}" fetch --depth 1 origin "${GIT_REF}"
-  git -C "${REPO_DIR}" checkout "${GIT_REF}"
+  git -C "${REPO_DIR}" checkout --detach FETCH_HEAD
 fi
 
 cd "${REPO_DIR}"

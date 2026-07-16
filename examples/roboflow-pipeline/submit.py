@@ -18,6 +18,7 @@ import kfp
 from pipeline import roboflow_pipeline
 
 DEFAULT_HOST = "http://localhost:8888"
+DEFAULT_UI_HOST = "http://localhost:8080"
 DEFAULT_USER = "user@example.com"
 DEFAULT_NAMESPACE = "kubeflow-user-example-com"
 POLL_INTERVAL_SECONDS = 15
@@ -34,7 +35,9 @@ def build_client(host: str, user: str, namespace: str) -> kfp.Client:
     return client
 
 
-def run(host: str, user: str, namespace: str, wait: bool, timeout: int) -> int:
+def run(
+    host: str, ui_host: str, user: str, namespace: str, wait: bool, timeout: int
+) -> int:
     client = build_client(host, user, namespace)
 
     print(f"Submitting run against {host} (namespace={namespace}, user={user})...")
@@ -47,7 +50,12 @@ def run(host: str, user: str, namespace: str, wait: bool, timeout: int) -> int:
     )
     run_id = run_result.run_id
     print(f"Run submitted: {run_id}")
-    print(f"UI: {host.replace('8888', '8080')}/pipeline/#/runs/details/{run_id}")
+    # ui_host is the Kubeflow dashboard, reached through a *separate*
+    # port-forward of the istio-ingressgateway Service (see the module
+    # README) -- not derived from `host` (the ml-pipeline API port-forward),
+    # since string-mangling one URL into the other breaks the moment either
+    # port is customized.
+    print(f"UI: {ui_host}/pipeline/#/runs/details/{run_id}")
 
     if not wait:
         return 0
@@ -78,10 +86,19 @@ def run(host: str, user: str, namespace: str, wait: bool, timeout: int) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument(
+        "--ui-host",
+        default=DEFAULT_UI_HOST,
+        help="Kubeflow dashboard address, via `kubectl port-forward -n "
+        "istio-system svc/istio-ingressgateway 8080:80` (separate from "
+        "--host, the ml-pipeline API port-forward)",
+    )
     parser.add_argument("--user", default=DEFAULT_USER)
     parser.add_argument("--namespace", default=DEFAULT_NAMESPACE)
     parser.add_argument("--no-wait", dest="wait", action="store_false")
     parser.add_argument("--timeout", type=int, default=1800)
     args = parser.parse_args()
 
-    sys.exit(run(args.host, args.user, args.namespace, args.wait, args.timeout))
+    sys.exit(
+        run(args.host, args.ui_host, args.user, args.namespace, args.wait, args.timeout)
+    )
