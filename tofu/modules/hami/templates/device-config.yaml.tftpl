@@ -20,3 +20,9 @@ nvidia:
   # not support MIG, migStrategy is "none", and the chart's own default list
   # only covers A30/A100/H100/H200/B200 anyway.
   knownMigGeometries: []
+# Helm release revision this was rendered alongside (not read by HAMi —
+# purely so this file's content changes on every Helm upgrade, forcing
+# OpenTofu to re-apply this ConfigMap override even on upgrades that don't
+# touch any of the variables above; see main.tf).
+# helm-release-revision: ${helm_release_revision}
+

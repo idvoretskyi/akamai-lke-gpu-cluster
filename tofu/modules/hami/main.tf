@@ -68,6 +68,15 @@ resource "helm_release" "hami" {
 # ConfigMap (and restart the scheduler) to the chart's whole-GPU default too
 # — skipping management entirely at 0 would leave a previously-patched
 # non-zero value in place indefinitely.
+#
+# helm_release_revision is folded into the rendered content purely so this
+# resource's own diff picks up every Helm upgrade of the release, even ones
+# that don't touch our tracked variables — depends_on only orders operations
+# within an apply, it doesn't force this resource to be considered changed
+# (and therefore re-applied) just because helm_release.hami changed. Without
+# something like this, a same-apply Helm upgrade that regenerates the
+# ConfigMap back to chart defaults could leave our override unapplied until
+# the next `tofu apply` notices the drift on refresh.
 resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
   metadata {
     name      = "${helm_release.hami.name}-scheduler-device"
@@ -83,6 +92,7 @@ resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
       device_memory_scaling = var.device_memory_scaling
       device_core_scaling   = var.device_core_scaling
       runtime_class_name    = var.runtime_class_name
+      helm_release_revision = helm_release.hami.metadata.revision
     })
   }
 
@@ -121,10 +131,10 @@ resource "terraform_data" "restart_scheduler" {
     # does not stop on error between statements.
     command     = <<-EOT
       set -euo pipefail
-      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig.filename)} \
-        rollout restart deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name}
-      kubectl --kubeconfig ${abspath(local_sensitive_file.kubeconfig.filename)} \
-        rollout status deployment/${helm_release.hami.name}-scheduler -n ${kubernetes_namespace_v1.hami.metadata[0].name} --timeout=120s
+      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
+        rollout restart "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}"
+      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
+        rollout status "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}" --timeout=120s
     EOT
     interpreter = ["/usr/bin/env", "bash", "-c"]
   }

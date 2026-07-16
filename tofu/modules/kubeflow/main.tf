@@ -34,8 +34,9 @@ resource "terraform_data" "install_kubeflow" {
   provisioner "local-exec" {
     # Absolute paths: the install script `cd`s into the cloned manifests
     # repo, so a relative kubeconfig/work-dir path passed in would no longer
-    # resolve to the right file/directory after that `cd`.
-    command     = "${abspath(path.module)}/scripts/install.sh ${abspath(local_sensitive_file.kubeconfig.filename)} ${var.kubeflow_ref} ${abspath(path.module)}/.work"
+    # resolve to the right file/directory after that `cd`. Quoted since the
+    # repo (or module source) path could contain spaces.
+    command     = "\"${abspath(path.module)}/scripts/install.sh\" \"${abspath(local_sensitive_file.kubeconfig.filename)}\" \"${var.kubeflow_ref}\" \"${abspath(path.module)}/.work\""
     interpreter = ["/usr/bin/env", "bash", "-c"]
 
     environment = {

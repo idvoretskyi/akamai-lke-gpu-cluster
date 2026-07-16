@@ -56,6 +56,13 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
   `templates/values.yaml.tftpl`, `README.md`. New modules must mirror this and
   be added to the CI matrix in `.github/workflows/ci.yml` and to
   `.github/dependabot.yml`.
+  - **Exception: `modules/kubeflow`.** Upstream Kubeflow has no single Helm
+    chart covering the full platform (only a few individual components ship
+    experimental charts) — this module installs via
+    `kustomize build | kubectl apply` in a `local-exec` provisioner instead
+    of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
+    intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
+    the Helm pattern.
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
   `g6-standard-8` is recommended only when adding Kubeflow (measured usage
   with the full stack is ~9-10 GB).
