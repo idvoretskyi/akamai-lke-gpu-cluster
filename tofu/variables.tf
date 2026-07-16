@@ -208,6 +208,17 @@ variable "hami_device_split_count" {
   }
 }
 
+variable "hami_default_gpu_memory" {
+  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu without an explicit nvidia.com/gpumem limit. Defaults to a real slice (8000 MB) rather than the whole physical GPU (HAMi's own chart default), since most orchestrators — including Kubeflow Pipelines via the kfp SDK — have no easy way to set that extra resource key. Set to 0 to restore whole-GPU behavior for unslotted requests."
+  type        = number
+  default     = 8000
+
+  validation {
+    condition     = var.hami_default_gpu_memory >= 0
+    error_message = "hami_default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
+  }
+}
+
 # ─── Kubeflow ─────────────────────────────────────────────────────────────────
 # Opt-in and heavy (see modules/kubeflow/README.md) — installs via kustomize +
 # kubectl apply, not Helm, since upstream Kubeflow has no single full-platform

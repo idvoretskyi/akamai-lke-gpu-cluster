@@ -69,6 +69,10 @@ enable_gpu_monitoring = true
 install_hami            = true
 hami_version            = "2.9.0"
 hami_device_split_count = 10
+# vGPU memory (MB) given to nvidia.com/gpu requests with no explicit gpumem
+# (e.g. Kubeflow Pipelines components, which have no way to set gpumem via
+# the kfp SDK). 0 = whole physical GPU for such requests (HAMi's own default).
+hami_default_gpu_memory = 8000
 
 # ============================================================================
 # Kubeflow — opt-in, heavy

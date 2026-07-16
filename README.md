@@ -151,6 +151,7 @@ install_metrics_server = true
 # HAMi GPU virtualization — lab default: enabled
 install_hami            = true
 hami_device_split_count = 10
+hami_default_gpu_memory = 8000  # MB given to unslotted nvidia.com/gpu requests
 
 # Kubeflow — opt-in, heavy
 install_kubeflow = false
@@ -220,7 +221,9 @@ full stack including Kubeflow — both are installed in-repo via
 **GPU scheduling contract** (applies to any GPU workload on this cluster):
 
 - Request a GPU: `nvidia.com/gpu` resource limit = 1 (add `nvidia.com/gpumem`
-  for a HAMi vGPU slice instead of the whole card)
+  for an explicit HAMi vGPU slice size; without it, requests get
+  `hami_default_gpu_memory` MB by default — see `modules/hami/README.md` —
+  not the whole card)
 - Tolerate the taint: `nvidia.com/gpu=present:NoSchedule`
 - Pin to the GPU pool: node selector `nodepool.lke/role=gpu`
 

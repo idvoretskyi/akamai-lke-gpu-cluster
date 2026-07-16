@@ -10,16 +10,16 @@ from Roboflow's public CDN.
 
 This is the most end-to-end test in the repo: Kubeflow Pipelines (Argo
 Workflows) orchestrating a GPU workload, scheduled through HAMi, on a node
-managed by the GPU Operator.
+managed by the GPU Operator — and it validates two distinct things the
+other examples (`gpu-validation`, `hami-validation`) don't.
 
-Specifically, it proves something the other examples (`gpu-validation`,
-`hami-validation`) don't: **HAMi's mutating webhook correctly intercepts
-pods it didn't get a manual `schedulerName` hint for.** Argo/KFP has no
-concept of a custom Kubernetes scheduler to set on the pods it creates, so
-this component only requests `nvidia.com/gpu: 1` — the same way any
-ordinary GPU workload would. If HAMi is wired correctly, its admission
-webhook rewrites the pod's `schedulerName` and `runtimeClassName`
-automatically. You can confirm this happened:
+**1. HAMi's mutating webhook correctly intercepts pods it didn't get a
+manual `schedulerName` hint for.** Argo/KFP has no concept of a custom
+Kubernetes scheduler to set on the pods it creates, so this component only
+requests `nvidia.com/gpu: 1` — the same way any ordinary GPU workload
+would. If HAMi is wired correctly, its admission webhook rewrites the pod's
+`schedulerName` and `runtimeClassName` automatically. You can confirm this
+happened:
 
 ```bash
 POD=$(kubectl get pods -n kubeflow-user-example-com -o name | grep container-impl)
@@ -28,6 +28,19 @@ kubectl get -n kubeflow-user-example-com "$POD" \
 # -> hami-scheduler nvidia-legacy <gpu-node-name>
 ```
 
+**2. HAMi memory *slicing* — not just GPU *count* sharing — works through
+Kubeflow.** The `kfp` SDK's `set_accelerator_type()`/`set_accelerator_limit()`
+only support one accelerator resource (`nvidia.com/gpu`); there's no
+first-class way to also request the `nvidia.com/gpumem` resource HAMi uses
+for memory slices. This component doesn't try — instead it relies on the
+HAMi module's `default_gpu_memory` setting (`hami_default_gpu_memory` root
+variable, default 8000 MB), a cluster-wide fallback slice size applied to
+any `nvidia.com/gpu` request that doesn't specify `gpumem` explicitly. The
+component asserts the GPU memory it sees matches that slice, not the whole
+20 GB physical card — proving memory virtualization holds even for
+orchestrators (like Kubeflow Pipelines) that have no direct way to request
+it.
+
 The component itself then confirms `torch.cuda.is_available()`, prints the
 GPU name/memory it was actually given, and runs real object detection.
 
@@ -35,6 +48,9 @@ GPU name/memory it was actually given, and runs real object detection.
 
 - `install_kubeflow = true` and `install_hami = true` (both required; see
   root `tofu.tfvars`).
+- `hami_default_gpu_memory > 0` (default: `8000`) if you want the memory-slice
+  assertion to mean anything — set the pipeline's `expected_gpu_memory_mib`
+  parameter to `0` to skip it if you've disabled that on the HAMi side.
 - Python 3.10+ locally, to run the `kfp` SDK (compiling/submitting the
   pipeline happens from your machine, not in-cluster).
 - `kubectl` access to the cluster.
@@ -68,14 +84,17 @@ should show:
 ```text
 torch.cuda.is_available() = True
 torch.cuda.get_device_name(0) = NVIDIA RTX 4000 Ada Generation
-torch.cuda memory (total) = 20475 MiB
+torch.cuda memory (total) = 8000 MiB
+Confirmed HAMi vGPU memory slice: 8000 MiB (expected ~8000 MiB) — this pod did NOT get the whole physical GPU.
 Detected 3 object(s): ['dog', 'person', 'car']
   - dog: 0.84
   - person: 0.77
   - car: 0.52
 ```
 
-(Exact detections/confidences may vary slightly by RF-DETR version.)
+(Exact detections/confidences may vary slightly by RF-DETR version. The
+memory figure will read ~20475 MiB — the whole physical GPU — if
+`hami_default_gpu_memory` is set to `0`.)
 
 First run downloads the RF-DETR checkpoint (~350 MB) inside the pod — this
 happens on every fresh pod since nothing is cached between runs; expect
