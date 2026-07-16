@@ -3,7 +3,9 @@
 # ============================================================================
 # Copy this file to tofu.tfvars and adjust as needed.
 #
-# Linode API token is read from the LINODE_TOKEN environment variable:
+# Linode API token: auto-resolved from the default user in
+# ~/.config/linode-cli if present (takes priority), else from the
+# LINODE_TOKEN environment variable:
 #   export LINODE_TOKEN="your-token"
 
 # ============================================================================
@@ -45,6 +47,9 @@ dedicate_gpu_nodes = true
 
 allowed_kubectl_ips    = ["0.0.0.0/0"]
 allowed_monitoring_ips = ["0.0.0.0/0"]
+
+# node_cidrs = ["192.168.128.0/17"]  # LKE private node range (rarely needs changing)
+# pod_cidrs  = ["10.2.0.0/16"]       # LKE pod CIDR (rarely needs changing)
 
 # ============================================================================
 # Kubeconfig
@@ -99,6 +104,16 @@ grafana_admin_password = "admin"
 prometheus_retention   = "7d"
 prometheus_storage_size = "15Gi" # ~$1.50/month
 grafana_storage_size    = "5Gi"  # ~$0.50/month
+
+# Optional: override default CPU/memory requests+limits (defaults shown)
+# prometheus_resources = {
+#   requests = { cpu = "200m", memory = "512Mi" }
+#   limits   = { cpu = "1000m", memory = "2Gi" }
+# }
+# grafana_resources = {
+#   requests = { cpu = "50m", memory = "128Mi" }
+#   limits   = { cpu = "200m", memory = "512Mi" }
+# }
 
 # ============================================================================
 # Cost Monitoring (OpenCost)

@@ -28,12 +28,19 @@ output "validation_commands" {
     # reflects device_split_count slices per physical GPU, not physical count)
     kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 
-    # Run two pods sharing one physical GPU (schedulerName + gpumem request)
-    kubectl run hami-test-1 --rm -it --restart=Never \
-      --overrides='{"spec":{"schedulerName":"hami-scheduler"}}' \
-      --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-      --limits=nvidia.com/gpu=1,nvidia.com/gpumem=2000 \
-      -- nvidia-smi
+    # Two pods sharing one physical GPU, each requesting an explicit memory
+    # slice (see examples/hami-validation for the tested manifest —
+    # `kubectl run --limits=...` was removed in kubectl 1.24+)
+    kubectl apply -f examples/hami-validation/nvidia-smi-shared-pods.yaml
+    kubectl wait pod/hami-validation-a pod/hami-validation-b --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+    kubectl logs hami-validation-a && kubectl logs hami-validation-b
+
+    # A Pod that only requests nvidia.com/gpu (no gpumem) gets the module's
+    # default_gpu_memory slice instead of the whole physical GPU (see
+    # examples/gpu-validation for the tested manifest)
+    kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
+    kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+    kubectl logs pod/gpu-validation
 
     # Check HAMi scheduler logs
     kubectl logs -n ${kubernetes_namespace_v1.hami.metadata[0].name} -l app.kubernetes.io/component=hami-scheduler

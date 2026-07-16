@@ -15,18 +15,24 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 
 ## Dependency Graph
 
+All modules' `kubernetes`/`helm` provider configs key off
+`linode_lke_cluster.gpu_cluster`'s kubeconfig (`local.k8s_auth`), but that's
+implicit provider wiring, not a module `depends_on`. Explicit `depends_on`
+edges between modules (`tofu/modules.tf`):
+
 ```text
-linode_lke_cluster
-    └─> terraform_data.merge_kubeconfig
-        ├─> module.gpu_operator
-        │       ├─> module.hami
-        │       │       └─> module.kubeflow
-        │       └─> module.kubeflow
-        ├─> module.metrics_server
-        ├─> module.kube_prometheus_stack
-        │       └─> module.opencost
-        └─> (kubeconfig written to ~/.kube/config)
+module.gpu_operator
+    ├─> module.hami ─────────────────┐
+    ├─> module.kube_prometheus_stack │
+    └─> module.kubeflow <────────────┘
+module.metrics_server
+    └─> module.kube_prometheus_stack
+            └─> module.opencost
 ```
+
+`terraform_data.merge_kubeconfig` (writes `~/.kube/config`, `tofu/kubeconfig.tf`)
+is independent — no module depends on it, and disabling it
+(`merge_kubeconfig = false`) doesn't affect any module install.
 
 All modules are optional and independently toggled via `install_*` root variables.
 

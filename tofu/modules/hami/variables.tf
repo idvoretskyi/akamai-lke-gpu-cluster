@@ -1,3 +1,5 @@
+# ─── Release ──────────────────────────────────────────────────────────────────
+
 variable "namespace" {
   description = "Kubernetes namespace for HAMi"
   type        = string
@@ -14,6 +16,9 @@ variable "hami_version" {
     error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
   }
 }
+
+# ─── GPU Virtualization ───────────────────────────────────────────────────────
+# Chart knobs controlling how physical GPUs are split into vGPU slices.
 
 variable "device_split_count" {
   description = "Number of vGPU slices each physical GPU is split into (HAMi devicePlugin.deviceSplitCount). E.g. 10 lets 10 pods share one physical GPU."
@@ -59,6 +64,19 @@ variable "scheduler_policy" {
   }
 }
 
+variable "default_gpu_memory" {
+  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu WITHOUT an explicit nvidia.com/gpumem limit (0 = whole physical GPU, HAMi's own chart default). See README.md 'Memory slicing defaults' for why and how this module enforces it (the chart has no Helm value for it)."
+  type        = number
+  default     = 8000
+
+  validation {
+    condition     = var.default_gpu_memory >= 0
+    error_message = "default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
+  }
+}
+
+# ─── Scheduling / Placement ───────────────────────────────────────────────────
+
 variable "node_selector" {
   description = "nodeSelector to pin the HAMi scheduler and webhook control-plane components onto a specific node pool (e.g. the system pool). The devicePlugin DaemonSet always targets GPU nodes via nvidiaNodeSelector regardless. Empty schedules anywhere."
   type        = map(string)
@@ -81,8 +99,18 @@ variable "nvidia_node_selector" {
   default     = { gpu = "on" }
 }
 
+variable "scheduler_leader_elect" {
+  description = "Enable HAMi scheduler leader election (scheduler.leaderElect). false avoids an anti-affinity deadlock the chart adds when true, which is fatal to rolling updates on a single-node system pool. See README.md for details."
+  type        = bool
+  default     = false
+}
+
+# ─── Runtime / GPU Operator Integration ───────────────────────────────────────
+# See README.md for why these must be the specific values they are (a legacy,
+# non-CDI RuntimeClass; the GPU Operator's containerized driver path).
+
 variable "runtime_class_name" {
-  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods, so the driver/libraries are actually visible. Must be a legacy (non-CDI) NVIDIA runtime: HAMi's GPU sharing relies on hijacking the driver library via LD_PRELOAD + NVIDIA_VISIBLE_DEVICES, which conflicts with the modern CDI-based runtime path (the GPU Operator's default 'nvidia' RuntimeClass has CDI enabled and fails to resolve HAMi's device references). The GPU Operator's toolkit also registers a 'nvidia-legacy' RuntimeClass (no CDI) that works correctly here."
+  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods. Must be a legacy (non-CDI) NVIDIA runtime — see README.md 'Notes'."
   type        = string
   default     = "nvidia-legacy"
 }
@@ -99,25 +127,14 @@ variable "wait_for_toolkit_ready" {
   default     = true
 }
 
-variable "scheduler_leader_elect" {
-  description = "Enable HAMi scheduler leader election (scheduler.leaderElect). The chart adds hard pod anti-affinity to the scheduler Deployment whenever this is true, which deadlocks rolling updates on a single-node system pool (the new replica can never schedule alongside the old one, and the GPU pool is tainted). Defaults to false for this repo's single system-node lab topology; only 1 replica runs either way when false."
-  type        = bool
-  default     = false
-}
-
-variable "default_gpu_memory" {
-  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu WITHOUT an explicit nvidia.com/gpumem limit (HAMi scheduler-config nvidia.defaultMemory). 0 (chart default) means such a Pod gets the whole physical GPU, which defeats virtualization for workloads that have no easy way to set that extra resource key (e.g. Kubeflow Pipelines components via the kfp SDK, which only supports one accelerator resource type). HAMi v2.9.0's chart hardcodes this value with no Helm knob for it, so this module always patches the hami-scheduler-device ConfigMap directly after each Helm apply (and restarts the scheduler) regardless of this value, so that setting it back to 0 actually restores whole-GPU behavior too — see main.tf for details."
-  type        = number
-  default     = 8000
-
-  validation {
-    condition     = var.default_gpu_memory >= 0
-    error_message = "default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
-  }
-}
+# ─── Cluster Auth ─────────────────────────────────────────────────────────────
+# Used to restart hami-scheduler after every hami-scheduler-device ConfigMap
+# patch (see default_gpu_memory and main.tf) — always required, since even
+# resetting default_gpu_memory to 0 needs the scheduler restarted to take
+# effect. Pass local.k8s_auth.* from the root module.
 
 variable "k8s_host" {
-  description = "Kubernetes API server URL. Used to build a scratch kubeconfig for the `kubectl rollout restart` that's always run after patching the hami-scheduler-device ConfigMap (see default_gpu_memory) — required regardless of that value, since even resetting it to 0 needs the scheduler restarted to take effect."
+  description = "Kubernetes API server URL."
   type        = string
 
   validation {
@@ -127,7 +144,7 @@ variable "k8s_host" {
 }
 
 variable "k8s_token" {
-  description = "Kubernetes API bearer token. See k8s_host."
+  description = "Kubernetes API bearer token."
   type        = string
   sensitive   = true
 
@@ -138,7 +155,7 @@ variable "k8s_token" {
 }
 
 variable "k8s_cluster_ca_certificate" {
-  description = "Base64-decoded cluster CA certificate (PEM). See k8s_host."
+  description = "Base64-decoded cluster CA certificate (PEM)."
   type        = string
   sensitive   = true
 

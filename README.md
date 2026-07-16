@@ -1,6 +1,6 @@
 # Linode GPU Kubernetes Infrastructure
 
-[![CI](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml)
+[![CI](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
@@ -32,7 +32,9 @@ Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, ML
 ## Quick Start
 
 ```bash
-# Configure Linode API token (paste your Personal Access Token)
+# Configure Linode API token — skip this if `linode-cli configure` is
+# already set up (the provider auto-resolves it from ~/.config/linode-cli;
+# see Prerequisites below)
 export LINODE_TOKEN="YOUR_PERSONAL_ACCESS_TOKEN"
 
 # Initialize and deploy

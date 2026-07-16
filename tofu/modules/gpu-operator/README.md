@@ -62,9 +62,9 @@ kubectl get pods -n gpu-operator
 # Verify GPU devices on nodes
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 
-# Run a GPU test workload
-kubectl run gpu-test --rm -it --restart=Never \
-  --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-  --limits=nvidia.com/gpu=1 \
-  -- nvidia-smi
+# Run a GPU test workload (kubectl run --limits=... was removed in
+# kubectl 1.24+ — use the tested manifest in examples/gpu-validation instead)
+kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
+kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+kubectl logs pod/gpu-validation
 ```

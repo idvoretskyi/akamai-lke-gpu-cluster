@@ -90,8 +90,9 @@ module "kube_prometheus_stack" {
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and
-# release name. When monitoring is disabled, OpenCost should also be disabled
-# (see validation in variables.tf and the check in checks.tf).
+# release name. When monitoring is disabled, OpenCost falls back to the
+# in-cluster default URL in modules/opencost/variables.tf, which won't resolve
+# to anything real — see install_opencost's description in variables.tf.
 module "opencost" {
   count  = var.install_opencost ? 1 : 0
   source = "./modules/opencost"

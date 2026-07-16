@@ -27,11 +27,11 @@ output "validation_commands" {
     # Verify GPU devices are detected
     kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 
-    # Run GPU test workload
-    kubectl run gpu-test --rm -it --restart=Never \
-      --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-      --limits=nvidia.com/gpu=1 \
-      -- nvidia-smi
+    # Run GPU test workload (see examples/gpu-validation for the tested
+    # manifest — `kubectl run --limits=...` was removed in kubectl 1.24+)
+    kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
+    kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+    kubectl logs pod/gpu-validation
 
     # Check DCGM metrics (if enabled)
     kubectl get pods -n ${kubernetes_namespace_v1.gpu_operator.metadata[0].name} -l app=nvidia-dcgm-exporter

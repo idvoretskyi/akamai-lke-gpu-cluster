@@ -1,11 +1,11 @@
-# Repository settings for linode-gpu-k8s
+# Repository settings for akamai-lke-gpu-cluster
 # This file is used by the Settings GitHub App to manage repository configuration
 # https://github.com/apps/settings
 
 repository:
   # Repository description
-  name: linode-gpu-k8s
-  description: Infrastructure as Code for deploying GPU-enabled Kubernetes clusters on Linode with comprehensive monitoring, optimized for AI/ML workloads
+  name: akamai-lke-gpu-cluster
+  description: Infrastructure as Code for deploying GPU-enabled Kubernetes clusters on Akamai (LKE) with comprehensive monitoring, optimized for AI/ML workloads
   homepage: ""
   topics: kubernetes, linode, lke, opentofu, terraform, gpu, nvidia, ml, ai, machine-learning, mlops, infrastructure-as-code, prometheus, grafana, monitoring
   

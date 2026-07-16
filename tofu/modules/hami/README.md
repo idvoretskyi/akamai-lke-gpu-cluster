@@ -58,15 +58,17 @@ module "hami" {
 | `device_memory_scaling` | GPU memory oversubscription ratio | `1` |
 | `device_core_scaling` | GPU compute-core oversubscription ratio | `1` |
 | `scheduler_policy` | `binpack` or `spread` | `"binpack"` |
+| `default_gpu_memory` | vGPU memory (MB) given to `nvidia.com/gpu` requests with no explicit `gpumem`; `0` disables (whole-GPU) | `8000` |
 | `node_selector` | nodeSelector for HAMi control-plane bits (webhook cert job) | `{}` |
 | `gpu_node_toleration` | GPU node taint the devicePlugin tolerates; `null` when untainted | `null` |
 | `nvidia_node_selector` | nodeSelector the devicePlugin uses to target GPU nodes | `{ gpu = "on" }` |
+| `scheduler_leader_elect` | HAMi scheduler leader election; `false` avoids an anti-affinity deadlock on single-node system pools | `false` |
 | `runtime_class_name` | RuntimeClass the devicePlugin (and HAMi-scheduled workloads) run under — must be a legacy/non-CDI NVIDIA runtime | `"nvidia-legacy"` |
 | `nvidia_driver_root` | Host path where the GPU Operator's containerized driver is installed | `"/run/nvidia/driver"` |
 | `wait_for_toolkit_ready` | Gate devicePlugin startup on the GPU Operator's toolkit readiness marker | `true` |
-| `scheduler_leader_elect` | HAMi scheduler leader election; `false` avoids an anti-affinity deadlock on single-node system pools | `false` |
-| `default_gpu_memory` | vGPU memory (MB) given to `nvidia.com/gpu` requests with no explicit `gpumem`; `0` disables (whole-GPU) | `8000` |
-| `k8s_host` / `k8s_token` / `k8s_cluster_ca_certificate` | Cluster auth, always required — used to restart the scheduler after every ConfigMap patch (including resetting to `default_gpu_memory = 0`) | *(required)* |
+| `k8s_host` | Kubernetes API server URL | (required) |
+| `k8s_token` | Kubernetes API bearer token | (required, sensitive) |
+| `k8s_cluster_ca_certificate` | Cluster CA certificate (PEM) | (required, sensitive) |
 
 ## Outputs
 
@@ -92,13 +94,10 @@ directly (`kubernetes_config_map_v1_data`, `force = true`) with our own
 `default_gpu_memory` value, then restarting `hami-scheduler` — the scheduler
 only reads this file at process startup, not on ConfigMap change, so a
 restart is required for the new value to take effect. Both happen
-automatically on every `tofu apply`, **unconditionally** — including when
-`default_gpu_memory = 0`, since restoring the chart's own whole-GPU default
-also needs the live ConfigMap reset and the scheduler restarted, not just
-"do nothing".
-
-Set `default_gpu_memory = 0` to restore the chart's own default (whole GPU
-for unslotted requests).
+automatically on every `tofu apply`, **unconditionally**, including when
+`default_gpu_memory = 0`: restoring the chart's own whole-GPU default for
+unslotted requests also needs the live ConfigMap reset and the scheduler
+restarted, not just "do nothing".
 
 ## Validation
 
@@ -107,19 +106,18 @@ for unslotted requests).
 kubectl get pods -n hami-system
 
 # Two pods sharing one physical GPU, each requesting an explicit memory slice
-kubectl run hami-test --rm -it --restart=Never \
-  --overrides='{"spec":{"schedulerName":"hami-scheduler"}}' \
-  --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-  --limits=nvidia.com/gpu=1,nvidia.com/gpumem=2000 \
-  -- nvidia-smi
+# (kubectl run --limits=... was removed in kubectl 1.24+ — use the tested
+# manifest in examples/hami-validation instead)
+kubectl apply -f examples/hami-validation/nvidia-smi-shared-pods.yaml
+kubectl wait pod/hami-validation-a pod/hami-validation-b --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+kubectl logs hami-validation-a && kubectl logs hami-validation-b
 
 # A Pod that only requests nvidia.com/gpu (no gpumem) gets default_gpu_memory
-# instead of the whole card (8000 MiB below, with the default setting):
-kubectl run hami-default-slice-test --rm -it --restart=Never \
-  --overrides='{"spec":{"schedulerName":"hami-scheduler"}}' \
-  --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-  --limits=nvidia.com/gpu=1 \
-  -- nvidia-smi
+# instead of the whole card (8000 MiB below, with the default setting) — see
+# examples/gpu-validation for the tested manifest:
+kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
+kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+kubectl logs pod/gpu-validation
 ```
 
 Pods that want a HAMi-managed GPU slice must set `schedulerName:
@@ -134,3 +132,10 @@ hami-scheduler` and request `nvidia.com/gpu` (+ optionally `nvidia.com/gpumem`
 - MIG remains disabled on the GPU Operator side; HAMi's software-level
   splitting (`hami-core` mode) is used instead, which works on GPUs without
   MIG support (e.g. RTX 4000 Ada).
+- `runtime_class_name` must be a **legacy (non-CDI) NVIDIA RuntimeClass**
+  (default: `"nvidia-legacy"`, which the GPU Operator's toolkit registers
+  alongside its own default `"nvidia"`). HAMi's GPU sharing relies on
+  hijacking the driver library via `LD_PRELOAD` + `NVIDIA_VISIBLE_DEVICES`,
+  which conflicts with the modern CDI-based device-injection path — the GPU
+  Operator's default `"nvidia"` RuntimeClass has CDI enabled and fails to
+  resolve HAMi's device references.

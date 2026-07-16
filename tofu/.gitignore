@@ -29,5 +29,8 @@ tofu.rc
 # Note: .terraform.lock.hcl files are committed to ensure consistent provider versions
 # This is the recommended approach for Terraform/OpenTofu projects
 
-# Note: Kubeconfig is automatically merged into ~/.kube/config
-# No local kubeconfig files are created by this configuration
+# Scratch kubeconfig files written by modules/hami and modules/kubeflow for
+# their local-exec provisioners (kubectl rollout restart / kustomize apply).
+# The cluster's own kubeconfig is separately merged into ~/.kube/config by
+# the root module's terraform_data.merge_kubeconfig, not written here.
+.kubeconfig-*

@@ -1,9 +1,11 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + four Helm-wrapping modules in `tofu/modules/`). The CLI is `tofu`
-(OpenTofu >= 1.9), **not** `terraform`. When code and prose disagree, the `.tf`
-files and `tofu/tofu.tfvars.example` are the source of truth.
+module + six modules in `tofu/modules/`, five wrapping Helm charts and one —
+`kubeflow` — installing via kustomize/kubectl; see "Module convention"
+below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
+and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
+source of truth.
 
 ## Commands (run from `tofu/`)
 
@@ -23,8 +25,12 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
 
 ## Local apply quirks
 
-- Auth: `export LINODE_TOKEN=...` — read from the env in `providers.tf`; there is
-  no tfvars entry for the token.
+- Auth: the `linode` provider resolves its token from the default user in
+  `~/.config/linode-cli` if present (parsed with plain HCL `file()`/`regex()`
+  in `locals.tf` — deliberately not a data source, so it's never persisted to
+  state), else falls back to its own `LINODE_TOKEN` environment variable
+  lookup. The linode-cli config takes priority over `LINODE_TOKEN` when both
+  are present. There is no tfvars entry for the token.
 - `tofu apply` runs a `local-exec` that merges the kubeconfig into
   `~/.kube/config` (requires `kubectl` on PATH). Set `merge_kubeconfig = false`
   to skip (CI / externally managed kubeconfig).
@@ -43,11 +49,13 @@ files and `tofu/tofu.tfvars.example` are the source of truth.
   `dedicate_gpu_nodes = true` (default); system workloads are pinned via
   `nodepool.lke/role=system`. GPU workloads must add the matching toleration and
   an `nvidia.com/gpu` resource limit.
-- `install_opencost = true` requires `install_monitoring = true` (advisory check
-  in `checks.tf`).
-- `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking** advisory
-  warnings (cost ceiling, non-default GPU SKU, HA-at-scale) — warnings, not
-  failures.
+- `install_opencost = true` requires `install_monitoring = true` for full
+  functionality (documented in the variable description; not currently
+  enforced by a `check` block).
+- `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
+  advisory warnings — currently: `install_kubeflow` without `install_hami`,
+  and `install_kubeflow` on a system node pool too small for the measured
+  ~9-10 GB usage. Warnings, not failures.
 
 ## Module convention
 
