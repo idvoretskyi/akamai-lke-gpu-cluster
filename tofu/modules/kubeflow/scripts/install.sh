@@ -7,6 +7,11 @@
 # Usage: install.sh <kubeconfig-path> <git-ref> <work-dir>
 set -euo pipefail
 
+die() {
+  echo "$1 — see modules/kubeflow/README.md prerequisites." >&2
+  exit 1
+}
+
 # macOS's coreutils (`brew install coreutils`) installs GNU timeout/realpath
 # under gtimeout/grealpath by default, to avoid clashing with BSD tools of
 # the same name — prefer the GNU-prefixed names if that's all that's present.
@@ -17,8 +22,7 @@ resolve_cmd() {
   elif command -v "${gnu_prefixed}" >/dev/null 2>&1; then
     echo "${gnu_prefixed}"
   else
-    echo "Required command '${preferred}' (or '${gnu_prefixed}') not found on PATH — see modules/kubeflow/README.md prerequisites." >&2
-    exit 1
+    die "Required command '${preferred}' (or '${gnu_prefixed}') not found on PATH"
   fi
 }
 
@@ -29,26 +33,25 @@ REALPATH_CMD="$(resolve_cmd realpath grealpath)"
 # than burning through the ~5 minute retry loop below on every attempt only
 # to discover e.g. kustomize isn't on PATH.
 for cmd in git kubectl kustomize; do
-  if ! command -v "${cmd}" >/dev/null 2>&1; then
-    echo "Required command '${cmd}' not found on PATH — see modules/kubeflow/README.md prerequisites." >&2
-    exit 1
-  fi
+  command -v "${cmd}" >/dev/null 2>&1 || die "Required command '${cmd}' not found on PATH"
 done
 
 KUBECONFIG_PATH="$1"
 GIT_REF="$2"
 WORK_DIR="$3"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-1800}"
+# How many times to retry `kubectl apply` (per upstream's own documented
+# CRD-ordering workaround) and how long to wait between attempts.
+MAX_ATTEMPTS="${MAX_ATTEMPTS:-15}"
+RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-20}"
 
-# Resolve to absolute paths up front — we `cd` below, and relative paths
-# passed in would stop resolving correctly after that.
+# Resolve to absolute paths up front, and create WORK_DIR — we `cd` below,
+# and relative paths passed in would stop resolving correctly after that.
 KUBECONFIG_PATH="$("${REALPATH_CMD}" "${KUBECONFIG_PATH}")"
-WORK_DIR="$(mkdir -p "${WORK_DIR}" && "${REALPATH_CMD}" "${WORK_DIR}")"
+mkdir -p "${WORK_DIR}"
+WORK_DIR="$("${REALPATH_CMD}" "${WORK_DIR}")"
 
 export KUBECONFIG="${KUBECONFIG_PATH}"
-
-mkdir -p "${WORK_DIR}"
-cd "${WORK_DIR}"
 
 REPO_DIR="${WORK_DIR}/community-distribution"
 
@@ -69,16 +72,15 @@ fi
 
 cd "${REPO_DIR}"
 
-max_attempts=15
 attempt=1
 until "${TIMEOUT_CMD}" "${TIMEOUT_SECONDS}" bash -c 'set -o pipefail; kustomize build example | kubectl apply --server-side --force-conflicts -f -'; do
-  if [ "${attempt}" -ge "${max_attempts}" ]; then
-    echo "kubectl apply did not converge after ${max_attempts} attempts" >&2
+  if [ "${attempt}" -ge "${MAX_ATTEMPTS}" ]; then
+    echo "kubectl apply did not converge after ${MAX_ATTEMPTS} attempts" >&2
     exit 1
   fi
-  echo "Retrying kubectl apply (attempt ${attempt}/${max_attempts})..."
+  echo "Retrying kubectl apply (attempt ${attempt}/${MAX_ATTEMPTS})..."
   attempt=$((attempt + 1))
-  sleep 20
+  sleep "${RETRY_DELAY_SECONDS}"
 done
 
 echo "Kubeflow applied successfully from ref '${GIT_REF}'."

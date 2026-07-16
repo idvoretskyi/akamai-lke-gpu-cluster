@@ -102,8 +102,6 @@ ai-context/
 *.swp
 *.swo
 *~
-.DS_Store
-.idea/
 *.sublime-*
 .project
 .classpath
@@ -162,7 +160,6 @@ dist/
 build/
 *.exe
 *.dll
-*.so
 *.dylib
 
 # Test coverage
