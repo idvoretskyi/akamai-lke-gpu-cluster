@@ -16,6 +16,12 @@ variable "install_driver" {
   default     = true
 }
 
+variable "device_plugin_enabled" {
+  description = "Enable the GPU Operator's stock NVIDIA device plugin. Set false when HAMi (or another GPU-virtualization device plugin) manages GPU scheduling instead — the operator then only provides the driver, container toolkit, DCGM, and GFD."
+  type        = bool
+  default     = true
+}
+
 variable "enable_dcgm_exporter" {
   description = "Enable DCGM Exporter for GPU metrics in Prometheus"
   type        = bool

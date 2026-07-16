@@ -24,6 +24,7 @@ module "gpu_operator" {
   namespace                   = "gpu-operator"
   gpu_operator_version        = "v26.3.2"
   install_driver              = true
+  device_plugin_enabled       = true
   enable_dcgm_exporter        = true
   enable_node_status_exporter = true
 }
@@ -36,6 +37,7 @@ module "gpu_operator" {
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
 | `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
 | `install_driver` | Install NVIDIA driver | `true` |
+| `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
 | `controller_node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
