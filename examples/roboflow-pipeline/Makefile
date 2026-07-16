@@ -15,7 +15,7 @@ venv:
 ## Run this in a separate terminal (or background it yourself) before
 ## `make submit`/`make run`.
 port-forward:
-	kubectl port-forward -n kubeflow svc/ml-pipeline $(LOCAL_PORT):$(LOCAL_PORT)
+	kubectl port-forward -n kubeflow svc/ml-pipeline $(LOCAL_PORT):8888
 
 ## Compile the pipeline to pipeline.yaml (sanity-checks the pipeline
 ## definition without needing a live cluster).

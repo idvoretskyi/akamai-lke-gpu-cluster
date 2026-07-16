@@ -59,7 +59,11 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ## Prerequisites
 
 - **OpenTofu** >= 1.9 - Infrastructure as code tool
-- **linode-cli** - Linode API client (configured with token)
+- **linode-cli** - Linode API client (configured with token). The `linode`
+  provider auto-resolves its token from `LINODE_TOKEN` if set, otherwise from
+  the default user in `~/.config/linode-cli` (see `tofu/providers.tf` and
+  `tofu/scripts/get-linode-token.sh`) — so `linode-cli configure` alone is
+  enough; no separate `export LINODE_TOKEN` needed.
 - **kubectl** - Kubernetes command-line tool
 - **kustomize** and **git** - only required if `install_kubeflow = true` (the `kubeflow` module shells out to `kustomize build | kubectl apply`)
 

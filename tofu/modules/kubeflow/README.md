@@ -25,9 +25,9 @@ instead.
 
 - `kubectl`, `kustomize`, and `git` must be on `PATH` where `tofu apply` runs.
 - Upstream recommends 16+ GB RAM / 8 CPU cores for the full platform across
-  the cluster. Use `system_node_type = "g6-standard-8"` (32 GB — measured usage with
-the full stack is ~9-10 GB; see root
-  `variables.tf`) and/or size the GPU node pool generously.
+  the cluster. Use `system_node_type = "g6-standard-8"` (32 GB — measured
+  usage with the full stack is ~9-10 GB; see root `variables.tf`) and/or size
+  the GPU node pool generously.
 - Install can take 15–30 minutes; `kubectl apply` may need several retries
   while CRDs establish — the bundled `scripts/install.sh` handles this.
 

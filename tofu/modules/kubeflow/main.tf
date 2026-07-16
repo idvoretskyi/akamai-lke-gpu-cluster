@@ -23,8 +23,12 @@ resource "local_sensitive_file" "kubeconfig" {
 
 resource "terraform_data" "install_kubeflow" {
   triggers_replace = {
-    kubeflow_ref = var.kubeflow_ref
-    k8s_host     = var.k8s_host
+    kubeflow_ref    = var.kubeflow_ref
+    install_timeout = var.install_timeout
+    # Re-run if the cluster we're pointed at changes (host) or its
+    # credentials rotate (token/CA) — hashed since these are sensitive and
+    # triggers_replace values can't be marked sensitive themselves.
+    kubeconfig_sha256 = sha256(local_sensitive_file.kubeconfig.content)
   }
 
   provisioner "local-exec" {
