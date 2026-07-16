@@ -33,10 +33,10 @@ module "hami" {
   nvidia_node_selector = local.gpu_node_labels
   gpu_node_toleration  = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
 
-  # k8s_* only used to restart the hami-scheduler Deployment after a
-  # default_gpu_memory change takes effect (see modules/hami/main.tf) —
-  # harmless to pass always, since the module only builds a scratch
-  # kubeconfig from these when default_gpu_memory > 0.
+  # k8s_* used to restart the hami-scheduler Deployment after every
+  # hami-scheduler-device ConfigMap patch (see modules/hami/main.tf) — always
+  # required by the module regardless of default_gpu_memory's value, since
+  # even resetting it to 0 needs the scheduler restarted to take effect.
   default_gpu_memory         = var.hami_default_gpu_memory
   k8s_host                   = local.k8s_auth.host
   k8s_token                  = local.k8s_auth.token

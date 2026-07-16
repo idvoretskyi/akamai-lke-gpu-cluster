@@ -64,7 +64,7 @@ cd "${REPO_DIR}"
 
 max_attempts=15
 attempt=1
-until "${TIMEOUT_CMD}" "${TIMEOUT_SECONDS}" bash -c 'kustomize build example | kubectl apply --server-side --force-conflicts -f -'; do
+until "${TIMEOUT_CMD}" "${TIMEOUT_SECONDS}" bash -c 'set -o pipefail; kustomize build example | kubectl apply --server-side --force-conflicts -f -'; do
   if [ "${attempt}" -ge "${max_attempts}" ]; then
     echo "kubectl apply did not converge after ${max_attempts} attempts" >&2
     exit 1
