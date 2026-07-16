@@ -17,9 +17,11 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
 - **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
+- **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
+- **Kubeflow (optional)**: Full Kubeflow Platform installable in-repo (`install_kubeflow = true`) via `modules/kubeflow`
 - **ML Platform Ready**: Infrastructure foundation for Kubeflow, Ray, MLflow, and custom ML workloads (see [kubeflow-cv-lab](https://github.com/idvoretskyi/kubeflow-cv-lab))
 - **Fixed Node Counts**: Autoscaling disabled — predictable, bounded costs with no surprise scale-up events
 - **Security**: Configurable firewall rules and network policies
@@ -59,6 +61,7 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 - **OpenTofu** >= 1.9 - Infrastructure as code tool
 - **linode-cli** - Linode API client (configured with token)
 - **kubectl** - Kubernetes command-line tool
+- **kustomize** and **git** - only required if `install_kubeflow = true` (the `kubeflow` module shells out to `kustomize build | kubectl apply`)
 
 ### macOS Installation
 
@@ -92,6 +95,8 @@ linode-cli configure
     ├── scripts/           # Helper scripts (kubeconfig merge)
     └── modules/           # Reusable modules
         ├── gpu-operator/       # NVIDIA GPU Operator
+        ├── hami/               # HAMi GPU virtualization/sharing
+        ├── kubeflow/           # Full Kubeflow Platform (opt-in, kustomize-based)
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
         └── opencost/           # Kubernetes cost monitoring
@@ -140,6 +145,13 @@ ha_control_plane = false
 install_gpu_operator   = true
 enable_gpu_monitoring  = true
 install_metrics_server = true
+
+# HAMi GPU virtualization — lab default: enabled
+install_hami            = true
+hami_device_split_count = 10
+
+# Kubeflow — opt-in, heavy
+install_kubeflow = false
 
 # Monitoring (Prometheus + Grafana)
 install_monitoring      = true
@@ -380,10 +392,16 @@ cd tofu && tofu destroy
 ### GPU Support
 
 - NVIDIA GPU Operator (automated driver management)
-- GPU device plugin (resource scheduling)
+- GPU device plugin (resource scheduling) — provided by HAMi when enabled, else the stock NVIDIA plugin
+- HAMi GPU virtualization — splits physical GPUs into vGPU slices (memory/core sharing across pods)
 - GPU monitoring with DCGM exporter
 - GPU metrics integration with Prometheus
 - Support for CUDA workloads
+
+### ML Platform (optional)
+
+- Full Kubeflow Platform (`install_kubeflow = true`) — Pipelines, Katib, Notebooks, KServe, Trainer, Spark Operator, Central Dashboard
+- Installed via `kustomize build | kubectl apply` (see `modules/kubeflow/README.md`)
 
 ## Use Cases
 

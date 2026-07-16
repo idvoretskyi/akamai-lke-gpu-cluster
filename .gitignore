@@ -29,6 +29,9 @@ kubeconfig*.yaml
 *.kubeconfig
 .kube/
 
+# Kubeflow module scratch clone dir (git clone of upstream manifests at apply time)
+tofu/modules/kubeflow/.work/
+
 # AI Tools and Generated Files
 
 # Cursor

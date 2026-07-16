@@ -175,6 +175,56 @@ variable "enable_gpu_monitoring" {
   default     = true
 }
 
+# ─── HAMi (GPU Virtualization) ────────────────────────────────────────────────
+# Lab/experimental: enabled by default since this cluster is destroyed and
+# recreated freely (no in-place migration concerns). Replaces the GPU
+# Operator's stock device plugin so GPUs can be split into vGPU slices.
+
+variable "install_hami" {
+  description = "Install HAMi for GPU virtualization/sharing (splits physical GPUs into schedulable vGPU slices). Disables the GPU Operator's stock device plugin when true. Requires install_gpu_operator = true."
+  type        = bool
+  default     = true
+}
+
+variable "hami_version" {
+  description = "Version of the HAMi Helm chart (format: 'X.Y.Z')"
+  type        = string
+  default     = "2.9.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.hami_version))
+    error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
+  }
+}
+
+variable "hami_device_split_count" {
+  description = "Number of vGPU slices each physical GPU is split into by HAMi. E.g. 10 lets up to 10 pods share one physical GPU."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.hami_device_split_count >= 1
+    error_message = "hami_device_split_count must be at least 1."
+  }
+}
+
+# ─── Kubeflow ─────────────────────────────────────────────────────────────────
+# Opt-in and heavy (see modules/kubeflow/README.md) — installs via kustomize +
+# kubectl apply, not Helm, since upstream Kubeflow has no single full-platform
+# Helm chart.
+
+variable "install_kubeflow" {
+  description = "Install the full Kubeflow Platform (kubeflow/community-distribution). Heavy — recommend system_node_type = 'g6-standard-4' and a generous GPU pool. Opt-in even for a lab cluster."
+  type        = bool
+  default     = false
+}
+
+variable "kubeflow_ref" {
+  description = "Git tag/branch of kubeflow/community-distribution to install (e.g. a release tag, or 'master')."
+  type        = string
+  default     = "master"
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 variable "install_metrics_server" {

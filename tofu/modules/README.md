@@ -7,6 +7,8 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | Module | Purpose | Directory |
 |---|---|---|
 | [gpu-operator](gpu-operator/README.md) | NVIDIA GPU Operator — automated driver & device plugin | `gpu-operator/` |
+| [hami](hami/README.md) | HAMi — GPU virtualization/sharing (vGPU slices) | `hami/` |
+| [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana + Alertmanager monitoring stack | `kube-prometheus-stack/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
@@ -17,6 +19,9 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 linode_lke_cluster
     └─> terraform_data.merge_kubeconfig
         ├─> module.gpu_operator
+        │       ├─> module.hami
+        │       │       └─> module.kubeflow
+        │       └─> module.kubeflow
         ├─> module.metrics_server
         ├─> module.kube_prometheus_stack
         │       └─> module.opencost
@@ -39,6 +44,9 @@ kubectl port-forward -n opencost svc/opencost 9090:9090
 
 # Check GPU availability
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
+
+# Check HAMi pods (when install_hami = true)
+kubectl get pods -n hami-system
 
 # Resource usage
 kubectl top nodes && kubectl top pods -A

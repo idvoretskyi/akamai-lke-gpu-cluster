@@ -30,7 +30,7 @@ gpu_node_count = 1
 # System Node Pool
 # ============================================================================
 # Small CPU pool for monitoring and system workloads (~$24/month).
-# Use g6-standard-4 only if adding Kubeflow (see kubeflow-cv-lab repo).
+# Use g6-standard-4 if enabling install_kubeflow (see modules/kubeflow).
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
@@ -58,6 +58,25 @@ merge_kubeconfig = true
 install_gpu_operator  = true
 gpu_operator_version  = "v26.3.2"
 enable_gpu_monitoring = true
+
+# ============================================================================
+# HAMi (GPU Virtualization) — lab default: enabled
+# ============================================================================
+# Splits each physical GPU into vGPU slices so multiple pods can share one
+# GPU. Disables the GPU Operator's stock device plugin when enabled.
+
+install_hami            = true
+hami_version            = "2.9.0"
+hami_device_split_count = 10
+
+# ============================================================================
+# Kubeflow — opt-in, heavy
+# ============================================================================
+# Installs via kustomize + kubectl apply (no full-platform Helm chart
+# upstream). Recommend system_node_type = "g6-standard-4" when enabling.
+
+install_kubeflow = false
+kubeflow_ref     = "master"
 
 # ============================================================================
 # Metrics Server

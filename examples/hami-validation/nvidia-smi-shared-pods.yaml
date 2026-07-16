@@ -1,0 +1,49 @@
+# HAMi GPU virtualization validation — requires install_hami = true.
+# Runs two Pods that each request a *slice* of one physical GPU (via
+# nvidia.com/gpumem) through the hami-scheduler, proving that HAMi can
+# co-schedule multiple GPU workloads onto a single physical device.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hami-validation-a
+  labels:
+    app: hami-validation
+spec:
+  restartPolicy: Never
+  schedulerName: hami-scheduler
+  tolerations:
+    # Tolerate the GPU node taint applied by akamai-lke-gpu-cluster
+    # when dedicate_gpu_nodes = true (the default).
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: cuda
+      image: nvidia/cuda:12.4.1-base-ubuntu22.04
+      command: ["sh", "-c", "nvidia-smi && sleep 30"]
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+          nvidia.com/gpumem: "2000" # MB — a slice, not the whole GPU
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hami-validation-b
+  labels:
+    app: hami-validation
+spec:
+  restartPolicy: Never
+  schedulerName: hami-scheduler
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: cuda
+      image: nvidia/cuda:12.4.1-base-ubuntu22.04
+      command: ["sh", "-c", "nvidia-smi && sleep 30"]
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+          nvidia.com/gpumem: "2000" # MB — a second slice of the same GPU
