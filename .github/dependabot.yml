@@ -31,6 +31,34 @@ updates:
           - "*"
 
   - package-ecosystem: "terraform"
+    directory: "/tofu/modules/hami"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
+    directory: "/tofu/modules/kubeflow"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
     directory: "/tofu/modules/metrics-server"
     schedule:
       interval: "weekly"

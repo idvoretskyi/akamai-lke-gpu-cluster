@@ -46,6 +46,8 @@ jobs:
       matrix:
         module:
           - gpu-operator
+          - hami
+          - kubeflow
           - metrics-server
           - kube-prometheus-stack
           - opencost
@@ -137,10 +139,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Run ShellCheck
+      - name: Run ShellCheck (tofu/scripts)
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: tofu/scripts
+
+      - name: Run ShellCheck (kubeflow module)
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: tofu/modules/kubeflow/scripts
 
   markdownlint:
     name: Markdown lint
