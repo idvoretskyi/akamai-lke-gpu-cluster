@@ -8,6 +8,11 @@ variable "metrics_server_version" {
   description = "Version of the Metrics Server Helm chart"
   type        = string
   default     = "3.12.2"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.metrics_server_version))
+    error_message = "metrics_server_version must be in the format 'X.Y.Z' (e.g. '3.12.2')."
+  }
 }
 
 variable "node_selector" {

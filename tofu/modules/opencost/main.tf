@@ -20,6 +20,7 @@ resource "helm_release" "opencost" {
   create_namespace = false
   depends_on       = [kubernetes_namespace_v1.opencost]
 
+  # No wait_for_jobs: the opencost chart ships no post-install Jobs.
   timeout = 300
   wait    = true
 

@@ -6,6 +6,7 @@ resource "helm_release" "metrics_server" {
   version    = var.metrics_server_version
   namespace  = var.namespace
 
+  # No wait_for_jobs: the metrics-server chart ships no post-install Jobs.
   timeout = 600
   wait    = true
 

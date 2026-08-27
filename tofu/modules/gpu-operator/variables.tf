@@ -8,6 +8,11 @@ variable "gpu_operator_version" {
   description = "Version of NVIDIA GPU Operator Helm chart"
   type        = string
   default     = "v26.3.2" # Latest stable version
+
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.gpu_operator_version))
+    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.3.2')."
+  }
 }
 
 variable "install_driver" {
