@@ -8,6 +8,11 @@ variable "opencost_chart_version" {
   description = "Version of the OpenCost Helm chart"
   type        = string
   default     = "2.5.14"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
+    error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
+  }
 }
 
 variable "prometheus_url" {
