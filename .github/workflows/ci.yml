@@ -134,20 +134,20 @@ jobs:
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scandir:
+          - tofu/scripts
+          - tofu/modules/kubeflow/scripts
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Run ShellCheck (tofu/scripts)
+      - name: Run ShellCheck (${{ matrix.scandir }})
         uses: ludeeus/action-shellcheck@2.0.0
         with:
-          scandir: tofu/scripts
-
-      - name: Run ShellCheck (kubeflow module)
-        uses: ludeeus/action-shellcheck@2.0.0
-        with:
-          scandir: tofu/modules/kubeflow/scripts
+          scandir: ${{ matrix.scandir }}
 
   markdownlint:
     name: Markdown lint
