@@ -1,6 +1,6 @@
 # Linode GPU Kubernetes Infrastructure
 
-[![CI](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-gpu-k8s/actions/workflows/ci.yml)
+[![CI](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
@@ -17,9 +17,11 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
 - **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
+- **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
+- **Kubeflow (optional)**: Full Kubeflow Platform installable in-repo (`install_kubeflow = true`) via `modules/kubeflow`
 - **ML Platform Ready**: Infrastructure foundation for Kubeflow, Ray, MLflow, and custom ML workloads (see [kubeflow-cv-lab](https://github.com/idvoretskyi/kubeflow-cv-lab))
 - **Fixed Node Counts**: Autoscaling disabled — predictable, bounded costs with no surprise scale-up events
 - **Security**: Configurable firewall rules and network policies
@@ -30,7 +32,9 @@ Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, ML
 ## Quick Start
 
 ```bash
-# Configure Linode API token (paste your Personal Access Token)
+# Configure Linode API token — skip this if `linode-cli configure` is
+# already set up (the provider auto-resolves it from ~/.config/linode-cli;
+# see Prerequisites below)
 export LINODE_TOKEN="YOUR_PERSONAL_ACCESS_TOKEN"
 
 # Initialize and deploy
@@ -57,8 +61,15 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 ## Prerequisites
 
 - **OpenTofu** >= 1.9 - Infrastructure as code tool
-- **linode-cli** - Linode API client (configured with token)
+- **linode-cli** - Linode API client (configured with token). The `linode`
+  provider auto-resolves its token from the default user in
+  `~/.config/linode-cli` if present (see `tofu/providers.tf` and
+  `tofu/locals.tf`), else falls back to its own `LINODE_TOKEN` environment
+  variable lookup — so `linode-cli configure` alone is enough; no separate
+  `export LINODE_TOKEN` needed (the linode-cli config takes priority over
+  `LINODE_TOKEN` if both are present).
 - **kubectl** - Kubernetes command-line tool
+- **kustomize** and **git** - only required if `install_kubeflow = true` (the `kubeflow` module shells out to `kustomize build | kubectl apply`)
 
 ### macOS Installation
 
@@ -76,7 +87,9 @@ linode-cli configure
 ├── LICENSE                # MIT License
 ├── .github/               # GitHub Actions CI and Dependabot config
 ├── examples/              # Runnable examples
-│   └── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
+│   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
+│   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
+│   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
@@ -92,6 +105,8 @@ linode-cli configure
     ├── scripts/           # Helper scripts (kubeconfig merge)
     └── modules/           # Reusable modules
         ├── gpu-operator/       # NVIDIA GPU Operator
+        ├── hami/               # HAMi GPU virtualization/sharing
+        ├── kubeflow/           # Full Kubeflow Platform (opt-in, kustomize-based)
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
         └── opencost/           # Kubernetes cost monitoring
@@ -140,6 +155,14 @@ ha_control_plane = false
 install_gpu_operator   = true
 enable_gpu_monitoring  = true
 install_metrics_server = true
+
+# HAMi GPU virtualization — lab default: enabled
+install_hami            = true
+hami_device_split_count = 10
+hami_default_gpu_memory = 8000  # MB given to unslotted nvidia.com/gpu requests
+
+# Kubeflow — opt-in, heavy
+install_kubeflow = false
 
 # Monitoring (Prometheus + Grafana)
 install_monitoring      = true
@@ -196,25 +219,19 @@ To disable the taint and allow general workloads back onto GPU nodes, set
 
 ## Running ML Platforms on This Cluster
 
-This repo provisions the cluster and installs the NVIDIA GPU operator. ML
-platforms (Kubeflow, MLflow, KServe, etc.) are managed separately so that
-platform updates don't require re-running `tofu apply`.
-
-**Kubeflow 26.03** — see
-[`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab) for the
-portable installer and an end-to-end CV MLOps lab:
-
-```bash
-# After tofu apply (cluster + GPU operator are up):
-git clone https://github.com/idvoretskyi/kubeflow-cv-lab
-cd kubeflow-cv-lab
-cp platform/config.env.example platform/config.env   # LKE defaults work as-is
-make platform-install
-```
+This repo can provision the GPU substrate only (GPU Operator + HAMi), or the
+full stack including Kubeflow — both are installed in-repo via
+`install_gpu_operator`, `install_hami`, and `install_kubeflow` (see
+`tofu/modules/`). For platform updates that shouldn't require re-running
+`tofu apply`, or a more elaborate CV MLOps lab, see
+[`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab).
 
 **GPU scheduling contract** (applies to any GPU workload on this cluster):
 
-- Request a GPU: `nvidia.com/gpu` resource limit = 1
+- Request a GPU: `nvidia.com/gpu` resource limit = 1 (add `nvidia.com/gpumem`
+  for an explicit HAMi vGPU slice size; without it, requests get
+  `hami_default_gpu_memory` MB by default — see `modules/hami/README.md` —
+  not the whole card)
 - Tolerate the taint: `nvidia.com/gpu=present:NoSchedule`
 - Pin to the GPU pool: node selector `nodepool.lke/role=gpu`
 
@@ -228,9 +245,26 @@ make -C examples/gpu-validation apply wait logs
 # No Kubeflow required — only the GPU Operator must be running.
 ```
 
-For the **Trainer v2 GPU example** (requires Kubeflow), see
-[`examples/pytorch-training/`](https://github.com/idvoretskyi/kubeflow-cv-lab/tree/main/examples/pytorch-training)
-in `kubeflow-cv-lab`.
+**HAMi GPU virtualization validation** — [`examples/hami-validation/`](examples/hami-validation/)
+proves two Pods can share one physical GPU via vGPU memory slices (requires
+`install_hami = true`):
+
+```bash
+make -C examples/hami-validation apply wait logs clean
+```
+
+**Roboflow RF-DETR on Kubeflow Pipelines** — [`examples/roboflow-pipeline/`](examples/roboflow-pipeline/)
+runs a real, keyless object-detection workload through Kubeflow Pipelines,
+validating that HAMi's admission webhook correctly intercepts GPU pods
+created by Argo Workflows (no explicit scheduler hint needed, unlike the two
+examples above). Requires `install_kubeflow = true` and `install_hami = true`:
+
+```bash
+cd examples/roboflow-pipeline
+make venv compile
+# In one terminal: make port-forward
+# In another:      make run
+```
 
 ## Cluster Specifications
 
@@ -380,10 +414,16 @@ cd tofu && tofu destroy
 ### GPU Support
 
 - NVIDIA GPU Operator (automated driver management)
-- GPU device plugin (resource scheduling)
+- GPU device plugin (resource scheduling) — provided by HAMi when enabled, else the stock NVIDIA plugin
+- HAMi GPU virtualization — splits physical GPUs into vGPU slices (memory/core sharing across pods)
 - GPU monitoring with DCGM exporter
 - GPU metrics integration with Prometheus
 - Support for CUDA workloads
+
+### ML Platform (optional)
+
+- Full Kubeflow Platform (`install_kubeflow = true`) — Pipelines, Katib, Notebooks, KServe, Trainer, Spark Operator, Central Dashboard
+- Installed via `kustomize build | kubectl apply` (see `modules/kubeflow/README.md`)
 
 ## Use Cases
 

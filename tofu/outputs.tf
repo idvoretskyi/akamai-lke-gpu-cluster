@@ -95,6 +95,35 @@ output "gpu_validation_commands" {
   value       = try(module.gpu_operator[0].validation_commands, null)
 }
 
+# ─── HAMi (GPU Virtualization) ───────────────────────────────────────────────
+
+output "hami_namespace" {
+  description = "HAMi namespace (null when not installed)"
+  value       = try(module.hami[0].namespace, null)
+}
+
+output "hami_version" {
+  description = "HAMi chart version (null when not installed)"
+  value       = try(module.hami[0].version, null)
+}
+
+output "hami_validation_commands" {
+  description = "Commands to validate GPU virtualization via HAMi (null when not installed)"
+  value       = try(module.hami[0].validation_commands, null)
+}
+
+# ─── Kubeflow ─────────────────────────────────────────────────────────────────
+
+output "kubeflow_ref" {
+  description = "Git ref of kubeflow/community-distribution installed (null when not installed)"
+  value       = try(module.kubeflow[0].kubeflow_ref, null)
+}
+
+output "kubeflow_validation_commands" {
+  description = "Commands to access and validate the Kubeflow install (null when not installed)"
+  value       = try(module.kubeflow[0].validation_commands, null)
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {

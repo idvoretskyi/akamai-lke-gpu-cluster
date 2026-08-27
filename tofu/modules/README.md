@@ -7,21 +7,32 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | Module | Purpose | Directory |
 |---|---|---|
 | [gpu-operator](gpu-operator/README.md) | NVIDIA GPU Operator — automated driver & device plugin | `gpu-operator/` |
+| [hami](hami/README.md) | HAMi — GPU virtualization/sharing (vGPU slices) | `hami/` |
+| [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana + Alertmanager monitoring stack | `kube-prometheus-stack/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
 
 ## Dependency Graph
 
+All modules' `kubernetes`/`helm` provider configs key off
+`linode_lke_cluster.gpu_cluster`'s kubeconfig (`local.k8s_auth`), but that's
+implicit provider wiring, not a module `depends_on`. Explicit `depends_on`
+edges between modules (`tofu/modules.tf`):
+
 ```text
-linode_lke_cluster
-    └─> terraform_data.merge_kubeconfig
-        ├─> module.gpu_operator
-        ├─> module.metrics_server
-        ├─> module.kube_prometheus_stack
-        │       └─> module.opencost
-        └─> (kubeconfig written to ~/.kube/config)
+module.gpu_operator
+    ├─> module.hami ─────────────────┐
+    ├─> module.kube_prometheus_stack │
+    └─> module.kubeflow <────────────┘
+module.metrics_server
+    └─> module.kube_prometheus_stack
+            └─> module.opencost
 ```
+
+`terraform_data.merge_kubeconfig` (writes `~/.kube/config`, `tofu/kubeconfig.tf`)
+is independent — no module depends on it, and disabling it
+(`merge_kubeconfig = false`) doesn't affect any module install.
 
 All modules are optional and independently toggled via `install_*` root variables.
 
@@ -39,6 +50,9 @@ kubectl port-forward -n opencost svc/opencost 9090:9090
 
 # Check GPU availability
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
+
+# Check HAMi pods (when install_hami = true)
+kubectl get pods -n hami-system
 
 # Resource usage
 kubectl top nodes && kubectl top pods -A

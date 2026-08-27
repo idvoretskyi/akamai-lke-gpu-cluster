@@ -27,7 +27,11 @@ tofu.rc
 # Kubeconfig files
 kubeconfig*.yaml
 *.kubeconfig
+.kubeconfig-*
 .kube/
+
+# Kubeflow module scratch clone dir (git clone of upstream manifests at apply time)
+tofu/modules/kubeflow/.work/
 
 # AI Tools and Generated Files
 
@@ -98,8 +102,6 @@ ai-context/
 *.swp
 *.swo
 *~
-.DS_Store
-.idea/
 *.sublime-*
 .project
 .classpath
@@ -158,7 +160,6 @@ dist/
 build/
 *.exe
 *.dll
-*.so
 *.dylib
 
 # Test coverage
@@ -170,3 +171,6 @@ htmlcov/
 # Documentation builds
 docs/_build/
 site/
+
+# Compiled Kubeflow Pipelines IR (examples/roboflow-pipeline)
+examples/roboflow-pipeline/pipeline.yaml

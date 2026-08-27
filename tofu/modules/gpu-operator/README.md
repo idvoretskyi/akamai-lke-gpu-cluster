@@ -24,6 +24,7 @@ module "gpu_operator" {
   namespace                   = "gpu-operator"
   gpu_operator_version        = "v26.3.2"
   install_driver              = true
+  device_plugin_enabled       = true
   enable_dcgm_exporter        = true
   enable_node_status_exporter = true
 }
@@ -36,6 +37,7 @@ module "gpu_operator" {
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
 | `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
 | `install_driver` | Install NVIDIA driver | `true` |
+| `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
 | `controller_node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
@@ -60,9 +62,9 @@ kubectl get pods -n gpu-operator
 # Verify GPU devices on nodes
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 
-# Run a GPU test workload
-kubectl run gpu-test --rm -it --restart=Never \
-  --image=nvidia/cuda:12.2.0-base-ubuntu22.04 \
-  --limits=nvidia.com/gpu=1 \
-  -- nvidia-smi
+# Run a GPU test workload (kubectl run --limits=... was removed in
+# kubectl 1.24+ — use the tested manifest in examples/gpu-validation instead)
+kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
+kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
+kubectl logs pod/gpu-validation
 ```

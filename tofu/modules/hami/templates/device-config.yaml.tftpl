@@ -1,0 +1,38 @@
+nvidia:
+  # This whole block re-authors HAMi chart v2.9.0's hami-scheduler-device
+  # ConfigMap nvidia: section (see main.tf for why). Fields below that are
+  # NOT parameterized by any module variable are pinned to that chart
+  # version's own hardcoded values (charts/hami/templates/scheduler/
+  # device-configmap.yaml upstream) — resourceCountName/resourceMemoryName/
+  # resourceMemoryPercentageName/resourceCoreName/resourcePriorityName,
+  # overwriteEnv, defaultCores, defaultGPUNum, preConfiguredDeviceMemory,
+  # memoryFactor, gpuCorePolicy, libCudaLogLevel. If hami_version is bumped
+  # past 2.9.0, re-diff this file against that upstream template and update
+  # these hardcoded values (and this comment) if they've changed.
+  resourceCountName: nvidia.com/gpu
+  resourceMemoryName: nvidia.com/gpumem
+  resourceMemoryPercentageName: nvidia.com/gpumem-percentage
+  resourceCoreName: nvidia.com/gpucores
+  resourcePriorityName: nvidia.com/priority
+  overwriteEnv: false
+  defaultMemory: ${default_gpu_memory}
+  defaultCores: 0
+  defaultGPUNum: 1
+  preConfiguredDeviceMemory: 0
+  memoryFactor: 1
+  deviceSplitCount: ${device_split_count}
+  deviceMemoryScaling: ${device_memory_scaling}
+  deviceCoreScaling: ${device_core_scaling}
+  gpuCorePolicy: default
+  libCudaLogLevel: 1
+  runtimeClassName: "${runtime_class_name}"
+  # MIG geometries intentionally omitted: this repo's GPU (RTX 4000 Ada) does
+  # not support MIG, migStrategy is "none", and the chart's own default list
+  # only covers A30/A100/H100/H200/B200 anyway.
+  knownMigGeometries: []
+# Helm release revision this was rendered alongside (not read by HAMi —
+# purely so this file's content changes on every Helm upgrade, forcing
+# OpenTofu to re-apply this ConfigMap override even on upgrades that don't
+# touch any of the variables above; see main.tf).
+# helm-release-revision: ${helm_release_revision}
+
