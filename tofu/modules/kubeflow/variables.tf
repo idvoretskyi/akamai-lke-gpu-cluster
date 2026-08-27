@@ -4,8 +4,8 @@ variable "kubeflow_ref" {
   default     = "master"
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9._/-]+$", var.kubeflow_ref))
-    error_message = "kubeflow_ref must be a valid git ref (branch/tag) using only letters, digits, '.', '_', '/', '-'."
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._/-]*$", var.kubeflow_ref))
+    error_message = "kubeflow_ref must be a valid git ref (branch/tag) starting with a letter or digit, using only letters, digits, '.', '_', '/', '-'."
   }
 }
 
