@@ -239,6 +239,11 @@ variable "kubeflow_ref" {
   description = "Git tag/branch of kubeflow/community-distribution to install (e.g. a release tag, or 'master')."
   type        = string
   default     = "master"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._/-]+$", var.kubeflow_ref))
+    error_message = "kubeflow_ref must be a valid git ref (branch/tag) using only letters, digits, '.', '_', '/', '-'."
+  }
 }
 
 # ─── Metrics Server ───────────────────────────────────────────────────────────
