@@ -1,6 +1,9 @@
 # Determine cluster name prefix: use provided value or fall back to system username.
 locals {
   cluster_prefix = var.cluster_name_prefix != "" ? var.cluster_name_prefix : replace(lower(data.external.username.result.username), "/[^a-z0-9-]/", "-")
+
+  # Private CIDRs allowed intra-cluster traffic (see firewall.tf) — nodes and pods.
+  intra_cluster_cidrs = concat(var.node_cidrs, var.pod_cidrs)
 }
 
 # Get system username when cluster_name_prefix is not set.
@@ -65,6 +68,20 @@ locals {
     value  = "present"
     effect = "NoSchedule"
   }
+
+  # The taint actually applied to the GPU pool — null when dedicate_gpu_nodes
+  # is false. Single source of truth reused by cluster.tf's dynamic "taint"
+  # block and every module that needs its GPU DaemonSet operands to tolerate
+  # it (gpu-operator, hami).
+  gpu_node_toleration = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+}
+
+# Node pools matched by instance type rather than list index, since the order
+# of the pool blocks is not guaranteed to be stable in state. Shared by
+# outputs.tf (pool id/count) and any future consumer that needs pool details.
+locals {
+  gpu_pool    = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.gpu_node_type])
+  system_pool = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.system_node_type])
 }
 
 # Decode and parse the kubeconfig once; reused by kubernetes and helm providers.

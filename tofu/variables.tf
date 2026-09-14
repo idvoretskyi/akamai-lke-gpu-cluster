@@ -12,7 +12,7 @@ variable "region" {
   default     = "us-ord" # Chicago, US
 
   validation {
-    condition     = can(cidrhost("${var.region}/32", 0)) == false && can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
+    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
     error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
   }
 }

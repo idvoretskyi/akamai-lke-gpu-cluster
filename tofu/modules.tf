@@ -9,13 +9,13 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = var.gpu_operator_version
+  chart_version               = var.gpu_operator_version
   install_driver              = true
   device_plugin_enabled       = !var.install_hami
   enable_dcgm_exporter        = var.enable_gpu_monitoring
   enable_node_status_exporter = true
   controller_node_selector    = local.system_node_selector
-  gpu_node_toleration         = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+  gpu_node_toleration         = local.gpu_node_toleration
 }
 
 # HAMi Module — GPU virtualization/sharing.
@@ -27,11 +27,11 @@ module "hami" {
   source = "./modules/hami"
 
   namespace            = "hami-system"
-  hami_version         = var.hami_version
+  chart_version        = var.hami_version
   device_split_count   = var.hami_device_split_count
   node_selector        = local.system_node_selector
   nvidia_node_selector = local.gpu_node_labels
-  gpu_node_toleration  = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+  gpu_node_toleration  = local.gpu_node_toleration
 
   # k8s_* used to restart the hami-scheduler Deployment after every
   # hami-scheduler-device ConfigMap patch (see modules/hami/main.tf) — always
@@ -90,16 +90,17 @@ module "kube_prometheus_stack" {
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and
-# release name. When monitoring is disabled, OpenCost falls back to the
-# in-cluster default URL in modules/opencost/variables.tf, which won't resolve
-# to anything real — see install_opencost's description in variables.tf.
+# release name. When monitoring is disabled, prometheus_url is null, which
+# lets the OpenCost module fall back to its own default (see
+# modules/opencost/variables.tf) — it won't resolve to anything real, but
+# install_opencost's description in variables.tf already documents that.
 module "opencost" {
   count  = var.install_opencost ? 1 : 0
   source = "./modules/opencost"
 
   namespace              = "opencost"
-  opencost_chart_version = var.opencost_chart_version
-  prometheus_url         = try(module.kube_prometheus_stack[0].prometheus_internal_url, "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090")
+  chart_version          = var.opencost_chart_version
+  prometheus_url         = one(module.kube_prometheus_stack[*].prometheus_internal_url)
   enable_service_monitor = var.install_monitoring
   extra_labels           = { for t in var.tags : t => "true" }
   node_selector          = local.system_node_selector

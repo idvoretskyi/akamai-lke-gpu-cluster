@@ -30,7 +30,7 @@ resource "linode_lke_cluster" "gpu_cluster" {
     labels = local.gpu_node_labels
 
     dynamic "taint" {
-      for_each = var.dedicate_gpu_nodes ? [local.gpu_node_taint] : []
+      for_each = local.gpu_node_toleration == null ? [] : [local.gpu_node_toleration]
       content {
         key    = taint.value.key
         value  = taint.value.value

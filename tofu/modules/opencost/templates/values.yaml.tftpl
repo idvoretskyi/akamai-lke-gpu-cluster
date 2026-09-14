@@ -10,32 +10,23 @@ opencost:
     enabled: ${enable_ui}
 %{ if length(node_selector) > 0 ~}
 
-  nodeSelector:
-%{ for k, v in node_selector ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  nodeSelector: ${jsonencode(node_selector)}
 %{ endif ~}
 
   resources:
     requests:
-      cpu: ${requests_cpu}
-      memory: ${requests_memory}
+      cpu: ${resources.requests.cpu}
+      memory: ${resources.requests.memory}
     limits:
-      cpu: ${limits_cpu}
-      memory: ${limits_memory}
+      cpu: ${resources.limits.cpu}
+      memory: ${resources.limits.memory}
 
 %{ if length(extra_labels) > 0 ~}
-  extraLabels:
-%{ for k, v in extra_labels ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  extraLabels: ${jsonencode(extra_labels)}
 %{ endif ~}
 
 serviceMonitor:
   enabled: ${enable_service_monitor}
 %{ if length(extra_labels) > 0 ~}
-  additionalLabels:
-%{ for k, v in extra_labels ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  additionalLabels: ${jsonencode(extra_labels)}
 %{ endif ~}

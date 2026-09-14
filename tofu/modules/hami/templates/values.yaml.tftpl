@@ -9,10 +9,7 @@ scheduler:
   # bits need no GPU. (The scheduler/extender pods themselves are lightweight
   # and the chart does not expose a first-class nodeSelector for them.)
   patch:
-    nodeSelector:
-%{ for k, v in node_selector ~}
-      ${k}: "${v}"
-%{ endfor ~}
+    nodeSelector: ${jsonencode(node_selector)}
 %{ endif ~}
 
 devicePlugin:
@@ -34,10 +31,7 @@ devicePlugin:
     enabled: true
     hostPath: "/run/nvidia/validations"
 %{ endif ~}
-  nvidiaNodeSelector:
-%{ for k, v in nvidia_node_selector ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  nvidiaNodeSelector: ${jsonencode(nvidia_node_selector)}
 %{ if gpu_node_toleration != null ~}
   # Let the devicePlugin DaemonSet tolerate the GPU node taint so it keeps
   # scheduling onto the dedicated GPU pool. Uses Exists to match the taint

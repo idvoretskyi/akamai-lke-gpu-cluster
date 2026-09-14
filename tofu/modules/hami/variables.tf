@@ -6,14 +6,14 @@ variable "namespace" {
   default     = "hami-system"
 }
 
-variable "hami_version" {
+variable "chart_version" {
   description = "Version of the HAMi Helm chart"
   type        = string
   default     = "2.9.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.hami_version))
-    error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
   }
 }
 
