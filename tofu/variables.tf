@@ -309,7 +309,7 @@ variable "grafana_storage_size" {
 # ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
 
 variable "install_opencost" {
-  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality)"
+  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality — see the advisory check in checks.tf)"
   type        = bool
   default     = true
 }

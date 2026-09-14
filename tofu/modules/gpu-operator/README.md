@@ -22,7 +22,7 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = "v26.3.2"
+  chart_version               = "v26.3.2"
   install_driver              = true
   device_plugin_enabled       = true
   enable_dcgm_exporter        = true
@@ -35,7 +35,7 @@ module "gpu_operator" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
-| `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
+| `chart_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
 | `install_driver` | Install NVIDIA driver | `true` |
 | `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
@@ -48,10 +48,6 @@ module "gpu_operator" {
 | Name | Description |
 |---|---|
 | `namespace` | GPU Operator namespace |
-| `release_name` | Helm release name |
-| `version` | Chart version |
-| `status` | Helm release status |
-| `validation_commands` | Commands to validate GPU availability |
 
 ## Validation
 

@@ -63,13 +63,6 @@ module "kubeflow" {
 | `k8s_cluster_ca_certificate` | Cluster CA certificate (PEM) | (required, sensitive) |
 | `install_timeout` | Timeout (seconds) per apply attempt | `1800` |
 
-## Outputs
-
-| Name | Description |
-|---|---|
-| `kubeflow_ref` | Git ref installed |
-| `validation_commands` | Commands to check pods and reach the dashboard |
-
 ## Validation
 
 ```bash
