@@ -90,21 +90,19 @@ module "kube_prometheus_stack" {
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and
-# release name. When monitoring is disabled, prometheus_url is null, which
-# lets the OpenCost module fall back to its own default (see
-# modules/opencost/variables.tf) — it won't resolve to anything real, but
-# install_opencost's description in variables.tf already documents that.
+# release name. When monitoring is disabled, use the OpenCost module's default
+# URL (see modules/opencost/variables.tf); it won't resolve to anything real,
+# but install_opencost's description in variables.tf already documents that.
 module "opencost" {
   count  = var.install_opencost ? 1 : 0
   source = "./modules/opencost"
 
   namespace              = "opencost"
   chart_version          = var.opencost_chart_version
-  prometheus_url         = one(module.kube_prometheus_stack[*].prometheus_internal_url)
+  prometheus_url         = coalesce(one(module.kube_prometheus_stack[*].prometheus_internal_url), "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090")
   enable_service_monitor = var.install_monitoring
   extra_labels           = { for t in var.tags : t => "true" }
   node_selector          = local.system_node_selector
 
   depends_on = [module.kube_prometheus_stack]
 }
-
