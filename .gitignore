@@ -17,7 +17,7 @@ terraform.rc
 .tofurc
 tofu.rc
 
-# Note: .terraform.lock.hcl files are now tracked for consistent provider versions
+# Note: .terraform.lock.hcl files are tracked for consistent provider versions
 
 # Sensitive configuration files
 *.tfvars
@@ -33,144 +33,26 @@ kubeconfig*.yaml
 # Kubeflow module scratch clone dir (git clone of upstream manifests at apply time)
 tofu/modules/kubeflow/.work/
 
-# AI Tools and Generated Files
-
-# Cursor
-.cursor/
-.cursorignore
-.cursorrules
-
-# GitHub Copilot
-.github/copilot-instructions.md
-
-# Claude Code / Anthropic
-.claude/
-CLAUDE.md
-CLAUDE_HISTORY.md
-.claude-code/
-
-# Continue.dev
-.continue/
-continue-config.json
-
-# Aider
-.aider*
-.aider.chat.history.md
-.aider.input.history
-.aider.tags.cache.v3/
-
-# Cody (Sourcegraph)
-.cody/
-.cody-context
-
-# Tabnine
-.tabnine/
-
-# Amazon CodeWhisperer
-.aws/codewhisperer/
-
-# JetBrains AI Assistant
-.idea/
-*.iml
-*.iws
-*.ipr
-
-# Windsurf
-.windsurf/
-
-# Supermaven
-.supermaven/
-
-# General AI assistant artifacts
-.ai/
-ai-context/
-.llm/
-.gpt/
-
-# Chat history and context files
-*-chat-history.md
-*-conversation.md
-.chat/
-
-# AI-generated temp files
-*.ai.tmp
-*.llm.tmp
-.ai-cache/
-
-# IDE and Editor files
-.vscode/
-*.swp
-*.swo
-*~
-*.sublime-*
-.project
-.classpath
-.settings/
-
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# Logs
-*.log
-logs/
-*.log.*
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.bak
-*.backup
-
-# Environment files
-.env
-.env.local
-.env.*.local
-*.env
+# Compiled Kubeflow Pipelines IR (examples/roboflow-pipeline)
+examples/roboflow-pipeline/pipeline.yaml
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-env/
 .venv/
+venv/
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
 
-# Go
-vendor/
+# Logs and local temp files
+*.log
+*.tmp
+*.bak
 
-# Build artifacts
-dist/
-build/
-*.exe
-*.dll
-*.dylib
-
-# Test coverage
-coverage/
-*.coverage
-.coverage.*
-htmlcov/
-
-# Documentation builds
-docs/_build/
-site/
-
-# Compiled Kubeflow Pipelines IR (examples/roboflow-pipeline)
-examples/roboflow-pipeline/pipeline.yaml
+# Environment files
+.env
+.env.local

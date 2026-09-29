@@ -5,10 +5,7 @@ prometheus:
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
 %{ if length(node_selector) > 0 ~}
-    nodeSelector:
-%{ for k, v in node_selector ~}
-      ${k}: "${v}"
-%{ endfor ~}
+    nodeSelector: ${jsonencode(node_selector)}
 %{ endif ~}
     resources:
       requests:
@@ -38,10 +35,7 @@ grafana:
   enabled: true
   adminPassword: ${grafana_admin_password}
 %{ if length(node_selector) > 0 ~}
-  nodeSelector:
-%{ for k, v in node_selector ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  nodeSelector: ${jsonencode(node_selector)}
 %{ endif ~}
   resources:
     requests:
@@ -70,20 +64,11 @@ kubeStateMetrics:
 %{ if length(node_selector) > 0 ~}
 # Pin the Prometheus Operator and kube-state-metrics (subchart) to the system pool.
 prometheusOperator:
-  nodeSelector:
-%{ for k, v in node_selector ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  nodeSelector: ${jsonencode(node_selector)}
   admissionWebhooks:
     patch:
-      nodeSelector:
-%{ for k, v in node_selector ~}
-        ${k}: "${v}"
-%{ endfor ~}
+      nodeSelector: ${jsonencode(node_selector)}
 
 kube-state-metrics:
-  nodeSelector:
-%{ for k, v in node_selector ~}
-    ${k}: "${v}"
-%{ endfor ~}
+  nodeSelector: ${jsonencode(node_selector)}
 %{ endif ~}

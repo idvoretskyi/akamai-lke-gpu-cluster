@@ -50,20 +50,22 @@ source of truth.
   `nodepool.lke/role=system`. GPU workloads must add the matching toleration and
   an `nvidia.com/gpu` resource limit.
 - `install_opencost = true` requires `install_monitoring = true` for full
-  functionality (documented in the variable description; not currently
-  enforced by a `check` block).
+  functionality — advisory only (`checks.tf`), not a hard error.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
-  and `install_kubeflow` on a system node pool too small for the measured
-  ~9-10 GB usage. Warnings, not failures.
+  `install_kubeflow` on a system node pool too small for the measured
+  ~9-10 GB usage, `install_opencost` without `install_monitoring`, and
+  `enable_gpu_monitoring` without `install_gpu_operator`. Warnings, not
+  failures.
 
 ## Module convention
 
 - Each `tofu/modules/<name>/` wraps a Helm chart with the same layout:
   `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`,
   `templates/values.yaml.tftpl`, `README.md`. New modules must mirror this and
-  be added to the CI matrix in `.github/workflows/ci.yml` and to
-  `.github/dependabot.yml`.
+  be added to the CI matrix in `.github/workflows/ci.yml`. Dependabot picks up
+  new modules automatically (`.github/dependabot.yml` uses a `/tofu/modules/*`
+  glob).
   - **Exception: `modules/kubeflow`.** Upstream Kubeflow has no single Helm
     chart covering the full platform (only a few individual components ship
     experimental charts) — this module installs via

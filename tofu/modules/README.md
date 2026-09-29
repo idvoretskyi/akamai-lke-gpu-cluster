@@ -36,24 +36,5 @@ is independent — no module depends on it, and disabling it
 
 All modules are optional and independently toggled via `install_*` root variables.
 
-## Quick Reference
-
-```bash
-# Access Grafana
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-
-# Access Prometheus
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-
-# Access OpenCost UI
-kubectl port-forward -n opencost svc/opencost 9090:9090
-
-# Check GPU availability
-kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
-
-# Check HAMi pods (when install_hami = true)
-kubectl get pods -n hami-system
-
-# Resource usage
-kubectl top nodes && kubectl top pods -A
-```
+See the root [README.md](../../README.md#accessing-services) for
+port-forward/access commands.

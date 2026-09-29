@@ -7,6 +7,20 @@
 # treated as a real misconfiguration rather than a "you might want to
 # reconsider" suggestion.
 
+check "opencost_recommends_monitoring" {
+  assert {
+    condition     = !var.install_opencost || var.install_monitoring
+    error_message = "install_opencost is enabled without install_monitoring — OpenCost has no in-cluster Prometheus to scrape and falls back to a URL that won't resolve to anything real. Consider install_monitoring = true."
+  }
+}
+
+check "gpu_monitoring_requires_gpu_operator" {
+  assert {
+    condition     = !var.enable_gpu_monitoring || var.install_gpu_operator
+    error_message = "enable_gpu_monitoring is enabled without install_gpu_operator — there is no DCGM exporter to produce GPU metrics, so this setting has no effect. Consider install_gpu_operator = true."
+  }
+}
+
 # Shared-CPU Linode plans known to be smaller than the ~9-10 GB Kubeflow +
 # monitoring stack measurably uses (g6-standard-1/2/4 = 2/4/8 GB RAM).
 # g6-standard-8 (32 GB) and up, or any dedicated-CPU/other plan, are assumed

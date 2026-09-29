@@ -34,7 +34,7 @@ module "kube_prometheus_stack" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"monitoring"` |
-| `kube_prometheus_stack_version` | Helm chart version | `"80.8.0"` |
+| `chart_version` | Helm chart version | `"80.8.0"` |
 | `grafana_admin_password` | Grafana admin password (sensitive) | — |
 | `prometheus_retention` | Data retention period | `"15d"` |
 | `prometheus_storage_size` | Prometheus PVC size | `"50Gi"` |
@@ -48,13 +48,9 @@ module "kube_prometheus_stack" {
 | Name | Description |
 |---|---|
 | `namespace` | Monitoring namespace |
-| `release_name` | Helm release name |
-| `version` | Chart version |
-| `status` | Helm release status |
 | `grafana_service` | Grafana service name |
 | `prometheus_service` | Prometheus service name |
 | `prometheus_internal_url` | In-cluster Prometheus URL |
-| `validation_commands` | Port-forward and access commands |
 
 ## Accessing the Stack
 

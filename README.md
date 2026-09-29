@@ -6,196 +6,95 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
-OpenTofu infrastructure code for deploying cost-effective, GPU-enabled Kubernetes lab clusters on Linode Kubernetes Engine (LKE) for AI/ML workloads.
+OpenTofu infrastructure code for a cost-effective, GPU-enabled Kubernetes lab
+cluster on Linode Kubernetes Engine (LKE), for AI/ML workloads.
 
-## Overview
+## What you get
 
-This repository provides automated infrastructure deployment for GPU-accelerated Kubernetes clusters with comprehensive monitoring, designed to serve as a foundation for AI/ML platforms and workloads.
+A two-pool LKE cluster (a small CPU **system** pool + a tainted **GPU** pool),
+plus these optional components, each toggled by an `install_*` variable:
 
-**Key Features:**
+| Component | Toggle | Default | Purpose |
+|---|---|---|---|
+| GPU Operator | `install_gpu_operator` | on | NVIDIA driver + device plugin |
+| HAMi | `install_hami` | on | Splits GPUs into shareable vGPU slices |
+| Metrics Server | `install_metrics_server` | on | `kubectl top`, HPA |
+| kube-prometheus-stack | `install_monitoring` | on | Prometheus + Grafana |
+| OpenCost | `install_opencost` | on | Kubernetes cost allocation |
+| Kubeflow | `install_kubeflow` | **off** | Full ML platform (heavy, opt-in) |
 
-- **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
-- **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
-- **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
-- **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
-- **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
-- **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
-- **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
-- **Kubeflow (optional)**: Full Kubeflow Platform installable in-repo (`install_kubeflow = true`) via `modules/kubeflow`
-- **ML Platform Ready**: Infrastructure foundation for Kubeflow, Ray, MLflow, and custom ML workloads (see [kubeflow-cv-lab](https://github.com/idvoretskyi/kubeflow-cv-lab))
-- **Fixed Node Counts**: Autoscaling disabled — predictable, bounded costs with no surprise scale-up events
-- **Security**: Configurable firewall rules and network policies
-- **Automation**: One-command deployment and management
+Autoscaling is intentionally disabled on both pools — fixed node counts keep
+costs predictable.
 
-Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, MLflow, and custom ML workloads.
+## Prerequisites
+
+- **OpenTofu** >= 1.9
+- **linode-cli**, configured (`linode-cli configure`) — the `linode` provider
+  auto-resolves its token from `~/.config/linode-cli`, else falls back to the
+  `LINODE_TOKEN` environment variable.
+- **kubectl**
+- **kustomize** and **git** — only if `install_kubeflow = true`
+
+```bash
+brew install opentofu kubectl
+pip3 install linode-cli && linode-cli configure
+```
 
 ## Quick Start
 
 ```bash
-# Configure Linode API token — skip this if `linode-cli configure` is
-# already set up (the provider auto-resolves it from ~/.config/linode-cli;
-# see Prerequisites below)
-export LINODE_TOKEN="YOUR_PERSONAL_ACCESS_TOKEN"
-
-# Initialize and deploy
 cd tofu
 tofu init
-tofu plan
 tofu apply
 
-# Access cluster (kubeconfig automatically merged to ~/.kube/config)
+# Kubeconfig is auto-merged into ~/.kube/config
 kubectl get nodes
 kubectl top nodes
 
-# Access Grafana dashboard
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-# Then visit: http://localhost:3000 (admin/admin)
+# http://localhost:3000 (admin/admin)
 ```
 
-**Deployment time:**
-
-- Basic cluster: ~5 minutes
-- With GPU operator: ~15-20 minutes
-- With full monitoring stack: ~20-30 minutes
-
-## Prerequisites
-
-- **OpenTofu** >= 1.9 - Infrastructure as code tool
-- **linode-cli** - Linode API client (configured with token). The `linode`
-  provider auto-resolves its token from the default user in
-  `~/.config/linode-cli` if present (see `tofu/providers.tf` and
-  `tofu/locals.tf`), else falls back to its own `LINODE_TOKEN` environment
-  variable lookup — so `linode-cli configure` alone is enough; no separate
-  `export LINODE_TOKEN` needed (the linode-cli config takes priority over
-  `LINODE_TOKEN` if both are present).
-- **kubectl** - Kubernetes command-line tool
-- **kustomize** and **git** - only required if `install_kubeflow = true` (the `kubeflow` module shells out to `kustomize build | kubectl apply`)
-
-### macOS Installation
-
-```bash
-brew install opentofu kubectl
-pip3 install linode-cli
-linode-cli configure
-```
-
-## Project Structure
-
-```text
-.
-├── README.md              # This file
-├── LICENSE                # MIT License
-├── .github/               # GitHub Actions CI and Dependabot config
-├── examples/              # Runnable examples
-│   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
-│   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
-│   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
-└── tofu/                  # OpenTofu infrastructure code
-    ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
-    ├── providers.tf       # Provider configurations
-    ├── locals.tf          # Shared locals (cluster prefix, username)
-    ├── cluster.tf         # LKE cluster resource
-    ├── firewall.tf        # Linode firewall resource
-    ├── kubeconfig.tf      # Kubeconfig merge resource
-    ├── modules.tf         # Module calls
-    ├── checks.tf          # Advisory check blocks
-    ├── variables.tf       # Configuration variables
-    ├── outputs.tf         # Output values
-    ├── tofu.tfvars.example # Configuration template
-    ├── scripts/           # Helper scripts (kubeconfig merge)
-    └── modules/           # Reusable modules
-        ├── gpu-operator/       # NVIDIA GPU Operator
-        ├── hami/               # HAMi GPU virtualization/sharing
-        ├── kubeflow/           # Full Kubeflow Platform (opt-in, kustomize-based)
-        ├── metrics-server/     # Kubernetes Metrics Server
-        ├── kube-prometheus-stack/ # Monitoring stack
-        └── opencost/           # Kubernetes cost monitoring
-```
-
-## Workflow
-
-Common OpenTofu actions:
-
-```bash
-# From repo root
-cd tofu
-
-# Initialize providers and modules
-tofu init
-
-# Review and apply changes
-tofu plan && tofu apply
-
-# Format and validate configuration
-tofu fmt -recursive && tofu validate
-
-# Destroy infrastructure when no longer needed
-tofu destroy
-```
-
-For detailed module documentation, see `tofu/modules/README.md`.
+Deployment time: ~5 min for a bare cluster, ~20–30 min with the full default
+stack (GPU Operator + HAMi + monitoring).
 
 ## Configuration
 
-Copy `tofu/tofu.tfvars.example` to `tofu/tofu.tfvars` and adjust as needed:
+Copy `tofu/tofu.tfvars.example` to `tofu/tofu.tfvars` and adjust. The knobs
+you're most likely to change:
 
 ```hcl
 region             = "us-ord"
-kubernetes_version = "1.35"
-gpu_node_type      = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
+gpu_node_type      = "g2-gpu-rtx4000a1-s"  # cheapest Linode GPU plan
 gpu_node_count     = 1
+system_node_type   = "g6-standard-2"       # g6-standard-8 if install_kubeflow
+system_node_count  = 1
 
-# System pool — 4 GB fits the monitoring stack and GPU Operator controller
-system_node_type  = "g6-standard-2"  # 2 vCPU / 4 GB (~$24/month)
-system_node_count = 1
-dedicate_gpu_nodes = true
-
-ha_control_plane = false
-
-install_gpu_operator   = true
-enable_gpu_monitoring  = true
-install_metrics_server = true
-
-# HAMi GPU virtualization — lab default: enabled
 install_hami            = true
-hami_device_split_count = 10
-hami_default_gpu_memory = 8000  # MB given to unslotted nvidia.com/gpu requests
+hami_device_split_count = 10   # vGPU slices per physical GPU
 
-# Kubeflow — opt-in, heavy
-install_kubeflow = false
+install_kubeflow = false       # opt-in, heavy
 
-# Monitoring (Prometheus + Grafana)
-install_monitoring      = true
-grafana_admin_password  = "admin"
-prometheus_retention    = "7d"
-prometheus_storage_size = "15Gi"
-grafana_storage_size    = "5Gi"
-
-install_opencost = true
+grafana_admin_password = "admin"
 ```
 
-## Node Pools & Scheduling
+See `tofu/variables.tf` for the full list (all variables have descriptions
+and sane defaults).
 
-The cluster runs **two node pools** so the expensive GPU nodes are reserved
-purely for GPU-intensive workloads:
+## Node Pools & GPU Scheduling
 
-| Pool | Default plan | Purpose |
-|------|--------------|---------|
-| **system** | `g6-standard-2` (2 vCPU / 4 GB, ~$24/mo) | Monitoring stack (Prometheus, Grafana, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
-| **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only |
+Two node pools, so the expensive GPU nodes are reserved purely for
+GPU-intensive workloads:
 
-How it works:
+| Pool | Default plan | Runs |
+|------|--------------|------|
+| **system** | `g6-standard-2` (~$24/mo) | Monitoring, Metrics Server, OpenCost, GPU Operator controller |
+| **gpu** | `g2-gpu-rtx4000a1-s` (~$380/mo) | GPU workloads only |
 
-- Each pool is labelled with `nodepool.lke/role` (`system` / `gpu`).
-- System components are pinned to the system pool via `nodeSelector`.
-- When `dedicate_gpu_nodes = true` (the default) the GPU pool is **tainted** with
-  `nvidia.com/gpu=present:NoSchedule`. Only pods that tolerate this taint land
-  on GPU nodes. The GPU Operator's GPU operands (driver, toolkit, device-plugin,
-  DCGM, GFD, NFD worker) tolerate it by default, and the `node-exporter`
-  DaemonSet keeps running cluster-wide so GPU node metrics are still scraped.
-
-Because GPU nodes are tainted, **your GPU workloads must add a matching
-toleration** (and request a GPU):
+Each pool is labelled `nodepool.lke/role` (`system`/`gpu`); system components
+are pinned there via `nodeSelector`. When `dedicate_gpu_nodes = true`
+(default) the GPU pool is **tainted** `nvidia.com/gpu=present:NoSchedule`, so
+your GPU workloads must add a matching toleration and request a GPU:
 
 ```yaml
 spec:
@@ -204,7 +103,7 @@ spec:
       operator: Exists
       effect: NoSchedule
   nodeSelector:
-    nodepool.lke/role: gpu        # optional: force onto the GPU pool
+    nodepool.lke/role: gpu
   containers:
     - name: cuda
       image: nvidia/cuda:12.4.1-base-ubuntu22.04
@@ -214,73 +113,44 @@ spec:
           nvidia.com/gpu: 1
 ```
 
-To disable the taint and allow general workloads back onto GPU nodes, set
-`dedicate_gpu_nodes = false`.
+With HAMi enabled (default), request `nvidia.com/gpumem` for an explicit
+vGPU memory slice; without it, requests get `hami_default_gpu_memory` MB
+(default 8000) rather than the whole card. Set `dedicate_gpu_nodes = false`
+to remove the taint.
 
-## Running ML Platforms on This Cluster
+## Validating the Cluster
 
-This repo can provision the GPU substrate only (GPU Operator + HAMi), or the
-full stack including Kubeflow — both are installed in-repo via
-`install_gpu_operator`, `install_hami`, and `install_kubeflow` (see
-`tofu/modules/`). For platform updates that shouldn't require re-running
-`tofu apply`, or a more elaborate CV MLOps lab, see
+Three runnable examples, in increasing order of what they cover:
+
+- [`examples/gpu-validation/`](examples/gpu-validation/) — bare CUDA pod,
+  proves the GPU Operator works. `make -C examples/gpu-validation apply wait logs`
+- [`examples/hami-validation/`](examples/hami-validation/) — two pods sharing
+  one physical GPU via HAMi vGPU slices. `make -C examples/hami-validation apply wait logs clean`
+- [`examples/roboflow-pipeline/`](examples/roboflow-pipeline/) — a real,
+  keyless object-detection workload through Kubeflow Pipelines, proving
+  HAMi's admission webhook intercepts pods it wasn't given an explicit
+  scheduler hint for (requires `install_kubeflow = true`)
+
+For platform iteration that shouldn't require re-running `tofu apply`, or a
+more elaborate CV MLOps lab, see
 [`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab).
 
-**GPU scheduling contract** (applies to any GPU workload on this cluster):
-
-- Request a GPU: `nvidia.com/gpu` resource limit = 1 (add `nvidia.com/gpumem`
-  for an explicit HAMi vGPU slice size; without it, requests get
-  `hami_default_gpu_memory` MB by default — see `modules/hami/README.md` —
-  not the whole card)
-- Tolerate the taint: `nvidia.com/gpu=present:NoSchedule`
-- Pin to the GPU pool: node selector `nodepool.lke/role=gpu`
-
-**GPU substrate validation** — [`examples/gpu-validation/`](examples/gpu-validation/)
-confirms the GPU substrate is working right after `tofu apply`, before installing any
-ML platform:
+## Accessing Services
 
 ```bash
-make -C examples/gpu-validation apply wait logs
-# Schedules a bare CUDA Pod, runs nvidia-smi, prints GPU info.
-# No Kubeflow required — only the GPU Operator must be running.
+# Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# OpenCost
+kubectl port-forward -n opencost svc/opencost 9090:9090
+
+# GPU capacity / usage
+kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
+kubectl top nodes && kubectl top pods -A
 ```
 
-**HAMi GPU virtualization validation** — [`examples/hami-validation/`](examples/hami-validation/)
-proves two Pods can share one physical GPU via vGPU memory slices (requires
-`install_hami = true`):
-
-```bash
-make -C examples/hami-validation apply wait logs clean
-```
-
-**Roboflow RF-DETR on Kubeflow Pipelines** — [`examples/roboflow-pipeline/`](examples/roboflow-pipeline/)
-runs a real, keyless object-detection workload through Kubeflow Pipelines,
-validating that HAMi's admission webhook correctly intercepts GPU pods
-created by Argo Workflows (no explicit scheduler hint needed, unlike the two
-examples above). Requires `install_kubeflow = true` and `install_hami = true`:
-
-```bash
-cd examples/roboflow-pipeline
-make venv compile
-# In one terminal: make port-forward
-# In another:      make run
-```
-
-## Cluster Specifications
-
-| Component | Specification |
-|-----------|--------------|
-| Platform | Linode Kubernetes Engine (LKE) |
-| Region | Chicago, IL (us-ord) |
-| Kubernetes | v1.35 (configurable) |
-| GPU | NVIDIA RTX 4000 Ada (1 per node) |
-| CPU | 4 vCPU per node |
-| Memory | 16 GB per node |
-| Storage | 512 GB SSD per node |
-| GPU nodes | 1 (fixed, autoscaling disabled) |
-| System pool | `g6-standard-2` (2 vCPU / 4 GB), 1 node (fixed) |
-
-## Cost Estimation
+## Cost
 
 | Resource | Cost |
 |---|---|
@@ -288,190 +158,63 @@ make venv compile
 | System node (`g6-standard-2`) | ~$24/month |
 | Monitoring storage (~20Gi) | ~$2/month |
 
-**Estimated running cost:** ~$406/month. Destroy the cluster when not in use to stop paying.
-
-Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
-
-### Cost management
-
-To stop paying for compute, destroy the cluster:
+**~$406/month** running. Approximate — check
+[Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
 ```bash
-cd tofu && tofu destroy
-```
-
-To bring it back up:
-
-```bash
-cd tofu && tofu apply
+cd tofu && tofu destroy   # stop paying
+cd tofu && tofu apply     # bring it back
 ```
 
 ## Security
 
-- API token read from the `LINODE_TOKEN` environment variable
-- Kubeconfig excluded from git tracking (auto-merged to ~/.kube/config)
-- Configurable firewall rules for kubectl and monitoring access
-- Intra-cluster firewall rules allow the Kubernetes API server (Linode control-plane) to reach kubelet (`:10250`) and admission webhooks (`:9443`) — required for Trainer v2 / JobSet to work
-- Support for Kubernetes RBAC and Network Policies
-- Grafana admin password (configurable, sensitive)
+- The Linode API token is read from `~/.config/linode-cli` (if configured)
+  or the `LINODE_TOKEN` environment variable — never committed or stored in
+  state (see `tofu/locals.tf`).
+- Kubeconfig is excluded from git and auto-merged into `~/.kube/config`.
+- `allowed_kubectl_ips` and `allowed_monitoring_ips` default to `0.0.0.0/0`
+  (open) — restrict to your IP if you expose the cluster:
 
-`allowed_kubectl_ips` and `allowed_monitoring_ips` default to `0.0.0.0/0`. Restrict to your IP if you expose the cluster:
+  ```hcl
+  allowed_kubectl_ips    = ["YOUR_IP/32"]
+  allowed_monitoring_ips = ["YOUR_IP/32"]
+  ```
 
-```hcl
-allowed_kubectl_ips    = ["YOUR_IP/32"]
-allowed_monitoring_ips = ["YOUR_IP/32"]
+- Intra-cluster firewall rules allow the control plane to reach kubelet
+  (`:10250`) and admission webhooks (`:9443`) — required for Trainer v2 /
+  JobSet to work; `node_cidrs`/`pod_cidrs` default to the standard Linode LKE
+  ranges and shouldn't need changes.
+- Grafana admin password is configurable (`grafana_admin_password`, sensitive).
+
+## Repository Layout
+
+```text
+.
+├── examples/              # Runnable validation examples (see above)
+└── tofu/                  # OpenTofu infrastructure code
+    ├── cluster.tf          # LKE cluster resource
+    ├── firewall.tf         # Linode firewall resource
+    ├── kubeconfig.tf       # Kubeconfig merge resource
+    ├── locals.tf           # Shared locals
+    ├── modules.tf          # Module calls
+    ├── checks.tf           # Advisory check blocks
+    ├── variables.tf        # Configuration variables
+    ├── outputs.tf          # Output values
+    ├── tofu.tfvars.example # Configuration template
+    ├── scripts/            # Helper scripts (kubeconfig merge)
+    └── modules/            # gpu-operator, hami, kubeflow, metrics-server,
+                             # kube-prometheus-stack, opencost — see
+                             # tofu/modules/README.md
 ```
-
-The intra-cluster CIDR variables default to Linode LKE ranges and should not need changes:
-
-```hcl
-node_cidrs = ["192.168.128.0/17"]   # Linode node + control-plane private IPs
-pod_cidrs  = ["10.2.0.0/16"]        # LKE pod CIDR
-```
-
-## Cluster Management
-
-**Scale nodes:**
-
-```bash
-# Edit tofu/tofu.tfvars: gpu_node_count = 2
-cd tofu && tofu apply
-```
-
-**Update Kubernetes version:**
-
-```bash
-# Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
-cd tofu && tofu apply
-```
-
-**Access Grafana:**
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-# Visit: http://localhost:3000 (default: admin/admin)
-```
-
-**Access Prometheus:**
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-# Visit: http://localhost:9090
-```
-
-**Access OpenCost:**
-
-```bash
-kubectl port-forward -n opencost svc/opencost 9090:9090
-# Visit: http://localhost:9090
-```
-
-**Check GPU availability:**
-
-```bash
-kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
-kubectl get pods -n gpu-operator
-```
-
-**Check resource usage:**
-
-```bash
-kubectl top nodes
-kubectl top pods -A
-```
-
-**Destroy cluster:**
-
-```bash
-cd tofu && tofu destroy
-```
-
-## Features
-
-### Infrastructure
-
-- LKE cluster with GPU nodes (NVIDIA RTX 4000 Ada)
-- Dedicated CPU system pool keeping system/monitoring workloads off GPU nodes
-- GPU nodes tainted for exclusive GPU-workload scheduling (toggleable)
-- NVIDIA GPU Operator with automated driver installation
-- Optional HA control plane (disabled by default)
-- Fixed node counts (autoscaling disabled) — predictable, bounded costs
-- Firewall rules and network policies
-- OpenTofu-based automation
-- Kubeconfig auto-merge to ~/.kube/config (no local files)
-
-### Observability
-
-- Kubernetes Metrics Server (resource metrics API)
-- Prometheus (metrics collection and storage)
-- Grafana (visualization and dashboards)
-- Alertmanager (alert management)
-- Node Exporter (hardware and OS metrics)
-- Kube State Metrics (Kubernetes object metrics)
-- DCGM Exporter (GPU metrics integration)
-- OpenCost (Kubernetes cost monitoring and allocation)
-
-### GPU Support
-
-- NVIDIA GPU Operator (automated driver management)
-- GPU device plugin (resource scheduling) — provided by HAMi when enabled, else the stock NVIDIA plugin
-- HAMi GPU virtualization — splits physical GPUs into vGPU slices (memory/core sharing across pods)
-- GPU monitoring with DCGM exporter
-- GPU metrics integration with Prometheus
-- Support for CUDA workloads
-
-### ML Platform (optional)
-
-- Full Kubeflow Platform (`install_kubeflow = true`) — Pipelines, Katib, Notebooks, KServe, Trainer, Spark Operator, Central Dashboard
-- Installed via `kustomize build | kubectl apply` (see `modules/kubeflow/README.md`)
-
-## Use Cases
-
-This infrastructure is designed for:
-
-- **ML Platform Deployment**: Foundation for Kubeflow, MLflow, Ray, etc.
-- **AI Model Training**: Distributed training with GPU acceleration
-- **AI Model Serving**: Inference workloads with GPU support
-- **Data Science Workflows**: Jupyter notebooks with GPU access
-- **Custom ML Applications**: Any containerized AI/ML workload
-- **Development & Testing**: GPU-enabled development environments
-
-## Resources
-
-- [Linode Kubernetes Engine Documentation](https://www.linode.com/docs/products/compute/kubernetes/)
-- [OpenTofu Documentation](https://opentofu.org/docs/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/)
-- [Prometheus Documentation](https://prometheus.io/docs/)
-- [Grafana Documentation](https://grafana.com/docs/)
-- [OpenCost Documentation](https://www.opencost.io/docs/)
-
-## Support
-
-For issues and questions:
-
-- Review the troubleshooting commands in the sections above
-- Check `tofu/modules/README.md` for module-specific troubleshooting
-- Visit [Linode Community Forums](https://www.linode.com/community/)
-- Consult [Kubernetes documentation](https://kubernetes.io/docs/)
-- Open an issue on GitHub
 
 ## Contributing
 
-Contributions are welcome! Open an issue or pull request.
+Contributions are welcome — open an issue or pull request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Author
 
 Ihor Dvoretskyi ([@idvoretskyi](https://github.com/idvoretskyi))
-
-## Acknowledgments
-
-- [Akamai/Linode](https://www.linode.com/) for the cloud platform
-- [OpenTofu](https://opentofu.org/) community for infrastructure-as-code tooling
-- [Kubernetes](https://kubernetes.io/) community
-- [NVIDIA](https://www.nvidia.com/) for GPU support and documentation
-- [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) communities

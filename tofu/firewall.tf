@@ -27,7 +27,7 @@ resource "linode_firewall" "lke_firewall" {
     action   = "ACCEPT"
     protocol = "TCP"
     ports    = "1-65535"
-    ipv4     = concat(var.node_cidrs, var.pod_cidrs)
+    ipv4     = local.intra_cluster_cidrs
   }
 
   inbound {
@@ -35,7 +35,7 @@ resource "linode_firewall" "lke_firewall" {
     action   = "ACCEPT"
     protocol = "UDP"
     ports    = "1-65535"
-    ipv4     = concat(var.node_cidrs, var.pod_cidrs)
+    ipv4     = local.intra_cluster_cidrs
   }
 
   inbound_policy  = "DROP"
@@ -46,6 +46,4 @@ resource "linode_firewall" "lke_firewall" {
       for n in p.nodes : n.instance_id
     ]
   ])
-
-  depends_on = [linode_lke_cluster.gpu_cluster]
 }

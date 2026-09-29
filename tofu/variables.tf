@@ -12,7 +12,7 @@ variable "region" {
   default     = "us-ord" # Chicago, US
 
   validation {
-    condition     = can(cidrhost("${var.region}/32", 0)) == false && can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
+    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
     error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
   }
 }
@@ -309,7 +309,7 @@ variable "grafana_storage_size" {
 # ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
 
 variable "install_opencost" {
-  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality)"
+  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality — see the advisory check in checks.tf)"
   type        = bool
   default     = true
 }

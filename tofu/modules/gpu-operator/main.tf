@@ -14,11 +14,10 @@ resource "helm_release" "gpu_operator" {
   name       = "gpu-operator"
   repository = "https://helm.ngc.nvidia.com/nvidia"
   chart      = "gpu-operator"
-  version    = var.gpu_operator_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.gpu_operator.metadata[0].name
 
   create_namespace = false
-  depends_on       = [kubernetes_namespace_v1.gpu_operator]
 
   timeout       = 600
   wait          = true

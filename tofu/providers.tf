@@ -15,9 +15,5 @@ provider "kubernetes" {
 
 # Helm provider — uses the same kubeconfig data as the kubernetes provider.
 provider "helm" {
-  kubernetes = {
-    host                   = local.k8s_auth.host
-    token                  = local.k8s_auth.token
-    cluster_ca_certificate = local.k8s_auth.cluster_ca_certificate
-  }
+  kubernetes = local.k8s_auth
 }

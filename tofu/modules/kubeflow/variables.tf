@@ -12,18 +12,33 @@ variable "kubeflow_ref" {
 variable "k8s_host" {
   description = "Kubernetes API server URL (from the LKE cluster kubeconfig)."
   type        = string
+
+  validation {
+    condition     = var.k8s_host != ""
+    error_message = "k8s_host must be set — pass local.k8s_auth.host from the root module."
+  }
 }
 
 variable "k8s_token" {
   description = "Kubernetes API bearer token (from the LKE cluster kubeconfig)."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = var.k8s_token != ""
+    error_message = "k8s_token must be set — pass local.k8s_auth.token from the root module."
+  }
 }
 
 variable "k8s_cluster_ca_certificate" {
   description = "Base64-decoded cluster CA certificate (PEM) for the Kubernetes API server."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = var.k8s_cluster_ca_certificate != ""
+    error_message = "k8s_cluster_ca_certificate must be set — pass local.k8s_auth.cluster_ca_certificate from the root module."
+  }
 }
 
 variable "install_timeout" {

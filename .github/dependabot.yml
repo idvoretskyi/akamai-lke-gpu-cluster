@@ -1,93 +1,12 @@
 version: 2
 updates:
-  # Keep Terraform/OpenTofu providers up-to-date for the root module
+  # Keep Terraform/OpenTofu providers up-to-date for the root module and
+  # every module under tofu/modules/* (directories: supports globs, so new
+  # modules are picked up automatically — no dependabot.yml edit needed).
   - package-ecosystem: "terraform"
-    directory: "/tofu"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  # Keep Terraform/OpenTofu providers up-to-date for each module
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/gpu-operator"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/hami"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/kubeflow"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/metrics-server"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/kube-prometheus-stack"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/opencost"
+    directories:
+      - "/tofu"
+      - "/tofu/modules/*"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

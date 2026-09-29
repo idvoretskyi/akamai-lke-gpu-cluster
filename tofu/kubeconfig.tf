@@ -5,8 +5,8 @@ resource "terraform_data" "merge_kubeconfig" {
   count = var.merge_kubeconfig ? 1 : 0
 
   triggers_replace = {
-    kubeconfig_content = base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)
-    cluster_id         = linode_lke_cluster.gpu_cluster.id
+    kubeconfig_sha256 = sha256(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig))
+    cluster_id        = linode_lke_cluster.gpu_cluster.id
   }
 
   provisioner "local-exec" {
