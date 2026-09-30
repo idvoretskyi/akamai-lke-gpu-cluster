@@ -140,6 +140,31 @@ module "vllm" {
   depends_on = [module.gpu_operator, module.hami, module.kube_prometheus_stack]
 }
 
+# llama.cpp Module — optional GGUF server (llama-server), same GPU rules as
+# vLLM. Mutually exclusive with vLLM and Ollama on one GPU (see checks.tf).
+module "llamacpp" {
+  count  = var.install_llamacpp ? 1 : 0
+  source = "./modules/llamacpp"
+
+  namespace           = "llamacpp"
+  image_tag           = var.llamacpp_image_tag
+  gguf_repo           = var.llamacpp_gguf_repo
+  served_model_name   = var.llamacpp_served_model_name
+  context_size        = var.llamacpp_context_size
+  n_cpu_moe           = var.llamacpp_n_cpu_moe
+  n_cpu_ffn           = var.llamacpp_n_cpu_ffn
+  extra_args          = var.llamacpp_extra_args
+  api_key             = var.llamacpp_api_key
+  hf_token            = var.hf_token
+  hami_full_gpu       = var.install_hami
+  node_selector       = local.gpu_node_labels
+  gpu_node_toleration = local.gpu_node_toleration
+  cache_size          = var.llamacpp_cache_size
+  enable_monitoring   = var.install_monitoring
+
+  depends_on = [module.gpu_operator, module.hami, module.kube_prometheus_stack]
+}
+
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and

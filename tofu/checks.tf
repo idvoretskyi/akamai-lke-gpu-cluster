@@ -75,13 +75,13 @@ check "ollama_gpu_memory_fits_card" {
 # Ollama, vLLM and llama.cpp each claim the whole card. With one GPU node,
 # two of them enabled means one pod stays Pending forever.
 locals {
-  gpu_model_servers_enabled = length([for enabled in [var.install_ollama, var.install_vllm] : enabled if enabled])
+  gpu_model_servers_enabled = length([for enabled in [var.install_ollama, var.install_vllm, var.install_llamacpp] : enabled if enabled])
 }
 
 check "one_gpu_model_server" {
   assert {
     condition     = local.gpu_model_servers_enabled <= 1
-    error_message = "More than one GPU model server is enabled (install_ollama, install_vllm). Each takes the whole GPU, so only one can run: disable the others, apply, then enable the one you want."
+    error_message = "More than one GPU model server is enabled (install_ollama, install_vllm, install_llamacpp). Each takes the whole GPU, so only one can run: disable the others, apply, then enable the one you want."
   }
 }
 

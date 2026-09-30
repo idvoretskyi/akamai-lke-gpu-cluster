@@ -511,6 +511,74 @@ variable "vllm_cache_size" {
   }
 }
 
+# ─── llama.cpp (GGUF serving, optional) ──────────────────────────────────────
+
+variable "install_llamacpp" {
+  description = "Install llama.cpp llama-server on the GPU pool for GGUF models (e.g. a dense 27B that does not fit vLLM on 20 GB). Takes the whole GPU: disable Ollama and vLLM when enabling it."
+  type        = bool
+  default     = false
+}
+
+variable "llamacpp_gguf_repo" {
+  description = "Hugging Face GGUF repository and quant, as '<user>/<repo>:<quant>'"
+  type        = string
+  default     = "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M"
+}
+
+variable "llamacpp_served_model_name" {
+  description = "Model id exposed by llama-server (--alias)"
+  type        = string
+  default     = "qwen3.8-27b"
+}
+
+variable "llamacpp_context_size" {
+  description = "llama-server context size in tokens (-c)"
+  type        = number
+  default     = 32768
+
+  validation {
+    condition     = var.llamacpp_context_size >= 4096
+    error_message = "llamacpp_context_size must be at least 4096."
+  }
+}
+
+variable "llamacpp_n_cpu_moe" {
+  description = "MoE models: number of layers whose expert weights stay in host RAM (--n-cpu-moe)"
+  type        = number
+  default     = 0
+}
+
+variable "llamacpp_n_cpu_ffn" {
+  description = "Dense models: number of layers whose FFN weights stay in host RAM (--n-cpu-ffn)"
+  type        = number
+  default     = 0
+}
+
+variable "llamacpp_extra_args" {
+  description = "Extra llama-server arguments"
+  type        = list(string)
+  default     = []
+}
+
+variable "llamacpp_image_tag" {
+  description = "llama.cpp server image tag (pinned CUDA build)"
+  type        = string
+  default     = "server-cuda-v0.5.0"
+}
+
+variable "llamacpp_api_key" {
+  description = "API key for llama-server. Null generates one, readable with `tofu output -raw llamacpp_api_key`."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "llamacpp_cache_size" {
+  description = "Size of the llama.cpp model cache volume (Linode minimum 10Gi)"
+  type        = string
+  default     = "40Gi"
+}
+
 # ─── Monitoring Resource Requests ────────────────────────────────────────────
 
 variable "prometheus_resources" {

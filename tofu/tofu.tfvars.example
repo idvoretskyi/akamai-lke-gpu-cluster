@@ -169,6 +169,25 @@ install_vllm = false
 # vllm_cache_storage_class = "linode-block-storage" # "-retain" keeps weights across destroy, but stays billed
 
 # ============================================================================
+# llama.cpp (optional GGUF server)
+# ============================================================================
+# For models vLLM cannot fit, e.g. dense Qwen3.8-27B at 4-bit (16.5 GB GGUF).
+# Same local port and client setup as vLLM:
+#   kubectl port-forward -n llamacpp service/llamacpp 8000:8080
+#   tofu output -raw llamacpp_api_key
+
+install_llamacpp = false
+# llamacpp_gguf_repo         = "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M"
+# llamacpp_served_model_name = "qwen3.8-27b"
+# llamacpp_context_size      = 32768
+# llamacpp_n_cpu_moe         = 0 # MoE: expert layers kept in host RAM
+# llamacpp_n_cpu_ffn         = 0 # dense: FFN layers kept in host RAM
+# llamacpp_extra_args        = []
+# llamacpp_image_tag         = "server-cuda-v0.5.0"
+# llamacpp_api_key           = null # null generates one
+# llamacpp_cache_size        = "40Gi"
+
+# ============================================================================
 # Cost Management
 # ============================================================================
 # Destroy the cluster to stop paying for compute:

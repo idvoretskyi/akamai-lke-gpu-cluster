@@ -204,6 +204,39 @@ output "vllm_port_forward_command" {
   value       = try(module.vllm[0].port_forward_command, null)
 }
 
+# ─── llama.cpp ────────────────────────────────────────────────────────────────
+
+output "llamacpp_namespace" {
+  description = "llama.cpp namespace (null when not installed)"
+  value       = try(module.llamacpp[0].namespace, null)
+}
+
+output "llamacpp_status" {
+  description = "llama.cpp Helm release status (null when not installed)"
+  value       = try(module.llamacpp[0].status, null)
+}
+
+output "llamacpp_base_url" {
+  description = "In-cluster OpenAI-compatible base URL (null when not installed)"
+  value       = try(module.llamacpp[0].base_url, null)
+}
+
+output "llamacpp_served_model_name" {
+  description = "Model id to request from llama-server (null when not installed)"
+  value       = try(module.llamacpp[0].served_model_name, null)
+}
+
+output "llamacpp_api_key" {
+  description = "llama.cpp API key (null when not installed)"
+  value       = try(module.llamacpp[0].api_key, null)
+  sensitive   = true
+}
+
+output "llamacpp_port_forward_command" {
+  description = "Forward the llama.cpp API to localhost:8000 (null when not installed)"
+  value       = try(module.llamacpp[0].port_forward_command, null)
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {
