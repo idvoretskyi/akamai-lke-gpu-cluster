@@ -342,6 +342,69 @@ variable "opencost_version" {
   }
 }
 
+# ─── Ollama (LLM serving) ─────────────────────────────────────────────────────
+
+variable "install_ollama" {
+  description = "Install Ollama on the GPU pool to serve local LLMs (reach it via kubectl port-forward). Takes the whole GPU by default; set false when the GPU is needed for other workloads."
+  type        = bool
+  default     = true
+}
+
+variable "ollama_version" {
+  description = "Version of the otwld/ollama-helm chart"
+  type        = string
+  default     = "1.84.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ollama_version))
+    error_message = "ollama_version must be in the format 'X.Y.Z' (e.g. '1.84.0')."
+  }
+}
+
+variable "ollama_models" {
+  description = "Models Ollama pulls on startup (name[:tag] from ollama.com/library). Each must fit the GPU's VRAM on its own; one is loaded at a time."
+  type        = list(string)
+  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
+
+  validation {
+    condition     = alltrue([for m in var.ollama_models : can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]+)?$", m))])
+    error_message = "Each ollama_models entry must look like 'name' or 'name:tag' (e.g. 'gemma4:12b')."
+  }
+}
+
+variable "ollama_storage_size" {
+  description = "Size of the volume holding Ollama's models (~$0.10/GB/month). The default models take ~49 GB."
+  type        = string
+  default     = "80Gi"
+
+  validation {
+    condition     = can(regex("^[0-9]+(Gi|Ti)$", var.ollama_storage_size))
+    error_message = "ollama_storage_size must be a quantity in Gi or Ti (e.g. '80Gi')."
+  }
+}
+
+variable "ollama_gpu_memory_mib" {
+  description = "GPU memory (MiB) Ollama requests from HAMi. 20000 gives it the whole RTX 4000 Ada (20 GB). Ignored when install_hami = false, in which case Ollama gets the whole GPU."
+  type        = number
+  default     = 20000
+
+  validation {
+    condition     = var.ollama_gpu_memory_mib >= 1024
+    error_message = "ollama_gpu_memory_mib must be at least 1024."
+  }
+}
+
+variable "ollama_context_length" {
+  description = "Default context window in tokens (OLLAMA_CONTEXT_LENGTH). Larger contexts need more VRAM for the KV cache; 8192 keeps ~27B Q4 models fully on a 20 GB GPU."
+  type        = number
+  default     = 8192
+
+  validation {
+    condition     = var.ollama_context_length >= 2048
+    error_message = "ollama_context_length must be at least 2048."
+  }
+}
+
 # ─── Monitoring Resource Requests ────────────────────────────────────────────
 
 variable "prometheus_resources" {

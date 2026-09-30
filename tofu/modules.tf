@@ -91,6 +91,26 @@ module "kube_prometheus_stack" {
   depends_on = [module.gpu_operator, module.metrics_server]
 }
 
+# Ollama Module — serves local LLMs from the GPU pool.
+# Pinned to the GPU nodes and given the whole GPU through HAMi's
+# nvidia.com/gpumem. Without HAMi that resource doesn't exist (the pod would
+# never schedule), so it is only requested when HAMi is installed.
+module "ollama" {
+  count  = var.install_ollama ? 1 : 0
+  source = "./modules/ollama"
+
+  namespace           = "ollama"
+  chart_version       = var.ollama_version
+  models              = var.ollama_models
+  storage_size        = var.ollama_storage_size
+  context_length      = var.ollama_context_length
+  gpu_memory_mib      = var.install_hami ? var.ollama_gpu_memory_mib : null
+  node_selector       = local.gpu_node_labels
+  gpu_node_toleration = local.gpu_node_toleration
+
+  depends_on = [module.gpu_operator, module.hami]
+}
+
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and

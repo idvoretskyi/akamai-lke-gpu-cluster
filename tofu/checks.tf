@@ -46,3 +46,27 @@ check "gpu_plan_available_in_region" {
     error_message = "gpu_node_type '${var.gpu_node_type}' (RTX 4000 Ada) is not known to be available in region '${var.region}'. Known regions: ${join(", ", local.rtx4000_ada_regions)}. Verify with `linode-cli regions list-avail`."
   }
 }
+
+# Per-card VRAM (MiB) of Linode GPU plans, keyed by plan-name prefix. Used to
+# sanity-check how much GPU memory Ollama asks HAMi for.
+locals {
+  gpu_vram_mib_by_plan_prefix = {
+    "g2-gpu-rtx4000a" = 20475 # RTX 4000 Ada, 20 GB
+    "g1-gpu-rtx6000"  = 24576 # Quadro RTX 6000, 24 GB
+  }
+  gpu_vram_mib = one([for prefix, mib in local.gpu_vram_mib_by_plan_prefix : mib if startswith(var.gpu_node_type, prefix)])
+}
+
+check "ollama_requires_gpu_operator" {
+  assert {
+    condition     = !var.install_ollama || var.install_gpu_operator
+    error_message = "install_ollama is enabled without install_gpu_operator — Ollama needs the NVIDIA driver/toolkit to use the GPU and will not schedule without an nvidia.com/gpu resource."
+  }
+}
+
+check "ollama_gpu_memory_fits_card" {
+  assert {
+    condition     = !var.install_ollama || !var.install_hami || local.gpu_vram_mib == null || var.ollama_gpu_memory_mib <= local.gpu_vram_mib
+    error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — HAMi will never schedule the Ollama pod."
+  }
+}

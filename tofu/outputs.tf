@@ -129,6 +129,38 @@ output "kubeflow_validation_commands" {
   value       = try(module.kubeflow[0].validation_commands, null)
 }
 
+# ─── Ollama ───────────────────────────────────────────────────────────────────
+
+output "ollama_namespace" {
+  description = "Ollama namespace (null when not installed)"
+  value       = try(module.ollama[0].namespace, null)
+}
+
+output "ollama_version" {
+  description = "Ollama chart version (null when not installed)"
+  value       = try(module.ollama[0].version, null)
+}
+
+output "ollama_status" {
+  description = "Ollama Helm release status (null when not installed)"
+  value       = try(module.ollama[0].status, null)
+}
+
+output "ollama_service" {
+  description = "Ollama service name for port-forwarding (null when not installed)"
+  value       = try(module.ollama[0].service_name, null)
+}
+
+output "ollama_models" {
+  description = "Models Ollama pulls on startup (null when not installed)"
+  value       = try(module.ollama[0].models, null)
+}
+
+output "ollama_validation_commands" {
+  description = "Commands to reach and validate Ollama (null when not installed)"
+  value       = try(module.ollama[0].validation_commands, null)
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {
