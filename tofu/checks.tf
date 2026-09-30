@@ -112,3 +112,13 @@ check "vllm_cache_retain_class" {
     error_message = "vllm_cache_storage_class = 'linode-block-storage-retain': the model cache volume survives tofu destroy and keeps being billed. Delete it in Cloud Manager when you no longer need it."
   }
 }
+
+# Weights plus KV cache must fit the card: vLLM refuses to start when the KV
+# cache left after the weights cannot hold one max-length request. Only
+# checked for 20 GB cards, where each preset's limit was measured.
+check "vllm_context_fits_card" {
+  assert {
+    condition     = !var.install_vllm || local.gpu_vram_mib == null || try(local.gpu_vram_mib > 20475, false) || local.vllm_max_model_len <= local.vllm_profile.max_len_20gb
+    error_message = "vllm_max_model_len (${local.vllm_max_model_len}) exceeds what preset '${var.vllm_model_profile}' can serve on a 20 GB GPU (${local.vllm_profile.max_len_20gb} tokens). vLLM will crash-loop with 'KV cache is needed, which is larger than the available KV cache memory'."
+  }
+}

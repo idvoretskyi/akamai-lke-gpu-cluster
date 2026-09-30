@@ -414,13 +414,13 @@ variable "install_vllm" {
 }
 
 variable "vllm_model_profile" {
-  description = "Model preset for vLLM (see local.vllm_profiles in locals.tf): 'gpt-oss-20b' (MXFP4, 64K context) or 'qwen3-coder-30b' (AWQ 4-bit, 32K context)."
+  description = "Model preset for vLLM (see local.vllm_profiles in locals.tf): 'qwen3-coder-30b' (default, AWQ 4-bit MoE, 24K context), 'gpt-oss-20b' (MXFP4 MoE, 64K) or 'qwen3-14b' (official AWQ, dense, 40K)."
   type        = string
-  default     = "gpt-oss-20b"
+  default     = "qwen3-coder-30b"
 
   validation {
-    condition     = contains(["gpt-oss-20b", "qwen3-coder-30b"], var.vllm_model_profile)
-    error_message = "vllm_model_profile must be one of: gpt-oss-20b, qwen3-coder-30b."
+    condition     = contains(["qwen3-coder-30b", "gpt-oss-20b", "qwen3-14b"], var.vllm_model_profile)
+    error_message = "vllm_model_profile must be one of: qwen3-coder-30b, gpt-oss-20b, qwen3-14b."
   }
 }
 

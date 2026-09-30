@@ -42,7 +42,7 @@ CUDA graphs: allow 10 to 20 minutes before the pod is Ready. Follow it with
 ```bash
 export VLLM_API_KEY="$(tofu -chdir=tofu output -raw vllm_api_key)"
 cp examples/vllm-opencode/opencode.json ~/.config/opencode/opencode.json  # or merge into it
-opencode -m lke-vllm/gpt-oss-20b
+opencode -m lke-vllm/qwen3-coder-30b
 ```
 
 `opencode.json` defines an `@ai-sdk/openai-compatible` provider pointing at
@@ -56,16 +56,23 @@ opencode schema only accepts catalogue models there, so pick the model with
 ## Switching presets
 
 ```hcl
-vllm_model_profile = "qwen3-coder-30b"  # or "gpt-oss-20b" (default)
+vllm_model_profile = "gpt-oss-20b"  # or "qwen3-coder-30b" (default), "qwen3-14b"
 ```
 
 `tofu apply` replaces the pod (Recreate); the new model downloads into the
-same cache volume. Use `opencode -m lke-vllm/qwen3-coder-30b`.
+same cache volume. Use `opencode -m lke-vllm/gpt-oss-20b`.
 
 | Preset | Model | Weights | Context |
 |---|---|---|---|
+| `qwen3-coder-30b` (default) | `QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ` (4-bit MoE, 3.3B active) | 16.8 GB | 24K |
 | `gpt-oss-20b` | `openai/gpt-oss-20b` (MXFP4 MoE, 3.6B active) | 13.8 GB | 64K |
-| `qwen3-coder-30b` | `QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ` (4-bit MoE, 3.3B active) | 16.8 GB | 32K |
+| `qwen3-14b` | `Qwen/Qwen3-14B-AWQ` (official, dense) | 10 GB | 40K |
+
+The 24K limit for Qwen3-Coder is measured: at 32K vLLM refuses to start
+because the KV cache left after 16.8 GB of weights is too small. gpt-oss-20b
+has the most context but, on vLLM v0.30.0, sometimes emits tool names such as
+`read<|channel|>commentary` ([vllm#32587](https://github.com/vllm-project/vllm/issues/32587));
+opencode rejects and retries them, so tasks take extra turns.
 
 ## Switching to llama.cpp
 

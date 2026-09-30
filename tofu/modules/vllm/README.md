@@ -4,7 +4,7 @@ Serves one model through vLLM's OpenAI-compatible API on the GPU pool, using
 the [vLLM production-stack](https://github.com/vllm-project/production-stack)
 Helm chart (`vllm-stack`) with its router disabled. Built as a backend for
 agentic coding tools such as opencode: tool calling, prefix caching for long
-repeated system prompts, and an FP8 KV cache for 32K to 64K contexts.
+repeated system prompts, and an FP8 KV cache for long contexts.
 
 ## Overview
 
@@ -23,11 +23,10 @@ repeated system prompts, and an FP8 KV cache for 32K to 64K contexts.
 module "vllm" {
   source = "./modules/vllm"
 
-  model_repo          = "openai/gpt-oss-20b"
-  served_model_name   = "gpt-oss-20b"
-  max_model_len       = 65536
-  tool_call_parser    = "openai"
-  reasoning_parser    = "openai_gptoss"
+  model_repo          = "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+  served_model_name   = "qwen3-coder-30b"
+  max_model_len       = 24576
+  tool_call_parser    = "qwen3_coder"
   hami_full_gpu       = true
   node_selector       = local.gpu_node_labels
   gpu_node_toleration = local.gpu_node_toleration

@@ -124,7 +124,7 @@ module "vllm" {
   image_tag           = var.vllm_image_tag
   model_repo          = coalesce(var.vllm_model_repo, local.vllm_profile.model_repo)
   served_model_name   = coalesce(var.vllm_served_model_name, local.vllm_profile.served_model_name)
-  max_model_len       = coalesce(var.vllm_max_model_len, local.vllm_profile.max_model_len)
+  max_model_len       = local.vllm_max_model_len
   tool_call_parser    = local.vllm_profile.tool_call_parser
   reasoning_parser    = local.vllm_profile.reasoning_parser
   extra_args          = concat(local.vllm_profile.extra_args, var.vllm_extra_args)

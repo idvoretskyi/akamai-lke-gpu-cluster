@@ -100,8 +100,8 @@ source of truth.
   ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
   without the GPU Operator or asking for more GPU memory than one card has,
   more than one GPU model server, vLLM without the GPU Operator, vLLM with
-  HAMi (verify the full VRAM), vLLM on a GPU plan under 20 GB, and a retained
-  vLLM cache.
+  HAMi (verify the full VRAM), vLLM on a GPU plan under 20 GB, a vLLM context
+  longer than the preset can hold on a 20 GB card, and a retained vLLM cache.
   Warnings, not failures.
 
 ## GPU node image (LKE)

@@ -152,11 +152,12 @@ ollama_storage_size = "80Gi" # ~$8/month
 # Reach it with:
 #   kubectl port-forward -n vllm service/vllm-coder-engine-service 8000:8000
 #   tofu output -raw vllm_api_key
-# Presets: gpt-oss-20b (MXFP4, 64K context, default) or qwen3-coder-30b
-# (AWQ 4-bit, 32K context). See examples/vllm-opencode.
+# Presets: qwen3-coder-30b (default, AWQ MoE, 24K context), gpt-oss-20b
+# (MXFP4 MoE, 64K) or qwen3-14b (official AWQ, dense, 40K).
+# See examples/vllm-opencode.
 
 install_vllm = false
-# vllm_model_profile       = "gpt-oss-20b"
+# vllm_model_profile       = "qwen3-coder-30b"
 # vllm_model_repo          = null  # override the preset's Hugging Face repo
 # vllm_served_model_name   = null
 # vllm_max_model_len       = null

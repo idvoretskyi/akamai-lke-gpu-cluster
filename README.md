@@ -313,25 +313,28 @@ While Ollama runs, other GPU workloads can't schedule; set
 ## Local LLM serving for opencode
 
 For agentic coding (long repeated system prompts, tool calls on every turn,
-32K to 64K contexts) the cluster can run [vLLM](https://docs.vllm.ai)
+long contexts) the cluster can run [vLLM](https://docs.vllm.ai)
 instead of Ollama, as an OpenAI-compatible backend for
 [opencode](https://opencode.ai):
 
 ```hcl
 install_ollama     = false          # one GPU server at a time
 install_vllm       = true
-vllm_model_profile = "gpt-oss-20b"  # or "qwen3-coder-30b"
+vllm_model_profile = "qwen3-coder-30b"  # or "gpt-oss-20b", "qwen3-14b"
 ```
 
 | Preset | Model | Context | Notes |
 |---|---|---|---|
-| `gpt-oss-20b` (default) | `openai/gpt-oss-20b`, MXFP4 | 64K | Fastest; reasoning model with native tool calling |
-| `qwen3-coder-30b` | `QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ` | 32K | Coding-specialised MoE |
+| `qwen3-coder-30b` (default) | `QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ` | 24K | Coding-tuned MoE (July 2025); clean tool calls |
+| `gpt-oss-20b` | `openai/gpt-oss-20b`, MXFP4 | 64K | Longest context; vLLM v0.30.0 sometimes leaks Harmony tokens into tool names ([#32587](https://github.com/vllm-project/vllm/issues/32587)) |
+| `qwen3-14b` | `Qwen/Qwen3-14B-AWQ` (official) | 40K | Dense and slower; thinking mode |
 
-Both are MoE models with about 3B active parameters, which matters on this
-GPU's ~360 GB/s memory bandwidth: expect roughly 50 to 90 tokens per second.
-Dense models such as Qwen3.8-27B do not fit vLLM on 20 GB; run them as GGUF
-with the optional llama.cpp module (`install_llamacpp = true`).
+The two MoE presets activate about 3B parameters per token, which matters on
+this GPU's ~360 GB/s memory bandwidth: gpt-oss-20b measured 80 tokens per
+second. Newer Qwen (3.5, 3.6, 3.8), GLM and Kimi models are 24 GB or more at
+4-bit and do not fit vLLM on 20 GB; run dense ones such as Qwen3.8-27B as
+GGUF with the optional llama.cpp module (`install_llamacpp = true`). The
+`vllm_context_fits_card` check warns when a context override would not fit.
 
 The Service is ClusterIP only and requires an API key (generated unless you
 set `vllm_api_key`):
@@ -340,7 +343,7 @@ set `vllm_api_key`):
 make -C examples/vllm-opencode port-forward   # localhost:8000
 export VLLM_API_KEY="$(tofu -chdir=tofu output -raw vllm_api_key)"
 make -C examples/vllm-opencode health tool-call
-opencode -m lke-vllm/gpt-oss-20b              # with examples/vllm-opencode/opencode.json
+opencode -m lke-vllm/qwen3-coder-30b          # with examples/vllm-opencode/opencode.json
 ```
 
 The model cache uses the `linode-block-storage` class, so `tofu destroy`
