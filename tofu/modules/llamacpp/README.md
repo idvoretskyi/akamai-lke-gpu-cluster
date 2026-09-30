@@ -17,7 +17,11 @@ chart.
   (`LLAMA_CACHE`), so restarts do not download again.
 - Tool calling through the model's Jinja chat template (`--jinja`).
 - Quantized KV cache (`-ctk`/`-ctv`, default `q8_0`), flash attention on.
-- API key from a Secret (`LLAMA_API_KEY`), generated when not given.
+- API key from a Secret (`LLAMA_API_KEY`), generated when null or empty
+  (llama-server would otherwise run without authentication). A checksum
+  annotation restarts the pod when the key changes.
+- NetworkPolicy: only `allowed_ingress_namespaces` (Prometheus) may connect
+  in-cluster; `kubectl port-forward` is unaffected.
 - Optional ServiceMonitor for `/metrics`, authenticated with the API key.
 
 ## Usage
@@ -56,7 +60,7 @@ module "llamacpp" {
 | `n_cpu_moe` | `--n-cpu-moe` (MoE layers kept on the CPU) | `0` |
 | `n_cpu_ffn` | `--n-cpu-ffn` (dense FFN layers kept on the CPU) | `0` |
 | `extra_args` | Extra server arguments | `[]` |
-| `api_key` | API key (sensitive); null generates one | `null` |
+| `api_key` | API key (sensitive); null or empty generates one | `null` |
 | `hf_token` | Hugging Face token (sensitive) | `null` |
 | `hami_full_gpu` | Schedule via HAMi and request the whole card | `false` |
 | `runtime_class_name` | Pod RuntimeClass | `"nvidia"` |
@@ -66,6 +70,7 @@ module "llamacpp" {
 | `cache_size` | Model cache PVC size (minimum 10Gi) | `"40Gi"` |
 | `cache_storage_class` | Model cache StorageClass | `"linode-block-storage"` |
 | `enable_monitoring` | ServiceMonitor for `/metrics` | `false` |
+| `allowed_ingress_namespaces` | Namespaces allowed through the NetworkPolicy | `[]` |
 
 ## Outputs
 

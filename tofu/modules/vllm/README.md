@@ -12,8 +12,16 @@ repeated system prompts, and an FP8 KV cache for long contexts.
   forever for a second GPU).
 - ClusterIP Service on port 8000; reach it with `kubectl port-forward`.
 - API key required on `/v1/*`: taken from `api_key`, or generated with the
-  `random` provider and exposed as the sensitive `api_key` output.
-  `/health` and `/metrics` stay unauthenticated inside the cluster.
+  `random` provider (also when `api_key` is empty) and exposed as the
+  sensitive `api_key` output.
+- A NetworkPolicy denies all in-cluster ingress except from
+  `allowed_ingress_namespaces` (the root passes `monitoring` for
+  Prometheus). vLLM v0.30.0 serves `/invocations` (chat completions) and
+  `/tokenize` without checking the key, as well as `/health` and `/metrics`,
+  so the key alone does not protect the pod from other workloads.
+  `kubectl port-forward` is not subject to NetworkPolicy and keeps working.
+- A checksum of the credentials Secret is a pod annotation, so changing the
+  key or token restarts the pod with the new values.
 - Model cache PVC mounted as `HF_HOME` (`/data`).
 - Optional ServiceMonitor and the upstream vLLM Grafana dashboards.
 
@@ -59,7 +67,7 @@ and the parsers from the `vllm_model_profile` presets.
 | `kv_cache_dtype` | `--kv-cache-dtype` | `"fp8"` |
 | `gpu_memory_utilization` | `--gpu-memory-utilization` | `0.92` |
 | `extra_args` | Extra vLLM arguments | `[]` |
-| `api_key` | API key (sensitive); null generates one | `null` |
+| `api_key` | API key (sensitive); null or empty generates one | `null` |
 | `hf_token` | Hugging Face token for gated models (sensitive) | `null` |
 | `hami_full_gpu` | Schedule via HAMi and request the whole card | `false` |
 | `runtime_class_name` | Pod RuntimeClass | `"nvidia"` |
@@ -70,6 +78,7 @@ and the parsers from the `vllm_model_profile` presets.
 | `cache_size` | Model cache PVC size (minimum 10Gi) | `"50Gi"` |
 | `cache_storage_class` | Model cache StorageClass | `"linode-block-storage"` |
 | `enable_monitoring` | ServiceMonitor and Grafana dashboards | `false` |
+| `allowed_ingress_namespaces` | Namespaces allowed through the NetworkPolicy | `[]` |
 
 ## Outputs
 

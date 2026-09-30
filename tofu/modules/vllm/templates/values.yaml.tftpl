@@ -54,6 +54,8 @@ servingEngineSpec:
       tag: "${image_tag}"
       modelURL: "${model_repo}"
       replicaCount: 1
+      podAnnotations:
+        checksum/credentials: "${secret_checksum}"
       enableTool: true
       toolCallParser: "${tool_call_parser}"
 %{ if has_hf_token ~}

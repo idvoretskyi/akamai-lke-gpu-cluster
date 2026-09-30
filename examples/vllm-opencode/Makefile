@@ -1,13 +1,25 @@
 NAMESPACE ?= vllm
 SERVICE   ?= vllm-coder-engine-service
+DEPLOYMENT ?= vllm-coder-deployment-vllm
+# Container port of the Service: 8000 for vLLM, 8080 for llama.cpp.
+TARGET_PORT ?= 8000
 PORT      ?= 8000
 TOFU_DIR  ?= ../../tofu
 PROMPT    ?= Write a Python function that reverses a string.
 URL       := http://localhost:$(PORT)
 
 # Read from tofu outputs unless already set in the environment.
-VLLM_API_KEY ?= $(shell tofu -chdir=$(TOFU_DIR) output -raw vllm_api_key 2>/dev/null)
-MODEL        ?= $(shell tofu -chdir=$(TOFU_DIR) output -raw vllm_served_model_name 2>/dev/null)
+# SERVER=llamacpp switches every target to the llama.cpp module.
+SERVER    ?= vllm
+ifeq ($(SERVER),llamacpp)
+NAMESPACE   := llamacpp
+SERVICE     := llamacpp
+DEPLOYMENT  := llamacpp
+TARGET_PORT := 8080
+endif
+
+VLLM_API_KEY ?= $(shell tofu -chdir=$(TOFU_DIR) output -raw $(SERVER)_api_key 2>/dev/null)
+MODEL        ?= $(shell tofu -chdir=$(TOFU_DIR) output -raw $(SERVER)_served_model_name 2>/dev/null)
 
 # Passed to the clients through the environment, never spliced into shell or
 # JSON, so prompts with quotes or apostrophes work.
@@ -17,7 +29,7 @@ export VLLM_API_KEY MODEL PROMPT
 
 ## Forward the vLLM API to localhost:$(PORT). Keep it running in its own terminal.
 port-forward:
-	kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):8000
+	kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):$(TARGET_PORT)
 
 ## Check /health and list served models (needs port-forward).
 health:
@@ -42,8 +54,8 @@ tool-call:
 
 ## GPU memory as seen inside the pod: expect about 20 GB total.
 vram:
-	kubectl exec -n $(NAMESPACE) deploy/vllm-coder-deployment-vllm -- nvidia-smi
+	kubectl exec -n $(NAMESPACE) deploy/$(DEPLOYMENT) -- nvidia-smi
 
 ## Tail the vLLM logs; look for the KV cache size and "Application startup complete".
 logs:
-	kubectl logs -n $(NAMESPACE) deploy/vllm-coder-deployment-vllm -f --tail=200
+	kubectl logs -n $(NAMESPACE) deploy/$(DEPLOYMENT) -f --tail=200

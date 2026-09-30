@@ -29,7 +29,7 @@ output "service_port" {
 }
 
 output "base_url" {
-  description = "In-cluster OpenAI-compatible base URL"
+  description = "In-cluster OpenAI-compatible base URL (reachable only from allowed_ingress_namespaces)"
   value       = "http://${local.service_name}.${kubernetes_namespace_v1.vllm.metadata[0].name}.svc.cluster.local:${local.service_port}/v1"
 }
 

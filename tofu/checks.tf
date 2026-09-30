@@ -92,6 +92,13 @@ check "vllm_requires_gpu_operator" {
   }
 }
 
+check "llamacpp_requires_gpu_operator" {
+  assert {
+    condition     = !var.install_llamacpp || var.install_gpu_operator
+    error_message = "install_llamacpp is enabled without install_gpu_operator. llama-server needs a GPU resource from a device plugin (the operator's, or HAMi's which depends on the operator)."
+  }
+}
+
 check "vllm_with_hami_verify_full_vram" {
   assert {
     condition     = !(var.install_vllm && var.install_hami)

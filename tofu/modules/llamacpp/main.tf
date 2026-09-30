@@ -13,14 +13,20 @@ resource "kubernetes_namespace_v1" "llamacpp" {
   }
 }
 
+# Always created (cheap), used whenever api_key is null or empty. An empty
+# key would otherwise start the server with authentication switched off.
 resource "random_password" "api_key" {
-  count   = var.api_key == null ? 1 : 0
   length  = 40
   special = false
 }
 
+moved {
+  from = random_password.api_key[0]
+  to   = random_password.api_key
+}
+
 locals {
-  api_key      = var.api_key != null ? var.api_key : random_password.api_key[0].result
+  api_key      = trimspace(var.api_key == null ? "" : var.api_key) != "" ? var.api_key : random_password.api_key.result
   service_name = var.release_name
   service_port = 8080
 
@@ -94,6 +100,38 @@ resource "helm_release" "llamacpp" {
       service_port        = local.service_port
       startup_failures    = ceil(var.startup_timeout_seconds / 15)
       enable_monitoring   = var.enable_monitoring
+      # Changes when the key or token change, so the pod restarts with them.
+      secret_checksum = nonsensitive(sha256(jsonencode(kubernetes_secret_v1.llamacpp.data)))
     })
   ]
+}
+
+# The API key does not cover every endpoint (vLLM v0.30.0 serves /invocations
+# and /tokenize without it), so in-cluster access is closed off here instead.
+# kubectl port-forward enters the pod network namespace through the kubelet
+# and is not subject to NetworkPolicy, so the documented access path works.
+resource "kubernetes_network_policy_v1" "llamacpp" {
+  metadata {
+    name      = "llamacpp-ingress"
+    namespace = kubernetes_namespace_v1.llamacpp.metadata[0].name
+  }
+
+  spec {
+    pod_selector {}
+    policy_types = ["Ingress"]
+
+    dynamic "ingress" {
+      for_each = length(var.allowed_ingress_namespaces) > 0 ? [1] : []
+      content {
+        dynamic "from" {
+          for_each = var.allowed_ingress_namespaces
+          content {
+            namespace_selector {
+              match_labels = { "kubernetes.io/metadata.name" = from.value }
+            }
+          }
+        }
+      }
+    }
+  }
 }

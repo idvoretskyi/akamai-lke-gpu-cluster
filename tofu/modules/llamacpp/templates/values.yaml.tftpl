@@ -5,6 +5,8 @@ controllers:
     # A second pod can never get the GPU, so a rolling update would hang.
     strategy: Recreate
     pod:
+      annotations:
+        checksum/credentials: "${secret_checksum}"
       runtimeClassName: "${runtime_class_name}"
 %{ if hami_full_gpu ~}
       schedulerName: hami-scheduler

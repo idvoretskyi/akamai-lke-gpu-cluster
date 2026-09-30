@@ -476,7 +476,7 @@ variable "vllm_image_tag" {
 }
 
 variable "vllm_api_key" {
-  description = "API key for the vLLM endpoint. Null generates a random key, readable with `tofu output -raw vllm_api_key`."
+  description = "API key for the vLLM endpoint. Null or empty generates a random key, readable with `tofu output -raw vllm_api_key`."
   type        = string
   default     = null
   sensitive   = true
@@ -567,7 +567,7 @@ variable "llamacpp_image_tag" {
 }
 
 variable "llamacpp_api_key" {
-  description = "API key for llama-server. Null generates one, readable with `tofu output -raw llamacpp_api_key`."
+  description = "API key for llama-server. Null or empty generates one, readable with `tofu output -raw llamacpp_api_key`."
   type        = string
   default     = null
   sensitive   = true

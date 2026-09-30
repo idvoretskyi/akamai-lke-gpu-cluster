@@ -147,10 +147,15 @@ variable "extra_args" {
 # ─── Credentials ──────────────────────────────────────────────────────────────
 
 variable "api_key" {
-  description = "API key clients must send as a Bearer token. Null generates a random key (see the api_key output)."
+  description = "API key clients must send as a Bearer token. Null or empty generates a random key (see the api_key output)."
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.api_key == null || var.api_key == "" || length(trimspace(var.api_key)) >= 16
+    error_message = "api_key must be null or empty (to generate one) or at least 16 non-whitespace characters."
+  }
 }
 
 variable "hf_token" {
@@ -238,4 +243,10 @@ variable "enable_monitoring" {
   description = "Create a ServiceMonitor for vLLM /metrics and the upstream vLLM Grafana dashboards. Requires the Prometheus Operator CRDs (kube-prometheus-stack)."
   type        = bool
   default     = false
+}
+
+variable "allowed_ingress_namespaces" {
+  description = "Namespaces whose pods may connect to the server (e.g. 'monitoring' for Prometheus). All other in-cluster traffic is denied by a NetworkPolicy; kubectl port-forward is unaffected. Needed because some endpoints do not check the API key."
+  type        = list(string)
+  default     = []
 }

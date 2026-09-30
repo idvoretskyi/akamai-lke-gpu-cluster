@@ -16,14 +16,20 @@ resource "kubernetes_namespace_v1" "vllm" {
 # API key: the caller's value, or a generated one when none is given. vLLM
 # only guards /v1/* with it; /health and /metrics stay open inside the
 # cluster so probes and Prometheus keep working.
+# Always created (cheap), used whenever api_key is null or empty. An empty
+# key would otherwise start the server with authentication switched off.
 resource "random_password" "api_key" {
-  count   = var.api_key == null ? 1 : 0
   length  = 40
   special = false
 }
 
+moved {
+  from = random_password.api_key[0]
+  to   = random_password.api_key
+}
+
 locals {
-  api_key = var.api_key != null ? var.api_key : random_password.api_key[0].result
+  api_key = trimspace(var.api_key == null ? "" : var.api_key) != "" ? var.api_key : random_password.api_key.result
 
   # modelSpec name: fixed so the Service name stays stable across presets.
   model_name   = "coder"
@@ -96,6 +102,38 @@ resource "helm_release" "vllm" {
       has_hf_token           = var.hf_token != null
       startup_failures       = ceil(var.startup_timeout_seconds / 15)
       enable_monitoring      = var.enable_monitoring
+      # Changes when the key or token change, so the pod restarts with them.
+      secret_checksum = nonsensitive(sha256(jsonencode(kubernetes_secret_v1.vllm.data)))
     })
   ]
+}
+
+# The API key does not cover every endpoint (vLLM v0.30.0 serves /invocations
+# and /tokenize without it), so in-cluster access is closed off here instead.
+# kubectl port-forward enters the pod network namespace through the kubelet
+# and is not subject to NetworkPolicy, so the documented access path works.
+resource "kubernetes_network_policy_v1" "vllm" {
+  metadata {
+    name      = "vllm-ingress"
+    namespace = kubernetes_namespace_v1.vllm.metadata[0].name
+  }
+
+  spec {
+    pod_selector {}
+    policy_types = ["Ingress"]
+
+    dynamic "ingress" {
+      for_each = length(var.allowed_ingress_namespaces) > 0 ? [1] : []
+      content {
+        dynamic "from" {
+          for_each = var.allowed_ingress_namespaces
+          content {
+            namespace_selector {
+              match_labels = { "kubernetes.io/metadata.name" = from.value }
+            }
+          }
+        }
+      }
+    }
+  }
 }

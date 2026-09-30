@@ -83,11 +83,16 @@ install_vllm     = false
 install_llamacpp = true
 ```
 
-Apply, then forward with
-`kubectl port-forward -n llamacpp service/llamacpp 8000:8080`, export
-`VLLM_API_KEY="$(tofu -chdir=tofu output -raw llamacpp_api_key)"` and run
-`opencode -m lke-vllm/qwen3.8-27b`. The Makefile targets work too with
-`SERVICE=llamacpp NAMESPACE=llamacpp` and matching `VLLM_API_KEY`/`MODEL`.
+Apply, then add `SERVER=llamacpp` to every target: it switches the
+namespace, Service, Deployment, port (8080) and the tofu outputs used for the
+key and model id.
+
+```bash
+make -C examples/vllm-opencode port-forward SERVER=llamacpp
+make -C examples/vllm-opencode health chat tool-call vram SERVER=llamacpp
+export VLLM_API_KEY="$(tofu -chdir=tofu output -raw llamacpp_api_key)"
+opencode -m lke-vllm/qwen3.8-27b
+```
 
 ## Expected performance
 
@@ -111,5 +116,5 @@ system prompt and tool definitions take a sizeable share of Qwen3-Coder's
 
 | File | Purpose |
 |---|---|
-| `Makefile` | port-forward, health, chat, tool-call, vram, logs |
+| `Makefile` | port-forward, health, chat, tool-call, vram, logs (`SERVER=llamacpp` for llama.cpp) |
 | `opencode.json` | opencode provider config (key read from the environment) |
