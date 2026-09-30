@@ -3,7 +3,7 @@
 [![CI](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
 OpenTofu infrastructure code for deploying cost-effective, GPU-enabled Kubernetes lab clusters on Linode Kubernetes Engine (LKE) for AI/ML workloads.
@@ -140,8 +140,8 @@ For detailed module documentation, see `tofu/modules/README.md`.
 Copy `tofu/tofu.tfvars.example` to `tofu/tofu.tfvars` and adjust as needed:
 
 ```hcl
-region             = "us-ord"
-kubernetes_version = "1.35"
+region             = "de-fra-2"
+kubernetes_version = "1.36"
 gpu_node_type      = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count     = 1
 
@@ -271,8 +271,8 @@ make venv compile
 | Component | Specification |
 |-----------|--------------|
 | Platform | Linode Kubernetes Engine (LKE) |
-| Region | Chicago, IL (us-ord) |
-| Kubernetes | v1.35 (configurable) |
+| Region | Frankfurt 2, DE (de-fra-2) |
+| Kubernetes | v1.36 (configurable) |
 | GPU | NVIDIA RTX 4000 Ada (1 per node) |
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |
@@ -341,7 +341,7 @@ cd tofu && tofu apply
 **Update Kubernetes version:**
 
 ```bash
-# Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
+# Edit tofu/tofu.tfvars: kubernetes_version = "1.36"
 cd tofu && tofu apply
 ```
 

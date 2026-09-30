@@ -7,24 +7,24 @@ variable "cluster_name_prefix" {
 }
 
 variable "region" {
-  description = "Linode region for the cluster (e.g. 'us-ord')"
+  description = "Linode region for the cluster (e.g. 'de-fra-2'). RTX 4000 Ada GPU plans (g2-gpu-*) are only offered in some regions — see README 'Region and GPU availability'."
   type        = string
-  default     = "us-ord" # Chicago, US
+  default     = "de-fra-2" # Frankfurt 2, DE — EU region with RTX 4000 Ada, balanced for UK/UA access
 
   validation {
-    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
-    error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
+    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,10}[0-9]?(-[0-9]+)?$", var.region))
+    error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast', 'de-fra-2')."
   }
 }
 
 variable "kubernetes_version" {
   description = "Kubernetes version for the LKE cluster (format: 'X.Y')"
   type        = string
-  default     = "1.35"
+  default     = "1.36"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+$", var.kubernetes_version))
-    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.35')."
+    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.36')."
   }
 }
 

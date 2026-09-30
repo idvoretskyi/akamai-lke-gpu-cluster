@@ -13,8 +13,11 @@
 # ============================================================================
 
 # cluster_name_prefix = "my-cluster"  # optional — defaults to system username
-region             = "us-ord" # Chicago, US
-kubernetes_version = "1.35"
+# RTX 4000 Ada (g2-gpu-*) is NOT available in gb-lon. EU regions that offer it:
+# de-fra-2 (Frankfurt 2), fr-par (Paris). Re-check availability with:
+#   linode-cli regions list-avail --json --all-rows | jq -r '.[] | select(.plan|startswith("g2-gpu")) | select(.available) | .region' | sort -u
+region             = "de-fra-2" # Frankfurt 2, DE
+kubernetes_version = "1.36"
 ha_control_plane   = false
 tags               = ["lke", "gpu", "ml", "ai"]
 
