@@ -11,8 +11,10 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana monitoring stack | `kube-prometheus-stack/` |
+| [llamacpp](llamacpp/README.md) | llama.cpp llama-server: GGUF serving on the GPU pool (opt-in) | `llamacpp/` |
 | [ollama](ollama/README.md) | Ollama — local LLM serving on the GPU pool | `ollama/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
+| [vllm](vllm/README.md) | vLLM: OpenAI-compatible serving for coding agents (opt-in) | `vllm/` |
 
 ## Dependency Graph
 
@@ -25,13 +27,19 @@ edges between modules (`tofu/modules.tf`):
 module.gpu_operator
     ├─> module.hami
     │       ├─> module.kubeflow
-    │       └─> module.ollama
+    │       ├─> module.ollama
+    │       ├─> module.vllm
+    │       └─> module.llamacpp
     ├─> module.kube_prometheus_stack
     ├─> module.kubeflow
-    └─> module.ollama
+    ├─> module.ollama
+    ├─> module.vllm
+    └─> module.llamacpp
 module.metrics_server
     └─> module.kube_prometheus_stack
-            └─> module.opencost
+            ├─> module.opencost
+            ├─> module.vllm
+            └─> module.llamacpp
 ```
 
 `terraform_data.merge_kubeconfig` (writes `~/.kube/config`, `tofu/kubeconfig.tf`)

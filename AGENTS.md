@@ -1,8 +1,8 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + seven modules in `tofu/modules/`, six wrapping Helm charts and one —
-`kubeflow` — installing via kustomize/kubectl; see "Module convention"
+module + nine modules in `tofu/modules/`, eight wrapping Helm charts and one,
+`kubeflow`, installing via kustomize/kubectl; see "Module convention"
 below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
 and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
 source of truth.
@@ -24,6 +24,9 @@ source of truth.
   (config `.markdownlint.json`).
 - GPU smoke test: `make -C examples/gpu-validation apply wait logs`
   (needs a live cluster with the GPU Operator running).
+- vLLM smoke test: `make -C examples/vllm-opencode port-forward` in one
+  terminal, then `make -C examples/vllm-opencode health tool-call vram`
+  (needs `install_vllm = true`).
 - Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
   then `make -C examples/ollama models chat` (needs `install_ollama = true`).
 
@@ -68,11 +71,37 @@ source of truth.
   pods can't schedule while it runs. Its Helm release is deliberately **not**
   `atomic`, unlike the other modules: the first install waits for model
   downloads, and a rollback would delete the partially filled volume.
+- **One GPU model server at a time.** Ollama, vLLM and llama.cpp each take
+  the whole GPU (`install_ollama` defaults to true, the other two to false).
+  Enabling two leaves one pod Pending forever; the `one_gpu_model_server`
+  check warns. Switch by disabling the running one, applying, then enabling
+  the other.
+- **HAMi full-GPU rule.** With `install_hami = true` a plain
+  `nvidia.com/gpu: 1` request only gets HAMi's default slice
+  (`hami_default_gpu_memory`, 8000 MiB). vLLM and llama.cpp therefore use
+  `schedulerName: hami-scheduler` and request
+  `nvidia.com/gpumem-percentage: 100` and `nvidia.com/gpucores: 100`
+  (`hami_full_gpu`, wired to `install_hami`). Without HAMi those resources do
+  not exist and must not be requested.
+- **Recreate rule.** Every single-GPU workload Deployment uses
+  `strategy: Recreate`; a RollingUpdate waits forever for a second GPU.
+- **StorageClass rule.** LKE's default StorageClass is
+  `linode-block-storage-retain`, which leaves a billed volume behind on every
+  `tofu destroy`. The vLLM and llama.cpp caches default to
+  `linode-block-storage` (Delete); choosing retain is deliberate and triggers
+  the `vllm_cache_retain_class` check. The Ollama and monitoring volumes still
+  use retain.
+- **tfvars are not auto-loaded.** OpenTofu only auto-loads
+  `terraform.tfvars` and `*.auto.tfvars`, so pass
+  `-var-file=tofu.tfvars` to `plan`/`apply`, or your settings are ignored.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
   `install_kubeflow` on a system node pool too small for the measured
   ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
-  without the GPU Operator or asking for more GPU memory than one card has.
+  without the GPU Operator or asking for more GPU memory than one card has,
+  more than one GPU model server, vLLM without the GPU Operator, vLLM with
+  HAMi (verify the full VRAM), vLLM on a GPU plan under 20 GB, a vLLM context
+  longer than the preset can hold on a 20 GB card, and a retained vLLM cache.
   Warnings, not failures.
 
 ## GPU node image (LKE)
@@ -97,9 +126,15 @@ source of truth.
     of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
     intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
     the Helm pattern.
+- `modules/llamacpp` wraps the generic bjw-s `app-template` chart because no
+  maintained llama-server chart exists. `modules/vllm` wraps `vllm-stack`
+  with its router disabled.
 - `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
-  because the first install waits for model downloads, and it is the one
-  Helm module with `atomic = false` (see above). Both are intentional.
+  because the first install waits for model downloads, and it is one of the
+  Helm modules with `atomic = false` (see above). `modules/vllm` and
+  `modules/llamacpp` follow the same pattern (`atomic = false`,
+  `upgrade_install = true`, `timeout = 2400`) because their first start
+  downloads the model into a chart-managed PVC. All intentional.
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
   `g6-standard-8` is recommended only when adding Kubeflow (measured usage
   with the full stack is ~9-10 GB).

@@ -70,3 +70,62 @@ check "ollama_gpu_memory_fits_card" {
     error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — HAMi will never schedule the Ollama pod."
   }
 }
+
+# ─── GPU model servers ────────────────────────────────────────────────────────
+# Ollama, vLLM and llama.cpp each claim the whole card. With one GPU node,
+# two of them enabled means one pod stays Pending forever.
+locals {
+  gpu_model_servers_enabled = length([for enabled in [var.install_ollama, var.install_vllm, var.install_llamacpp] : enabled if enabled])
+}
+
+check "one_gpu_model_server" {
+  assert {
+    condition     = local.gpu_model_servers_enabled <= 1
+    error_message = "More than one GPU model server is enabled (install_ollama, install_vllm, install_llamacpp). Each takes the whole GPU, so only one can run: disable the others, apply, then enable the one you want."
+  }
+}
+
+check "vllm_requires_gpu_operator" {
+  assert {
+    condition     = !var.install_vllm || var.install_gpu_operator
+    error_message = "install_vllm is enabled without install_gpu_operator. vLLM needs a GPU resource from a device plugin (the operator's, or HAMi's which depends on the operator)."
+  }
+}
+
+check "llamacpp_requires_gpu_operator" {
+  assert {
+    condition     = !var.install_llamacpp || var.install_gpu_operator
+    error_message = "install_llamacpp is enabled without install_gpu_operator. llama-server needs a GPU resource from a device plugin (the operator's, or HAMi's which depends on the operator)."
+  }
+}
+
+check "vllm_with_hami_verify_full_vram" {
+  assert {
+    condition     = !(var.install_vllm && var.install_hami)
+    error_message = "install_vllm with install_hami: the vLLM pod asks HAMi for 100% of the GPU's memory and cores. After it starts, check that the full ~20 GB is visible: make -C examples/vllm-opencode vram (nvidia-smi) and the 'KV cache' line in make -C examples/vllm-opencode logs. If not, set install_hami = false."
+  }
+}
+
+check "vllm_gpu_plan_has_20gb" {
+  assert {
+    condition     = !var.install_vllm || local.gpu_vram_mib == null || local.gpu_vram_mib >= 20000
+    error_message = "gpu_node_type '${var.gpu_node_type}' has less than 20 GB of VRAM per GPU. The vLLM presets are sized for 20 GB (weights 13.8 to 16.8 GB plus KV cache)."
+  }
+}
+
+check "vllm_cache_retain_class" {
+  assert {
+    condition     = !var.install_vllm || var.vllm_cache_storage_class != "linode-block-storage-retain"
+    error_message = "vllm_cache_storage_class = 'linode-block-storage-retain': the model cache volume survives tofu destroy and keeps being billed. Delete it in Cloud Manager when you no longer need it."
+  }
+}
+
+# Weights plus KV cache must fit the card: vLLM refuses to start when the KV
+# cache left after the weights cannot hold one max-length request. Only
+# checked for 20 GB cards, where each preset's limit was measured.
+check "vllm_context_fits_card" {
+  assert {
+    condition     = !var.install_vllm || local.gpu_vram_mib == null || try(local.gpu_vram_mib > 20475, false) || local.vllm_max_model_len <= local.vllm_profile.max_len_20gb
+    error_message = "vllm_max_model_len (${local.vllm_max_model_len}) exceeds what preset '${var.vllm_model_profile}' can serve on a 20 GB GPU (${local.vllm_profile.max_len_20gb} tokens). vLLM will crash-loop with 'KV cache is needed, which is larger than the available KV cache memory'."
+  }
+}

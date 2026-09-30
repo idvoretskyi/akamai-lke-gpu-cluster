@@ -1,0 +1,131 @@
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    # A second pod can never get the GPU, so a rolling update would hang.
+    strategy: Recreate
+    pod:
+      annotations:
+        checksum/credentials: "${secret_checksum}"
+      runtimeClassName: "${runtime_class_name}"
+%{ if hami_full_gpu ~}
+      schedulerName: hami-scheduler
+%{ endif ~}
+%{ if length(node_selector) > 0 ~}
+      nodeSelector:
+%{ for k, v in node_selector ~}
+        ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+%{ if gpu_node_toleration != null ~}
+      tolerations:
+        - key: "${gpu_node_toleration.key}"
+          operator: "Exists"
+          effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
+    containers:
+      main:
+        image:
+          repository: "${image_repository}"
+          tag: "${image_tag}"
+          pullPolicy: IfNotPresent
+        args:
+%{ for a in server_args ~}
+          - ${jsonencode(a)}
+%{ endfor ~}
+        env:
+          # -hf downloads land here, on the PVC.
+          LLAMA_CACHE: /models
+          LLAMA_API_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: "${secret_name}"
+                key: api_key
+%{ if has_hf_token ~}
+          HF_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: "${secret_name}"
+                key: hf_token
+%{ endif ~}
+        resources:
+          requests:
+            cpu: "${resources.requests.cpu}"
+            memory: "${resources.requests.memory}"
+          limits:
+            memory: "${resources.limits.memory}"
+            nvidia.com/gpu: "1"
+%{ if hami_full_gpu ~}
+            # Whole card from HAMi; without these it hands out its default slice.
+            nvidia.com/gpumem-percentage: "100"
+            nvidia.com/gpucores: "100"
+%{ endif ~}
+        # /health is unauthenticated: 503 while the model loads, 200 when ready.
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: ${service_port}
+              initialDelaySeconds: 30
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: ${startup_failures}
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: ${service_port}
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: ${service_port}
+              periodSeconds: 30
+              timeoutSeconds: 10
+              failureThreshold: 5
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        port: ${service_port}
+
+persistence:
+  models:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: "${cache_size}"
+    storageClass: "${cache_storage_class}"
+    globalMounts:
+      - path: /models
+
+%{ if enable_monitoring ~}
+serviceMonitor:
+  main:
+    service:
+      identifier: main
+    endpoints:
+      - port: http
+        scheme: http
+        path: /metrics
+        interval: 30s
+        scrapeTimeout: 10s
+        # /metrics sits behind the API key in llama-server.
+        authorization:
+          type: Bearer
+          credentials:
+            name: "${secret_name}"
+            key: api_key
+%{ endif ~}

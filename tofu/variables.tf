@@ -405,6 +405,180 @@ variable "ollama_context_length" {
   }
 }
 
+# ─── vLLM (OpenAI-compatible serving for coding agents) ──────────────────────
+
+variable "install_vllm" {
+  description = "Install vLLM on the GPU pool, serving one coding model through an OpenAI-compatible API (reach it via kubectl port-forward). Takes the whole GPU: disable Ollama and llama.cpp when enabling it."
+  type        = bool
+  default     = false
+}
+
+variable "vllm_model_profile" {
+  description = "Model preset for vLLM (see local.vllm_profiles in locals.tf): 'qwen3-coder-30b' (default, AWQ 4-bit MoE, 24K context), 'gpt-oss-20b' (MXFP4 MoE, 64K) or 'qwen3-14b' (official AWQ, dense, 40K)."
+  type        = string
+  default     = "qwen3-coder-30b"
+
+  validation {
+    condition     = contains(["qwen3-coder-30b", "gpt-oss-20b", "qwen3-14b"], var.vllm_model_profile)
+    error_message = "vllm_model_profile must be one of: qwen3-coder-30b, gpt-oss-20b, qwen3-14b."
+  }
+}
+
+variable "vllm_model_repo" {
+  description = "Override the preset's Hugging Face repository id (null keeps the preset)"
+  type        = string
+  default     = null
+}
+
+variable "vllm_served_model_name" {
+  description = "Override the preset's served model name, the id clients request (null keeps the preset)"
+  type        = string
+  default     = null
+}
+
+variable "vllm_max_model_len" {
+  description = "Override the preset's context length in tokens (null keeps the preset)"
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.vllm_max_model_len == null || try(var.vllm_max_model_len >= 4096, false)
+    error_message = "vllm_max_model_len must be null or at least 4096."
+  }
+}
+
+variable "vllm_extra_args" {
+  description = "Extra vLLM arguments appended after the preset's own"
+  type        = list(string)
+  default     = []
+}
+
+variable "vllm_version" {
+  description = "Version of the vllm-stack Helm chart"
+  type        = string
+  default     = "0.1.13"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.vllm_version))
+    error_message = "vllm_version must be in the format 'X.Y.Z' (e.g. '0.1.13')."
+  }
+}
+
+variable "vllm_image_tag" {
+  description = "vLLM image tag (vllm/vllm-openai); pinned, never 'latest'"
+  type        = string
+  default     = "v0.30.0"
+
+  validation {
+    condition     = var.vllm_image_tag != "latest" && can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+", var.vllm_image_tag))
+    error_message = "vllm_image_tag must be a pinned release tag such as 'v0.30.0'."
+  }
+}
+
+variable "vllm_api_key" {
+  description = "API key for the vLLM endpoint. Null or empty generates a random key, readable with `tofu output -raw vllm_api_key`."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "hf_token" {
+  description = "Hugging Face token for gated models (vLLM and llama.cpp); null for public models"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "vllm_cache_storage_class" {
+  description = "StorageClass for the vLLM model cache. 'linode-block-storage' (default) deletes the volume on destroy; 'linode-block-storage-retain' keeps the weights but leaves a billed volume after every tofu destroy."
+  type        = string
+  default     = "linode-block-storage"
+
+  validation {
+    condition     = contains(["linode-block-storage", "linode-block-storage-retain"], var.vllm_cache_storage_class)
+    error_message = "vllm_cache_storage_class must be 'linode-block-storage' or 'linode-block-storage-retain'."
+  }
+}
+
+variable "vllm_cache_size" {
+  description = "Size of the vLLM model cache volume (Linode minimum 10Gi)"
+  type        = string
+  default     = "50Gi"
+
+  validation {
+    condition     = can(regex("^[0-9]+Gi$", var.vllm_cache_size)) && try(tonumber(trimsuffix(var.vllm_cache_size, "Gi")) >= 10, false)
+    error_message = "vllm_cache_size must be in Gi and at least '10Gi'."
+  }
+}
+
+# ─── llama.cpp (GGUF serving, optional) ──────────────────────────────────────
+
+variable "install_llamacpp" {
+  description = "Install llama.cpp llama-server on the GPU pool for GGUF models (e.g. a dense 27B that does not fit vLLM on 20 GB). Takes the whole GPU: disable Ollama and vLLM when enabling it."
+  type        = bool
+  default     = false
+}
+
+variable "llamacpp_gguf_repo" {
+  description = "Hugging Face GGUF repository and quant, as '<user>/<repo>:<quant>'"
+  type        = string
+  default     = "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M"
+}
+
+variable "llamacpp_served_model_name" {
+  description = "Model id exposed by llama-server (--alias)"
+  type        = string
+  default     = "qwen3.8-27b"
+}
+
+variable "llamacpp_context_size" {
+  description = "llama-server context size in tokens (-c)"
+  type        = number
+  default     = 32768
+
+  validation {
+    condition     = var.llamacpp_context_size >= 4096
+    error_message = "llamacpp_context_size must be at least 4096."
+  }
+}
+
+variable "llamacpp_n_cpu_moe" {
+  description = "MoE models: number of layers whose expert weights stay in host RAM (--n-cpu-moe)"
+  type        = number
+  default     = 0
+}
+
+variable "llamacpp_n_cpu_ffn" {
+  description = "Dense models: number of layers whose FFN weights stay in host RAM (--n-cpu-ffn)"
+  type        = number
+  default     = 0
+}
+
+variable "llamacpp_extra_args" {
+  description = "Extra llama-server arguments"
+  type        = list(string)
+  default     = []
+}
+
+variable "llamacpp_image_tag" {
+  description = "llama.cpp server image tag (pinned CUDA build)"
+  type        = string
+  default     = "server-cuda-v0.5.0"
+}
+
+variable "llamacpp_api_key" {
+  description = "API key for llama-server. Null or empty generates one, readable with `tofu output -raw llamacpp_api_key`."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "llamacpp_cache_size" {
+  description = "Size of the llama.cpp model cache volume (Linode minimum 10Gi)"
+  type        = string
+  default     = "40Gi"
+}
+
 # ─── Monitoring Resource Requests ────────────────────────────────────────────
 
 variable "prometheus_resources" {

@@ -50,8 +50,10 @@ jobs:
           - kubeflow
           - metrics-server
           - kube-prometheus-stack
+          - llamacpp
           - ollama
           - opencost
+          - vllm
 
     steps:
       - name: Checkout

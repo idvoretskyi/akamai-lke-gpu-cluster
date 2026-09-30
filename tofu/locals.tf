@@ -92,3 +92,52 @@ locals {
     cluster_ca_certificate = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
   }
 }
+
+# vLLM model presets, all sized for one 20 GB RTX 4000 Ada (0.92 of the
+# card for vLLM). max_len_20gb is the longest context each one can serve
+# there: measured from vLLM's KV cache report where noted, else computed from
+# the model config (FP8 KV cache). Newer Qwen (3.5/3.6/3.8), GLM and Kimi
+# models are 24 GB or more at 4-bit and do not fit.
+locals {
+  vllm_profiles = {
+    # Qwen3-Coder-30B-A3B (July 2025): coding-tuned MoE, ~3B active, fast.
+    # 16.8 GB of AWQ weights leave 1.15 GiB of KV cache: vLLM measured a
+    # 25,024-token maximum, so 24K.
+    "qwen3-coder-30b" = {
+      model_repo        = "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+      served_model_name = "qwen3-coder-30b"
+      max_model_len     = 24576
+      max_len_20gb      = 25024
+      tool_call_parser  = "qwen3_coder"
+      reasoning_parser  = null
+      extra_args        = []
+    }
+    # gpt-oss-20b: MXFP4 MoE, 13.8 GB, 64K with room for 2.5 concurrent
+    # requests (measured 167,018-token KV cache). vLLM v0.30.0 sometimes
+    # leaks Harmony markers into tool names (vllm-project/vllm#32587);
+    # opencode retries, but expect extra turns.
+    "gpt-oss-20b" = {
+      model_repo        = "openai/gpt-oss-20b"
+      served_model_name = "gpt-oss-20b"
+      max_model_len     = 65536
+      max_len_20gb      = 131072
+      tool_call_parser  = "openai"
+      reasoning_parser  = "openai_gptoss"
+      extra_args        = []
+    }
+    # Qwen3-14B (April 2025): official Qwen AWQ, dense, 10 GB. Slower than the
+    # MoEs but fits its full native 40K context with room to spare.
+    "qwen3-14b" = {
+      model_repo        = "Qwen/Qwen3-14B-AWQ"
+      served_model_name = "qwen3-14b"
+      max_model_len     = 40960
+      max_len_20gb      = 40960
+      tool_call_parser  = "hermes"
+      reasoning_parser  = "qwen3"
+      extra_args        = []
+    }
+  }
+
+  vllm_profile       = local.vllm_profiles[var.vllm_model_profile]
+  vllm_max_model_len = coalesce(var.vllm_max_model_len, local.vllm_profile.max_model_len)
+}
