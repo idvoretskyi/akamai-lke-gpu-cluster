@@ -13,7 +13,7 @@ The GPU Operator provides:
 - Node Status Exporter
 - Validation workloads
 
-This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime — supports containerd 2.x config version 3).
+This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime).
 
 ## Usage
 
@@ -22,11 +22,13 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  chart_version        = "v26.3.2"
+  chart_version               = "v26.3.2"
   install_driver              = true
   device_plugin_enabled       = true
   enable_dcgm_exporter        = true
   enable_node_status_exporter = true
+  node_selector               = local.system_node_selector
+  gpu_node_toleration         = local.gpu_node_toleration
 }
 ```
 

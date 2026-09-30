@@ -35,7 +35,7 @@ module "opencost" {
 
 ```bash
 # Port-forward the OpenCost UI (port 9090)
-kubectl port-forward --namespace opencost service/opencost 9090:9090
+kubectl port-forward --namespace opencost service/opencost 9090:9090 9003:9003
 
 # Open UI in browser
 # http://localhost:9090

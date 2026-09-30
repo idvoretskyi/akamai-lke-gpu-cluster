@@ -33,7 +33,9 @@ source of truth.
   are present. There is no tfvars entry for the token.
 - `tofu apply` runs a `local-exec` that merges the kubeconfig into
   `~/.kube/config` (requires `kubectl` on PATH). Set `merge_kubeconfig = false`
-  to skip (CI / externally managed kubeconfig).
+  to skip (CI / externally managed kubeconfig). `kubectl` is also required
+  whenever `install_hami = true` (default): the HAMi module restarts its
+  scheduler via `modules/hami/scripts/restart-scheduler.sh`.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*`. `.terraform.lock.hcl`
   **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
   (copy from `tofu.tfvars.example`).

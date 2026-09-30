@@ -33,11 +33,13 @@ module "hami" {
   source = "./modules/hami"
 
   namespace             = "hami-system"
-  chart_version          = "2.9.0"
+  chart_version         = "2.9.0"
   device_split_count    = 10
   device_memory_scaling = 1
   scheduler_policy      = "binpack"
+  node_selector         = local.system_node_selector
   nvidia_node_selector  = local.gpu_node_labels
+  gpu_node_toleration   = local.gpu_node_toleration
 
   default_gpu_memory         = 8000
   k8s_host                   = local.k8s_auth.host
