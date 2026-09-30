@@ -14,14 +14,17 @@ resource "helm_release" "kube_prometheus_stack" {
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
-  version    = var.kube_prometheus_stack_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.monitoring.metadata[0].name
 
   create_namespace = false
 
-  wait          = true
-  timeout       = 900
-  wait_for_jobs = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
@@ -31,6 +34,7 @@ resource "helm_release" "kube_prometheus_stack" {
       grafana_storage_size    = var.grafana_storage_size
       storage_class           = var.storage_class
       enable_gpu_monitoring   = var.enable_gpu_monitoring
+      dcgm_exporter_namespace = var.dcgm_exporter_namespace
       prometheus_resources    = var.prometheus_resources
       grafana_resources       = var.grafana_resources
       node_selector           = var.node_selector

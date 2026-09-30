@@ -14,14 +14,17 @@ resource "helm_release" "opencost" {
   name       = "opencost"
   repository = "https://opencost.github.io/opencost-helm-chart"
   chart      = "opencost"
-  version    = var.opencost_chart_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.opencost.metadata[0].name
 
   create_namespace = false
 
-  # No wait_for_jobs: the opencost chart ships no post-install Jobs.
-  timeout = 300
-  wait    = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {

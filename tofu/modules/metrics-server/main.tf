@@ -3,12 +3,15 @@ resource "helm_release" "metrics_server" {
   name       = "metrics-server"
   repository = "https://kubernetes-sigs.github.io/metrics-server/"
   chart      = "metrics-server"
-  version    = var.metrics_server_version
+  version    = var.chart_version
   namespace  = var.namespace
 
-  # No wait_for_jobs: the metrics-server chart ships no post-install Jobs.
-  timeout = 600
-  wait    = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {

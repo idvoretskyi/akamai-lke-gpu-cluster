@@ -4,14 +4,14 @@ variable "namespace" {
   default     = "kube-system"
 }
 
-variable "metrics_server_version" {
+variable "chart_version" {
   description = "Version of the Metrics Server Helm chart"
   type        = string
   default     = "3.12.2"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.metrics_server_version))
-    error_message = "metrics_server_version must be in the format 'X.Y.Z' (e.g. '3.12.2')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'X.Y.Z' (e.g. '3.12.2')."
   }
 }
 
@@ -53,5 +53,16 @@ variable "resources" {
       cpu    = "200m"
       memory = "400Mi"
     }
+  }
+}
+
+variable "timeout" {
+  description = "Seconds to wait for the Helm release to become ready (install/upgrade). With atomic = true, a timeout triggers an automatic rollback."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.timeout >= 60
+    error_message = "timeout must be at least 60 seconds."
   }
 }

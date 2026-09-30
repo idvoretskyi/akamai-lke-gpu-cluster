@@ -11,14 +11,6 @@ resource "linode_firewall" "lke_firewall" {
     ipv4     = var.allowed_kubectl_ips
   }
 
-  inbound {
-    label    = "allow-monitoring-ui"
-    action   = "ACCEPT"
-    protocol = "TCP"
-    ports    = "80,443,3000,9090"
-    ipv4     = var.allowed_monitoring_ips
-  }
-
   # Allow all intra-cluster TCP: control-plane→kubelet (10250), API server→webhooks (443/9443),
   # node↔node, pod↔pod.  Without this the Linode Cloud Firewall drops these packets and
   # webhook admission times out, kubectl logs/exec fail, and Trainer v2 / JobSet cannot work.

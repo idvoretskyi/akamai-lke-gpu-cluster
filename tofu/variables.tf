@@ -109,17 +109,6 @@ variable "allowed_kubectl_ips" {
   }
 }
 
-variable "allowed_monitoring_ips" {
-  description = "CIDR ranges allowed to reach monitoring UIs (Grafana, Prometheus)."
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-
-  validation {
-    condition     = alltrue([for ip in var.allowed_monitoring_ips : can(cidrhost(ip, 0))])
-    error_message = "Each allowed_monitoring_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
-  }
-}
-
 variable "node_cidrs" {
   description = "Private CIDRs used by LKE nodes and the Linode control plane (used for intra-cluster firewall rules). The default covers the full Linode LKE private node range."
   type        = list(string)
@@ -254,12 +243,34 @@ variable "install_metrics_server" {
   default     = true
 }
 
+variable "metrics_server_version" {
+  description = "Version of the Metrics Server Helm chart"
+  type        = string
+  default     = "3.12.2"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.metrics_server_version))
+    error_message = "metrics_server_version must be in the format 'X.Y.Z' (e.g. '3.12.2')."
+  }
+}
+
 # ─── Monitoring Stack ─────────────────────────────────────────────────────────
 
 variable "install_monitoring" {
-  description = "Install kube-prometheus-stack (Prometheus + Grafana + Alertmanager)"
+  description = "Install kube-prometheus-stack (Prometheus + Grafana + node-exporter + kube-state-metrics; Alertmanager is disabled)"
   type        = bool
   default     = true
+}
+
+variable "kube_prometheus_stack_version" {
+  description = "Version of the kube-prometheus-stack Helm chart"
+  type        = string
+  default     = "80.8.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.kube_prometheus_stack_version))
+    error_message = "kube_prometheus_stack_version must be in the format 'X.Y.Z' (e.g. '80.8.0')."
+  }
 }
 
 variable "grafana_admin_password" {
@@ -314,14 +325,14 @@ variable "install_opencost" {
   default     = true
 }
 
-variable "opencost_chart_version" {
+variable "opencost_version" {
   description = "Version of the OpenCost Helm chart"
   type        = string
   default     = "2.5.14"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
-    error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_version))
+    error_message = "opencost_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
   }
 }
 

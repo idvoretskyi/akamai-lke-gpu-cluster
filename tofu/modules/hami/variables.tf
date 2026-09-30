@@ -6,14 +6,14 @@ variable "namespace" {
   default     = "hami-system"
 }
 
-variable "hami_version" {
+variable "chart_version" {
   description = "Version of the HAMi Helm chart"
   type        = string
   default     = "2.9.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.hami_version))
-    error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
   }
 }
 
@@ -162,5 +162,16 @@ variable "k8s_cluster_ca_certificate" {
   validation {
     condition     = var.k8s_cluster_ca_certificate != ""
     error_message = "k8s_cluster_ca_certificate must be set (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.cluster_ca_certificate from the root module."
+  }
+}
+
+variable "timeout" {
+  description = "Seconds to wait for the Helm release to become ready (install/upgrade). With atomic = true, a timeout triggers an automatic rollback."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.timeout >= 60
+    error_message = "timeout must be at least 60 seconds."
   }
 }

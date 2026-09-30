@@ -33,7 +33,7 @@ module "hami" {
   source = "./modules/hami"
 
   namespace             = "hami-system"
-  hami_version          = "2.9.0"
+  chart_version          = "2.9.0"
   device_split_count    = 10
   device_memory_scaling = 1
   scheduler_policy      = "binpack"
@@ -53,7 +53,7 @@ module "hami" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"hami-system"` |
-| `hami_version` | Helm chart version (`X.Y.Z`) | `"2.9.0"` |
+| `chart_version` | Helm chart version (`X.Y.Z`) | `"2.9.0"` |
 | `device_split_count` | vGPU slices per physical GPU | `10` |
 | `device_memory_scaling` | GPU memory oversubscription ratio | `1` |
 | `device_core_scaling` | GPU compute-core oversubscription ratio | `1` |

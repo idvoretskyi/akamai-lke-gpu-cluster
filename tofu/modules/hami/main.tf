@@ -17,14 +17,17 @@ resource "helm_release" "hami" {
   name       = "hami"
   repository = "https://project-hami.github.io/HAMi"
   chart      = "hami"
-  version    = var.hami_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.hami.metadata[0].name
 
   create_namespace = false
 
-  timeout       = 600
-  wait          = true
-  wait_for_jobs = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {

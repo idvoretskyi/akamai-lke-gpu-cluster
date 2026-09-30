@@ -23,7 +23,7 @@ module "opencost" {
   source = "./modules/opencost"
 
   namespace              = "opencost"
-  opencost_chart_version = "2.5.14"
+  chart_version = "2.5.14"
   prometheus_url         = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
   enable_service_monitor = true
 
@@ -49,7 +49,7 @@ curl http://localhost:9003/allocation/compute?window=60m
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"opencost"` |
-| `opencost_chart_version` | Helm chart version | `"2.5.14"` |
+| `chart_version` | Helm chart version | `"2.5.14"` |
 | `prometheus_url` | In-cluster Prometheus URL | `"http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"` |
 | `enable_ui` | Enable web UI | `true` |
 | `enable_service_monitor` | Create Prometheus ServiceMonitor | `true` |

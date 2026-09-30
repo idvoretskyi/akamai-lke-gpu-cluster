@@ -45,8 +45,7 @@ dedicate_gpu_nodes = true
 # Networking
 # ============================================================================
 
-allowed_kubectl_ips    = ["0.0.0.0/0"]
-allowed_monitoring_ips = ["0.0.0.0/0"]
+allowed_kubectl_ips = ["0.0.0.0/0"]
 
 # node_cidrs = ["192.168.128.0/17"]  # LKE private node range (rarely needs changing)
 # pod_cidrs  = ["10.2.0.0/16"]       # LKE pod CIDR (rarely needs changing)
@@ -94,12 +93,14 @@ kubeflow_ref     = "master"
 # ============================================================================
 
 install_metrics_server = true
+# metrics_server_version = "3.12.2"
 
 # ============================================================================
 # Monitoring Stack (Prometheus + Grafana)
 # ============================================================================
 
 install_monitoring      = true
+# kube_prometheus_stack_version = "80.8.0"
 grafana_admin_password  = "admin"
 prometheus_retention    = "7d"
 prometheus_storage_size = "15Gi" # ~$1.50/month
@@ -120,7 +121,7 @@ grafana_storage_size    = "5Gi"  # ~$0.50/month
 # ============================================================================
 
 install_opencost       = true
-opencost_chart_version = "2.5.14"
+opencost_version = "2.5.14"
 
 # ============================================================================
 # Cost Management

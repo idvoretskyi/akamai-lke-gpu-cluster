@@ -22,7 +22,7 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = "v26.3.2"
+  chart_version        = "v26.3.2"
   install_driver              = true
   device_plugin_enabled       = true
   enable_dcgm_exporter        = true
@@ -35,12 +35,12 @@ module "gpu_operator" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
-| `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
+| `chart_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
 | `install_driver` | Install NVIDIA driver | `true` |
 | `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
-| `controller_node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
+| `node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
 | `gpu_node_toleration` | GPU node taint (`key`/`value`/`effect`) the operands tolerate; `null` when untainted | `null` |
 
 ## Outputs

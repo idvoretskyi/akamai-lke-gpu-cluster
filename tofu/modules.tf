@@ -9,12 +9,12 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = var.gpu_operator_version
+  chart_version               = var.gpu_operator_version
   install_driver              = true
   device_plugin_enabled       = !var.install_hami
   enable_dcgm_exporter        = var.enable_gpu_monitoring
   enable_node_status_exporter = true
-  controller_node_selector    = local.system_node_selector
+  node_selector               = local.system_node_selector
   gpu_node_toleration         = local.gpu_node_toleration
 }
 
@@ -27,7 +27,7 @@ module "hami" {
   source = "./modules/hami"
 
   namespace            = "hami-system"
-  hami_version         = var.hami_version
+  chart_version        = var.hami_version
   device_split_count   = var.hami_device_split_count
   node_selector        = local.system_node_selector
   nvidia_node_selector = local.gpu_node_labels
@@ -66,6 +66,7 @@ module "metrics_server" {
   source = "./modules/metrics-server"
 
   namespace     = "kube-system"
+  chart_version = var.metrics_server_version
   node_selector = local.system_node_selector
 }
 
@@ -75,11 +76,13 @@ module "kube_prometheus_stack" {
   source = "./modules/kube-prometheus-stack"
 
   namespace               = "monitoring"
+  chart_version           = var.kube_prometheus_stack_version
   grafana_admin_password  = var.grafana_admin_password
   prometheus_retention    = var.prometheus_retention
   prometheus_storage_size = var.prometheus_storage_size
   grafana_storage_size    = var.grafana_storage_size
   enable_gpu_monitoring   = local.gpu_monitoring_enabled
+  dcgm_exporter_namespace = try(module.gpu_operator[0].namespace, "gpu-operator")
   prometheus_resources    = var.prometheus_resources
   grafana_resources       = var.grafana_resources
   node_selector           = local.system_node_selector
@@ -98,7 +101,7 @@ module "opencost" {
   source = "./modules/opencost"
 
   namespace              = "opencost"
-  opencost_chart_version = var.opencost_chart_version
+  chart_version          = var.opencost_version
   prometheus_url         = try(module.kube_prometheus_stack[0].prometheus_internal_url, null)
   enable_service_monitor = var.install_monitoring
   extra_labels           = { for t in var.tags : t => "true" }

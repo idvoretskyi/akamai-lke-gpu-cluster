@@ -14,14 +14,17 @@ resource "helm_release" "gpu_operator" {
   name       = "gpu-operator"
   repository = "https://helm.ngc.nvidia.com/nvidia"
   chart      = "gpu-operator"
-  version    = var.gpu_operator_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.gpu_operator.metadata[0].name
 
   create_namespace = false
 
-  timeout       = 600
-  wait          = true
-  wait_for_jobs = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
@@ -29,7 +32,7 @@ resource "helm_release" "gpu_operator" {
       device_plugin_enabled       = var.device_plugin_enabled
       enable_dcgm_exporter        = var.enable_dcgm_exporter
       enable_node_status_exporter = var.enable_node_status_exporter
-      controller_node_selector    = var.controller_node_selector
+      node_selector               = var.node_selector
       gpu_node_toleration         = var.gpu_node_toleration
     })
   ]
