@@ -4,14 +4,14 @@ variable "namespace" {
   default     = "gpu-operator"
 }
 
-variable "gpu_operator_version" {
+variable "chart_version" {
   description = "Version of NVIDIA GPU Operator Helm chart"
   type        = string
-  default     = "v26.3.2" # Latest stable version
+  default     = "v26.7.1"
 
   validation {
-    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.gpu_operator_version))
-    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.3.2')."
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'vX.Y.Z' (e.g. 'v26.7.1')."
   }
 }
 
@@ -39,7 +39,7 @@ variable "enable_node_status_exporter" {
   default     = true
 }
 
-variable "controller_node_selector" {
+variable "node_selector" {
   description = "nodeSelector to pin the GPU Operator controller onto a specific node pool (e.g. the system pool). The GPU operands always run on the GPU nodes regardless. Empty schedules anywhere."
   type        = map(string)
   default     = {}
@@ -49,8 +49,25 @@ variable "gpu_node_toleration" {
   description = "Taint that the GPU nodes carry, which the operator's DaemonSet operands (driver, toolkit, device-plugin, DCGM, GFD, NFD worker) must tolerate so they keep scheduling onto the GPU pool. Null when GPU nodes are not tainted (chart defaults apply)."
   type = object({
     key    = string
-    value  = string
+    value  = optional(string) # unused: templates tolerate with operator: Exists
     effect = string
   })
   default = null
+}
+
+variable "timeout" {
+  description = "Seconds to wait for the Helm release to become ready (install/upgrade). With atomic = true, a timeout triggers an automatic rollback."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.timeout >= 60
+    error_message = "timeout must be at least 60 seconds."
+  }
+}
+
+variable "install_toolkit" {
+  description = "Deploy the operator's NVIDIA Container Toolkit DaemonSet (rewrites the node's containerd config and restarts containerd). Disable when the node image already ships the toolkit/runtime config."
+  type        = bool
+  default     = true
 }

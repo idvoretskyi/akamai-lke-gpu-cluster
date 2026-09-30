@@ -17,15 +17,17 @@ resource "helm_release" "hami" {
   name       = "hami"
   repository = "https://project-hami.github.io/HAMi"
   chart      = "hami"
-  version    = var.hami_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.hami.metadata[0].name
 
   create_namespace = false
-  depends_on       = [kubernetes_namespace_v1.hami]
 
-  timeout       = 600
-  wait          = true
-  wait_for_jobs = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
@@ -40,6 +42,9 @@ resource "helm_release" "hami" {
       nvidia_driver_root     = var.nvidia_driver_root
       wait_for_toolkit_ready = var.wait_for_toolkit_ready
       scheduler_leader_elect = var.scheduler_leader_elect
+
+      kube_scheduler_image_registry   = var.kube_scheduler_image_registry
+      kube_scheduler_image_repository = var.kube_scheduler_image_repository
     })
   ]
 }
@@ -95,8 +100,6 @@ resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
       helm_release_revision = helm_release.hami.metadata.revision
     })
   }
-
-  depends_on = [helm_release.hami]
 }
 
 # HAMi's scheduler only reads hami-scheduler-device at process startup, not
@@ -124,23 +127,12 @@ resource "terraform_data" "restart_scheduler" {
   }
 
   provisioner "local-exec" {
-    # set -e (via explicit bash interpreter, matching modules/kubeflow) so a
-    # failed `rollout restart` (RBAC issue, wrong Deployment name, ...)
-    # actually fails the apply instead of `rollout status` papering over it
-    # with an unrelated success — the local-exec provisioner's default shell
-    # does not stop on error between statements.
-    command     = <<-EOT
-      set -euo pipefail
-      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
-        rollout restart "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}"
-      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
-        rollout status "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}" --timeout=120s
-    EOT
+    # Explicit bash interpreter (matching modules/kubeflow) and a script using
+    # `set -euo pipefail`, so a failed `rollout restart` (RBAC issue, wrong
+    # Deployment name, ...) actually fails the apply instead of `rollout
+    # status` papering over it. Paths are absolute and quoted since the module
+    # path could contain spaces.
+    command     = "\"${abspath(path.module)}/scripts/restart-scheduler.sh\" \"${abspath(local_sensitive_file.kubeconfig.filename)}\" \"${kubernetes_namespace_v1.hami.metadata[0].name}\" \"${helm_release.hami.name}-scheduler\""
     interpreter = ["/usr/bin/env", "bash", "-c"]
   }
-
-  depends_on = [
-    kubernetes_config_map_v1_data.device_config_default_memory,
-    local_sensitive_file.kubeconfig,
-  ]
 }

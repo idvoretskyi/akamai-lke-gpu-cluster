@@ -11,14 +11,6 @@ resource "linode_firewall" "lke_firewall" {
     ipv4     = var.allowed_kubectl_ips
   }
 
-  inbound {
-    label    = "allow-monitoring-ui"
-    action   = "ACCEPT"
-    protocol = "TCP"
-    ports    = "80,443,3000,9090"
-    ipv4     = var.allowed_monitoring_ips
-  }
-
   # Allow all intra-cluster TCP: control-plane→kubelet (10250), API server→webhooks (443/9443),
   # node↔node, pod↔pod.  Without this the Linode Cloud Firewall drops these packets and
   # webhook admission times out, kubectl logs/exec fail, and Trainer v2 / JobSet cannot work.
@@ -27,7 +19,7 @@ resource "linode_firewall" "lke_firewall" {
     action   = "ACCEPT"
     protocol = "TCP"
     ports    = "1-65535"
-    ipv4     = concat(var.node_cidrs, var.pod_cidrs)
+    ipv4     = local.intra_cluster_cidrs
   }
 
   inbound {
@@ -35,7 +27,7 @@ resource "linode_firewall" "lke_firewall" {
     action   = "ACCEPT"
     protocol = "UDP"
     ports    = "1-65535"
-    ipv4     = concat(var.node_cidrs, var.pod_cidrs)
+    ipv4     = local.intra_cluster_cidrs
   }
 
   inbound_policy  = "DROP"
@@ -46,6 +38,4 @@ resource "linode_firewall" "lke_firewall" {
       for n in p.nodes : n.instance_id
     ]
   ])
-
-  depends_on = [linode_lke_cluster.gpu_cluster]
 }

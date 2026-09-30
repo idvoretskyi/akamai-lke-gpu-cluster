@@ -43,6 +43,4 @@ resource "terraform_data" "install_kubeflow" {
       TIMEOUT_SECONDS = tostring(var.install_timeout)
     }
   }
-
-  depends_on = [local_sensitive_file.kubeconfig]
 }

@@ -1,19 +1,25 @@
 # GPU Operator Module
 
-Installs the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/) for automated GPU driver and device plugin management.
+Installs the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/) for GPU device plugin, monitoring and validation on nodes whose NVIDIA driver and container toolkit are pre-installed.
 
 ## Overview
 
 The GPU Operator provides:
 
-- Automated NVIDIA driver installation
+- Optional NVIDIA driver and container toolkit installation (both off on LKE)
 - GPU device plugin for Kubernetes resource scheduling
 - DCGM Exporter for Prometheus GPU metrics
 - GPU Feature Discovery (GFD)
 - Node Status Exporter
 - Validation workloads
 
-This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime — supports containerd 2.x config version 3).
+This module is optimised for **NVIDIA RTX 4000 Ada** (MIG disabled, containerd runtime).
+
+LKE GPU nodes ship the NVIDIA driver, the container toolkit and a containerd
+`nvidia` runtime. Keep `install_driver = false` and `install_toolkit = false`
+there: the operator's toolkit rewrites `/etc/containerd/conf.d/99-nvidia.toml`
+and restarts containerd, which then fails to start and leaves the node
+`NotReady`.
 
 ## Usage
 
@@ -22,11 +28,14 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = "v26.3.2"
-  install_driver              = true
+  chart_version               = "v26.7.1"
+  install_driver              = false
+  install_toolkit             = false
   device_plugin_enabled       = true
   enable_dcgm_exporter        = true
   enable_node_status_exporter = true
+  node_selector               = local.system_node_selector
+  gpu_node_toleration         = local.gpu_node_toleration
 }
 ```
 
@@ -35,12 +44,13 @@ module "gpu_operator" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
-| `gpu_operator_version` | Helm chart version (`vX.Y.Z`) | `"v26.3.2"` |
+| `chart_version` | Helm chart version (`vX.Y.Z`) | `"v26.7.1"` |
 | `install_driver` | Install NVIDIA driver | `true` |
+| `install_toolkit` | Install the NVIDIA Container Toolkit (rewrites containerd config) | `true` |
 | `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
-| `controller_node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
+| `node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |
 | `gpu_node_toleration` | GPU node taint (`key`/`value`/`effect`) the operands tolerate; `null` when untainted | `null` |
 
 ## Outputs

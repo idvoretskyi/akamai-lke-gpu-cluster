@@ -9,13 +9,14 @@ module "gpu_operator" {
   source = "./modules/gpu-operator"
 
   namespace                   = "gpu-operator"
-  gpu_operator_version        = var.gpu_operator_version
-  install_driver              = true
+  chart_version               = var.gpu_operator_version
+  install_driver              = false # LKE GPU image ships the NVIDIA driver
+  install_toolkit             = var.gpu_operator_install_toolkit
   device_plugin_enabled       = !var.install_hami
   enable_dcgm_exporter        = var.enable_gpu_monitoring
   enable_node_status_exporter = true
-  controller_node_selector    = local.system_node_selector
-  gpu_node_toleration         = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+  node_selector               = local.system_node_selector
+  gpu_node_toleration         = local.gpu_node_toleration
 }
 
 # HAMi Module — GPU virtualization/sharing.
@@ -27,11 +28,11 @@ module "hami" {
   source = "./modules/hami"
 
   namespace            = "hami-system"
-  hami_version         = var.hami_version
+  chart_version        = var.hami_version
   device_split_count   = var.hami_device_split_count
   node_selector        = local.system_node_selector
   nvidia_node_selector = local.gpu_node_labels
-  gpu_node_toleration  = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+  gpu_node_toleration  = local.gpu_node_toleration
 
   # k8s_* used to restart the hami-scheduler Deployment after every
   # hami-scheduler-device ConfigMap patch (see modules/hami/main.tf) — always
@@ -66,6 +67,7 @@ module "metrics_server" {
   source = "./modules/metrics-server"
 
   namespace     = "kube-system"
+  chart_version = var.metrics_server_version
   node_selector = local.system_node_selector
 }
 
@@ -75,11 +77,13 @@ module "kube_prometheus_stack" {
   source = "./modules/kube-prometheus-stack"
 
   namespace               = "monitoring"
+  chart_version           = var.kube_prometheus_stack_version
   grafana_admin_password  = var.grafana_admin_password
   prometheus_retention    = var.prometheus_retention
   prometheus_storage_size = var.prometheus_storage_size
   grafana_storage_size    = var.grafana_storage_size
-  enable_gpu_monitoring   = var.enable_gpu_monitoring && var.install_gpu_operator
+  enable_gpu_monitoring   = local.gpu_monitoring_enabled
+  dcgm_exporter_namespace = try(module.gpu_operator[0].namespace, "gpu-operator")
   prometheus_resources    = var.prometheus_resources
   grafana_resources       = var.grafana_resources
   node_selector           = local.system_node_selector
@@ -90,16 +94,16 @@ module "kube_prometheus_stack" {
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and
-# release name. When monitoring is disabled, OpenCost falls back to the
-# in-cluster default URL in modules/opencost/variables.tf, which won't resolve
-# to anything real — see install_opencost's description in variables.tf.
+# release name. When monitoring is disabled, null makes OpenCost fall back to
+# the in-cluster default URL in modules/opencost/variables.tf, which won't
+# resolve to anything real — see install_opencost's description in variables.tf.
 module "opencost" {
   count  = var.install_opencost ? 1 : 0
   source = "./modules/opencost"
 
   namespace              = "opencost"
-  opencost_chart_version = var.opencost_chart_version
-  prometheus_url         = try(module.kube_prometheus_stack[0].prometheus_internal_url, "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090")
+  chart_version          = var.opencost_version
+  prometheus_url         = try(module.kube_prometheus_stack[0].prometheus_internal_url, null)
   enable_service_monitor = var.install_monitoring
   extra_labels           = { for t in var.tags : t => "true" }
   node_selector          = local.system_node_selector

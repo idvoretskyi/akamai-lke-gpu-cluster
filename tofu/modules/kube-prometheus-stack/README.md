@@ -34,7 +34,7 @@ module "kube_prometheus_stack" {
 | Name | Description | Default |
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"monitoring"` |
-| `kube_prometheus_stack_version` | Helm chart version | `"80.8.0"` |
+| `chart_version` | Helm chart version | `"80.8.0"` |
 | `grafana_admin_password` | Grafana admin password (sensitive) | — |
 | `prometheus_retention` | Data retention period | `"15d"` |
 | `prometheus_storage_size` | Prometheus PVC size | `"50Gi"` |

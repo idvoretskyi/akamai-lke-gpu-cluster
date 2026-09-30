@@ -41,22 +41,22 @@ output "cluster_dashboard_url" {
 
 output "gpu_node_pool_id" {
   description = "The ID of the GPU node pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.gpu_node_type])
+  value       = local.gpu_pool.id
 }
 
 output "gpu_node_pool_count" {
   description = "Number of nodes in the GPU pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.gpu_node_type])
+  value       = local.gpu_pool.count
 }
 
 output "system_node_pool_id" {
   description = "The ID of the dedicated system node pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.system_node_type])
+  value       = local.system_pool.id
 }
 
 output "system_node_pool_count" {
   description = "Number of nodes in the system pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.system_node_type])
+  value       = local.system_pool.count
 }
 
 # ─── Networking ───────────────────────────────────────────────────────────────
@@ -107,6 +107,11 @@ output "hami_version" {
   value       = try(module.hami[0].version, null)
 }
 
+output "hami_status" {
+  description = "HAMi Helm release status (null when not installed)"
+  value       = try(module.hami[0].status, null)
+}
+
 output "hami_validation_commands" {
   description = "Commands to validate GPU virtualization via HAMi (null when not installed)"
   value       = try(module.hami[0].validation_commands, null)
@@ -136,6 +141,11 @@ output "metrics_server_version" {
   value       = try(module.metrics_server[0].version, null)
 }
 
+output "metrics_server_status" {
+  description = "Metrics Server Helm release status (null when not installed)"
+  value       = try(module.metrics_server[0].status, null)
+}
+
 output "metrics_server_validation_commands" {
   description = "Commands to validate Metrics Server (null when not installed)"
   value       = try(module.metrics_server[0].validation_commands, null)
@@ -151,6 +161,16 @@ output "monitoring_namespace" {
 output "monitoring_version" {
   description = "kube-prometheus-stack chart version (null when not installed)"
   value       = try(module.kube_prometheus_stack[0].version, null)
+}
+
+output "monitoring_status" {
+  description = "kube-prometheus-stack Helm release status (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].status, null)
+}
+
+output "monitoring_validation_commands" {
+  description = "Commands to access and validate the monitoring stack (null when not installed)"
+  value       = try(module.kube_prometheus_stack[0].validation_commands, null)
 }
 
 output "grafana_service" {
@@ -173,6 +193,11 @@ output "opencost_namespace" {
 output "opencost_version" {
   description = "OpenCost chart version (null when not installed)"
   value       = try(module.opencost[0].version, null)
+}
+
+output "opencost_status" {
+  description = "OpenCost Helm release status (null when not installed)"
+  value       = try(module.opencost[0].status, null)
 }
 
 output "opencost_service" {

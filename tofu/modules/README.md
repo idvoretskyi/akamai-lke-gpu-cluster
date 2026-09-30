@@ -10,7 +10,7 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | [hami](hami/README.md) | HAMi — GPU virtualization/sharing (vGPU slices) | `hami/` |
 | [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
-| [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana + Alertmanager monitoring stack | `kube-prometheus-stack/` |
+| [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana monitoring stack | `kube-prometheus-stack/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
 
 ## Dependency Graph

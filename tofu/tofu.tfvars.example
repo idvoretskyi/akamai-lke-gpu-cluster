@@ -13,8 +13,11 @@
 # ============================================================================
 
 # cluster_name_prefix = "my-cluster"  # optional — defaults to system username
-region             = "us-ord" # Chicago, US
-kubernetes_version = "1.35"
+# RTX 4000 Ada (g2-gpu-*) is NOT available in gb-lon. EU regions that offer it:
+# de-fra-2 (Frankfurt 2), fr-par (Paris). Re-check availability with:
+#   linode-cli regions list-avail --json --all-rows | jq -r '.[] | select(.plan|startswith("g2-gpu")) | select(.available) | .region' | sort -u
+region             = "de-fra-2" # Frankfurt 2, DE
+kubernetes_version = "1.36"
 ha_control_plane   = false
 tags               = ["lke", "gpu", "ml", "ai"]
 
@@ -37,16 +40,15 @@ gpu_node_count = 1
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
-system_node_type  = "g6-standard-2"
-system_node_count = 1
+system_node_type   = "g6-standard-2"
+system_node_count  = 1
 dedicate_gpu_nodes = true
 
 # ============================================================================
 # Networking
 # ============================================================================
 
-allowed_kubectl_ips    = ["0.0.0.0/0"]
-allowed_monitoring_ips = ["0.0.0.0/0"]
+allowed_kubectl_ips = ["0.0.0.0/0"]
 
 # node_cidrs = ["192.168.128.0/17"]  # LKE private node range (rarely needs changing)
 # pod_cidrs  = ["10.2.0.0/16"]       # LKE pod CIDR (rarely needs changing)
@@ -62,7 +64,7 @@ merge_kubeconfig = true
 # ============================================================================
 
 install_gpu_operator  = true
-gpu_operator_version  = "v26.3.2"
+gpu_operator_version  = "v26.7.1"
 enable_gpu_monitoring = true
 
 # ============================================================================
@@ -94,14 +96,16 @@ kubeflow_ref     = "master"
 # ============================================================================
 
 install_metrics_server = true
+# metrics_server_version = "3.12.2"
 
 # ============================================================================
 # Monitoring Stack (Prometheus + Grafana)
 # ============================================================================
 
-install_monitoring     = true
-grafana_admin_password = "admin"
-prometheus_retention   = "7d"
+install_monitoring      = true
+# kube_prometheus_stack_version = "80.8.0"
+grafana_admin_password  = "admin"
+prometheus_retention    = "7d"
 prometheus_storage_size = "15Gi" # ~$1.50/month
 grafana_storage_size    = "5Gi"  # ~$0.50/month
 
@@ -120,7 +124,7 @@ grafana_storage_size    = "5Gi"  # ~$0.50/month
 # ============================================================================
 
 install_opencost       = true
-opencost_chart_version = "2.5.14"
+opencost_version = "2.5.14"
 
 # ============================================================================
 # Cost Management

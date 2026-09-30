@@ -33,7 +33,9 @@ source of truth.
   are present. There is no tfvars entry for the token.
 - `tofu apply` runs a `local-exec` that merges the kubeconfig into
   `~/.kube/config` (requires `kubectl` on PATH). Set `merge_kubeconfig = false`
-  to skip (CI / externally managed kubeconfig).
+  to skip (CI / externally managed kubeconfig). `kubectl` is also required
+  whenever `install_hami = true` (default): the HAMi module restarts its
+  scheduler via `modules/hami/scripts/restart-scheduler.sh`.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*`. `.terraform.lock.hcl`
   **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
   (copy from `tofu.tfvars.example`).
@@ -56,6 +58,14 @@ source of truth.
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
   and `install_kubeflow` on a system node pool too small for the measured
   ~9-10 GB usage. Warnings, not failures.
+
+## GPU node image (LKE)
+
+- LKE GPU nodes ship the NVIDIA driver, container toolkit and a containerd
+  `nvidia` runtime. The GPU Operator runs with `install_driver = false` and
+  `gpu_operator_install_toolkit = false`; enabling the operator's toolkit
+  rewrites containerd's config and leaves the node `NotReady`. HAMi therefore
+  uses `runtime_class_name = "nvidia"` and `nvidia_driver_root = "/"`.
 
 ## Module convention
 

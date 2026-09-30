@@ -3,7 +3,7 @@
 [![CI](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.35-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Linode LKE](https://img.shields.io/badge/Linode-LKE-00A95C?logo=linode&logoColor=white)](https://www.linode.com/products/kubernetes/)
 
 OpenTofu infrastructure code for deploying cost-effective, GPU-enabled Kubernetes lab clusters on Linode Kubernetes Engine (LKE) for AI/ML workloads.
@@ -19,7 +19,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
-- **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
+- **Monitoring Stack**: Complete observability with Prometheus, Grafana, node-exporter and kube-state-metrics
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
 - **Kubeflow (optional)**: Full Kubeflow Platform installable in-repo (`install_kubeflow = true`) via `modules/kubeflow`
 - **ML Platform Ready**: Infrastructure foundation for Kubeflow, Ray, MLflow, and custom ML workloads (see [kubeflow-cv-lab](https://github.com/idvoretskyi/kubeflow-cv-lab))
@@ -93,7 +93,7 @@ linode-cli configure
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
     ├── providers.tf       # Provider configurations
-    ├── locals.tf          # Shared locals (cluster prefix, username)
+    ├── locals.tf          # Shared locals (prefix, token resolution, node labels/taints, pools, k8s auth)
     ├── cluster.tf         # LKE cluster resource
     ├── firewall.tf        # Linode firewall resource
     ├── kubeconfig.tf      # Kubeconfig merge resource
@@ -140,8 +140,8 @@ For detailed module documentation, see `tofu/modules/README.md`.
 Copy `tofu/tofu.tfvars.example` to `tofu/tofu.tfvars` and adjust as needed:
 
 ```hcl
-region             = "us-ord"
-kubernetes_version = "1.35"
+region             = "de-fra-2"
+kubernetes_version = "1.36"
 gpu_node_type      = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada (~$0.52/hr)
 gpu_node_count     = 1
 
@@ -271,8 +271,8 @@ make venv compile
 | Component | Specification |
 |-----------|--------------|
 | Platform | Linode Kubernetes Engine (LKE) |
-| Region | Chicago, IL (us-ord) |
-| Kubernetes | v1.35 (configurable) |
+| Region | Frankfurt 2, DE (de-fra-2) |
+| Kubernetes | v1.36 (configurable) |
 | GPU | NVIDIA RTX 4000 Ada (1 per node) |
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |
@@ -308,18 +308,17 @@ cd tofu && tofu apply
 
 ## Security
 
-- API token read from the `LINODE_TOKEN` environment variable
+- API token resolved from the default user in `~/.config/linode-cli` if present, else the `LINODE_TOKEN` environment variable (linode-cli config wins when both exist)
 - Kubeconfig excluded from git tracking (auto-merged to ~/.kube/config)
-- Configurable firewall rules for kubectl and monitoring access
+- Configurable firewall rule for kubectl access (monitoring UIs are ClusterIP / port-forward only)
 - Intra-cluster firewall rules allow the Kubernetes API server (Linode control-plane) to reach kubelet (`:10250`) and admission webhooks (`:9443`) — required for Trainer v2 / JobSet to work
 - Support for Kubernetes RBAC and Network Policies
 - Grafana admin password (configurable, sensitive)
 
-`allowed_kubectl_ips` and `allowed_monitoring_ips` default to `0.0.0.0/0`. Restrict to your IP if you expose the cluster:
+`allowed_kubectl_ips` defaults to `0.0.0.0/0`. Restrict to your IP if you expose the cluster:
 
 ```hcl
-allowed_kubectl_ips    = ["YOUR_IP/32"]
-allowed_monitoring_ips = ["YOUR_IP/32"]
+allowed_kubectl_ips = ["YOUR_IP/32"]
 ```
 
 The intra-cluster CIDR variables default to Linode LKE ranges and should not need changes:
@@ -341,7 +340,7 @@ cd tofu && tofu apply
 **Update Kubernetes version:**
 
 ```bash
-# Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
+# Edit tofu/tofu.tfvars: kubernetes_version = "1.36"
 cd tofu && tofu apply
 ```
 
@@ -405,7 +404,6 @@ cd tofu && tofu destroy
 - Kubernetes Metrics Server (resource metrics API)
 - Prometheus (metrics collection and storage)
 - Grafana (visualization and dashboards)
-- Alertmanager (alert management)
 - Node Exporter (hardware and OS metrics)
 - Kube State Metrics (Kubernetes object metrics)
 - DCGM Exporter (GPU metrics integration)
@@ -475,3 +473,20 @@ Ihor Dvoretskyi ([@idvoretskyi](https://github.com/idvoretskyi))
 - [Kubernetes](https://kubernetes.io/) community
 - [NVIDIA](https://www.nvidia.com/) for GPU support and documentation
 - [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) communities
+
+## Region and GPU availability
+
+RTX 4000 Ada plans (`g2-gpu-*`) are not offered in London (`gb-lon`). The default region is `de-fra-2` (Frankfurt 2), a balanced choice for UK and Ukraine access; `fr-par` (Paris) is the other EU region with these plans. Check current availability with:
+
+```bash
+linode-cli regions list-avail --json --all-rows \
+  | jq -r '.[] | select(.plan|startswith("g2-gpu")) | select(.available) | .region' | sort -u
+```
+
+## Migration notes
+
+- `opencost_chart_version` was renamed to `opencost_version`.
+- `allowed_monitoring_ips` was removed (the monitoring firewall rule was unused; all UIs are port-forward only).
+- New optional variables: `metrics_server_version`, `kube_prometheus_stack_version`.
+- Helm releases now use `atomic = true` and `cleanup_on_fail = true`: a failed install/upgrade is rolled back automatically, so inspect pod logs during the timeout window.
+- Changing `region` replaces the cluster, and the kubernetes/helm providers cannot plan across a cluster replacement. Run `tofu destroy` on the old cluster, then `tofu apply`.

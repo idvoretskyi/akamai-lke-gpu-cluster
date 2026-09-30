@@ -92,7 +92,7 @@ jobs:
       - name: Run tflint
         run: |
           cd tofu
-          tflint --recursive
+          tflint --recursive --config "$(pwd)/.tflint.hcl"
 
   trivy:
     name: Trivy config scan
@@ -138,6 +138,7 @@ jobs:
       matrix:
         scandir:
           - tofu/scripts
+          - tofu/modules/hami/scripts
           - tofu/modules/kubeflow/scripts
 
     steps:

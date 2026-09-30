@@ -6,14 +6,14 @@ variable "namespace" {
   default     = "hami-system"
 }
 
-variable "hami_version" {
+variable "chart_version" {
   description = "Version of the HAMi Helm chart"
   type        = string
   default     = "2.9.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.hami_version))
-    error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
   }
 }
 
@@ -78,7 +78,7 @@ variable "default_gpu_memory" {
 # ─── Scheduling / Placement ───────────────────────────────────────────────────
 
 variable "node_selector" {
-  description = "nodeSelector to pin the HAMi scheduler and webhook control-plane components onto a specific node pool (e.g. the system pool). The devicePlugin DaemonSet always targets GPU nodes via nvidiaNodeSelector regardless. Empty schedules anywhere."
+  description = "nodeSelector applied to the HAMi webhook cert-generation (patch) job, e.g. the system pool. The chart exposes no nodeSelector for the scheduler/extender pods themselves, and the devicePlugin DaemonSet always targets GPU nodes via nvidiaNodeSelector. Empty schedules anywhere."
   type        = map(string)
   default     = {}
 }
@@ -87,7 +87,7 @@ variable "gpu_node_toleration" {
   description = "Taint that the GPU nodes carry, which the HAMi devicePlugin DaemonSet must tolerate so it keeps scheduling onto the GPU pool. Null when GPU nodes are not tainted (chart defaults apply)."
   type = object({
     key    = string
-    value  = string
+    value  = optional(string) # unused: templates tolerate with operator: Exists
     effect = string
   })
   default = null
@@ -110,15 +110,15 @@ variable "scheduler_leader_elect" {
 # non-CDI RuntimeClass; the GPU Operator's containerized driver path).
 
 variable "runtime_class_name" {
-  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods. Must be a legacy (non-CDI) NVIDIA runtime — see README.md 'Notes'."
+  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods. Must resolve to a runtime the node's containerd knows; on LKE that is the image's pre-configured 'nvidia' runtime (mode = auto, so HAMi's NVIDIA_VISIBLE_DEVICES takes the legacy path) — see README.md 'Notes'."
   type        = string
-  default     = "nvidia-legacy"
+  default     = "nvidia"
 }
 
 variable "nvidia_driver_root" {
-  description = "Host path where the NVIDIA driver is installed, as mounted by the GPU Operator's containerized driver (devicePlugin.nvidiaDriverRoot). Required for the devicePlugin to find the driver/NVML libraries when the driver is installed by the GPU Operator rather than directly on the host at '/'."
+  description = "Host path where the NVIDIA driver is installed (devicePlugin.nvidiaDriverRoot). '/' for a host-installed driver (LKE GPU image); '/run/nvidia/driver' when the GPU Operator installs a containerized driver."
   type        = string
-  default     = "/run/nvidia/driver"
+  default     = "/"
 }
 
 variable "wait_for_toolkit_ready" {
@@ -163,4 +163,27 @@ variable "k8s_cluster_ca_certificate" {
     condition     = var.k8s_cluster_ca_certificate != ""
     error_message = "k8s_cluster_ca_certificate must be set (needed to restart hami-scheduler after patching its config) — pass local.k8s_auth.cluster_ca_certificate from the root module."
   }
+}
+
+variable "timeout" {
+  description = "Seconds to wait for the Helm release to become ready (install/upgrade). With atomic = true, a timeout triggers an automatic rollback."
+  type        = number
+  default     = 600
+
+  validation {
+    condition     = var.timeout >= 60
+    error_message = "timeout must be at least 60 seconds."
+  }
+}
+
+variable "kube_scheduler_image_registry" {
+  description = "Registry for the kube-scheduler sidecar in the HAMi scheduler pod. The chart default (registry.cn-hangzhou.aliyuncs.com) times out from some regions."
+  type        = string
+  default     = "registry.k8s.io"
+}
+
+variable "kube_scheduler_image_repository" {
+  description = "Repository for the kube-scheduler sidecar image; the tag defaults to the cluster's Kubernetes version."
+  type        = string
+  default     = "kube-scheduler"
 }

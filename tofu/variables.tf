@@ -7,24 +7,24 @@ variable "cluster_name_prefix" {
 }
 
 variable "region" {
-  description = "Linode region for the cluster (e.g. 'us-ord')"
+  description = "Linode region for the cluster (e.g. 'de-fra-2'). RTX 4000 Ada GPU plans (g2-gpu-*) are only offered in some regions — see README 'Region and GPU availability'."
   type        = string
-  default     = "us-ord" # Chicago, US
+  default     = "de-fra-2" # Frankfurt 2, DE — EU region with RTX 4000 Ada, balanced for UK/UA access
 
   validation {
-    condition     = can(cidrhost("${var.region}/32", 0)) == false && can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
-    error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
+    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,10}[0-9]?(-[0-9]+)?$", var.region))
+    error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast', 'de-fra-2')."
   }
 }
 
 variable "kubernetes_version" {
   description = "Kubernetes version for the LKE cluster (format: 'X.Y')"
   type        = string
-  default     = "1.35"
+  default     = "1.36"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+$", var.kubernetes_version))
-    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.35')."
+    error_message = "kubernetes_version must be in the format 'X.Y' (e.g. '1.36')."
   }
 }
 
@@ -75,7 +75,7 @@ variable "system_node_type" {
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
-    error_message = "system_node_type must differ from gpu_node_type. The two pools are distinguished by instance type (cost and pool-id outputs match pools via one([... if p.type == var.*_node_type])), so identical types would make those outputs ambiguous and fail."
+    error_message = "system_node_type must differ from gpu_node_type. The two pools are distinguished by instance type (cost and pool-id outputs match pools via local.gpu_pool / local.system_pool, which select by p.type), so identical types would make those outputs ambiguous and fail."
   }
 }
 
@@ -106,17 +106,6 @@ variable "allowed_kubectl_ips" {
   validation {
     condition     = alltrue([for ip in var.allowed_kubectl_ips : can(cidrhost(ip, 0))])
     error_message = "Each allowed_kubectl_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
-  }
-}
-
-variable "allowed_monitoring_ips" {
-  description = "CIDR ranges allowed to reach monitoring UIs (Grafana, Prometheus)."
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-
-  validation {
-    condition     = alltrue([for ip in var.allowed_monitoring_ips : can(cidrhost(ip, 0))])
-    error_message = "Each allowed_monitoring_ips entry must be a valid CIDR (e.g. '203.0.113.10/32', '0.0.0.0/0')."
   }
 }
 
@@ -161,12 +150,18 @@ variable "install_gpu_operator" {
 variable "gpu_operator_version" {
   description = "Version of the NVIDIA GPU Operator Helm chart (format: 'vX.Y.Z')"
   type        = string
-  default     = "v26.3.2"
+  default     = "v26.7.1"
 
   validation {
     condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.gpu_operator_version))
-    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.3.2')."
+    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.7.1')."
   }
+}
+
+variable "gpu_operator_install_toolkit" {
+  description = "Let the GPU Operator install the NVIDIA Container Toolkit on GPU nodes. Keep false on LKE: the GPU node image ships the driver, toolkit and a containerd 'nvidia' runtime, and the operator's toolkit rewriting that config leaves containerd unable to restart (node goes NotReady)."
+  type        = bool
+  default     = false
 }
 
 variable "enable_gpu_monitoring" {
@@ -254,12 +249,34 @@ variable "install_metrics_server" {
   default     = true
 }
 
+variable "metrics_server_version" {
+  description = "Version of the Metrics Server Helm chart"
+  type        = string
+  default     = "3.12.2"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.metrics_server_version))
+    error_message = "metrics_server_version must be in the format 'X.Y.Z' (e.g. '3.12.2')."
+  }
+}
+
 # ─── Monitoring Stack ─────────────────────────────────────────────────────────
 
 variable "install_monitoring" {
-  description = "Install kube-prometheus-stack (Prometheus + Grafana + Alertmanager)"
+  description = "Install kube-prometheus-stack (Prometheus + Grafana + node-exporter + kube-state-metrics; Alertmanager is disabled)"
   type        = bool
   default     = true
+}
+
+variable "kube_prometheus_stack_version" {
+  description = "Version of the kube-prometheus-stack Helm chart"
+  type        = string
+  default     = "80.8.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.kube_prometheus_stack_version))
+    error_message = "kube_prometheus_stack_version must be in the format 'X.Y.Z' (e.g. '80.8.0')."
+  }
 }
 
 variable "grafana_admin_password" {
@@ -314,14 +331,14 @@ variable "install_opencost" {
   default     = true
 }
 
-variable "opencost_chart_version" {
+variable "opencost_version" {
   description = "Version of the OpenCost Helm chart"
   type        = string
   default     = "2.5.14"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_chart_version))
-    error_message = "opencost_chart_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_version))
+    error_message = "opencost_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
   }
 }
 

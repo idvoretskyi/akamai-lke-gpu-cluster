@@ -27,7 +27,7 @@ output "validation_commands" {
   description = "Commands to access and validate OpenCost"
   value       = <<-EOT
     # Port-forward OpenCost UI and API
-    kubectl port-forward --namespace ${kubernetes_namespace_v1.opencost.metadata[0].name} service/${helm_release.opencost.name} 9090:9090
+    kubectl port-forward --namespace ${kubernetes_namespace_v1.opencost.metadata[0].name} service/${helm_release.opencost.name} 9090:9090 9003:9003
 
     # Access OpenCost UI
     # http://localhost:9090

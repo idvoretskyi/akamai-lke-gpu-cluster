@@ -14,25 +14,24 @@ resource "helm_release" "opencost" {
   name       = "opencost"
   repository = "https://opencost.github.io/opencost-helm-chart"
   chart      = "opencost"
-  version    = var.opencost_chart_version
+  version    = var.chart_version
   namespace  = kubernetes_namespace_v1.opencost.metadata[0].name
 
   create_namespace = false
-  depends_on       = [kubernetes_namespace_v1.opencost]
 
-  # No wait_for_jobs: the opencost chart ships no post-install Jobs.
-  timeout = 300
-  wait    = true
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
+  max_history     = 5
+  timeout         = var.timeout
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
       prometheus_url         = var.prometheus_url
       enable_ui              = var.enable_ui
       enable_service_monitor = var.enable_service_monitor
-      requests_cpu           = var.resources.requests.cpu
-      requests_memory        = var.resources.requests.memory
-      limits_cpu             = var.resources.limits.cpu
-      limits_memory          = var.resources.limits.memory
+      resources              = var.resources
       extra_labels           = var.extra_labels
       node_selector          = var.node_selector
     })

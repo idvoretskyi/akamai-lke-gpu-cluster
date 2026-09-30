@@ -4,14 +4,14 @@ variable "namespace" {
   default     = "monitoring"
 }
 
-variable "kube_prometheus_stack_version" {
+variable "chart_version" {
   description = "Version of the kube-prometheus-stack Helm chart"
   type        = string
   default     = "80.8.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.kube_prometheus_stack_version))
-    error_message = "kube_prometheus_stack_version must be in the format 'X.Y.Z' (e.g. '80.8.0')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.chart_version))
+    error_message = "chart_version must be in the format 'X.Y.Z' (e.g. '80.8.0')."
   }
 }
 
@@ -79,4 +79,21 @@ variable "grafana_resources" {
     requests = { cpu = "50m", memory = "128Mi" }
     limits   = { cpu = "200m", memory = "512Mi" }
   }
+}
+
+variable "timeout" {
+  description = "Seconds to wait for the Helm release to become ready (install/upgrade). With atomic = true, a timeout triggers an automatic rollback."
+  type        = number
+  default     = 900
+
+  validation {
+    condition     = var.timeout >= 60
+    error_message = "timeout must be at least 60 seconds."
+  }
+}
+
+variable "dcgm_exporter_namespace" {
+  description = "Namespace where the GPU Operator's DCGM exporter runs; scraped when enable_gpu_monitoring = true."
+  type        = string
+  default     = "gpu-operator"
 }
