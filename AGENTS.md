@@ -108,3 +108,6 @@ source of truth.
 
 - Single owner `@idvoretskyi` (CODEOWNERS). CI runs on PRs to `main`.
 - Dependabot commit prefixes: `deps(terraform)`, `deps(actions)`.
+- Every commit needs a DCO `Signed-off-by` trailer (the DCO check fails the
+  PR otherwise): commit with `git commit -s`, or fix a branch with
+  `git rebase --signoff <base>`.
