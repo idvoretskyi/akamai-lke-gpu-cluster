@@ -49,7 +49,7 @@ variable "gpu_node_toleration" {
   description = "Taint that the GPU nodes carry, which the operator's DaemonSet operands (driver, toolkit, device-plugin, DCGM, GFD, NFD worker) must tolerate so they keep scheduling onto the GPU pool. Null when GPU nodes are not tainted (chart defaults apply)."
   type = object({
     key    = string
-    value  = string
+    value  = optional(string) # unused: templates tolerate with operator: Exists
     effect = string
   })
   default = null

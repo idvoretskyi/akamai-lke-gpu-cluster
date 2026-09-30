@@ -78,7 +78,7 @@ variable "default_gpu_memory" {
 # ─── Scheduling / Placement ───────────────────────────────────────────────────
 
 variable "node_selector" {
-  description = "nodeSelector to pin the HAMi scheduler and webhook control-plane components onto a specific node pool (e.g. the system pool). The devicePlugin DaemonSet always targets GPU nodes via nvidiaNodeSelector regardless. Empty schedules anywhere."
+  description = "nodeSelector applied to the HAMi webhook cert-generation (patch) job, e.g. the system pool. The chart exposes no nodeSelector for the scheduler/extender pods themselves, and the devicePlugin DaemonSet always targets GPU nodes via nvidiaNodeSelector. Empty schedules anywhere."
   type        = map(string)
   default     = {}
 }
@@ -87,7 +87,7 @@ variable "gpu_node_toleration" {
   description = "Taint that the GPU nodes carry, which the HAMi devicePlugin DaemonSet must tolerate so it keeps scheduling onto the GPU pool. Null when GPU nodes are not tainted (chart defaults apply)."
   type = object({
     key    = string
-    value  = string
+    value  = optional(string) # unused: templates tolerate with operator: Exists
     effect = string
   })
   default = null

@@ -12,12 +12,9 @@ resource "helm_release" "metrics_server" {
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
-      replicas        = var.replicas
-      requests_cpu    = var.resources.requests.cpu
-      requests_memory = var.resources.requests.memory
-      limits_cpu      = var.resources.limits.cpu
-      limits_memory   = var.resources.limits.memory
-      node_selector   = var.node_selector
+      replicas      = var.replicas
+      resources     = var.resources
+      node_selector = var.node_selector
     })
   ]
 }
