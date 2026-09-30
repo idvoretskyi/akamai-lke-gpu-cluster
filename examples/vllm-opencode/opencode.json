@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lke-vllm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LKE vLLM",
+      "options": {
+        "baseURL": "http://localhost:8000/v1",
+        "apiKey": "{env:VLLM_API_KEY}",
+        "timeout": 600000
+      },
+      "models": {
+        "gpt-oss-20b": {
+          "name": "gpt-oss-20b (LKE vLLM)",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 65536,
+            "output": 16384
+          }
+        },
+        "qwen3-coder-30b": {
+          "name": "Qwen3-Coder-30B-A3B (LKE vLLM)",
+          "tool_call": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        },
+        "qwen3.8-27b": {
+          "name": "Qwen3.8-27B (LKE llama.cpp)",
+          "tool_call": true,
+          "reasoning": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  }
+}
