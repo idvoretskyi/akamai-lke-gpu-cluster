@@ -18,6 +18,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
+- **Local LLM Serving**: Ollama on the GPU node (`install_ollama`, on by default) with native and OpenAI-compatible APIs
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, node-exporter and kube-state-metrics
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
@@ -57,6 +58,7 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 - Basic cluster: ~5 minutes
 - With GPU operator: ~15-20 minutes
 - With full monitoring stack: ~20-30 minutes
+- With Ollama and the default models: add ~20-40 minutes for ~49 GB of downloads
 
 ## Prerequisites
 
@@ -174,6 +176,11 @@ prometheus_storage_size = "15Gi"
 grafana_storage_size    = "5Gi"
 
 install_opencost = true
+
+# Ollama — local LLM serving, takes the whole GPU
+install_ollama      = true
+ollama_models       = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
+ollama_storage_size = "80Gi"
 ```
 
 ## Node Pools & Scheduling
@@ -184,7 +191,7 @@ purely for GPU-intensive workloads:
 | Pool | Default plan | Purpose |
 |------|--------------|---------|
 | **system** | `g6-standard-2` (2 vCPU / 4 GB, ~$24/mo) | Monitoring stack (Prometheus, Grafana, kube-state-metrics), Metrics Server, OpenCost, and the GPU Operator controller |
-| **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only |
+| **gpu** | `g2-gpu-rtx4000a1-s` | GPU-intensive workloads only (Ollama by default) |
 
 How it works:
 
@@ -399,6 +406,13 @@ kubectl port-forward -n opencost svc/opencost 9090:9090
 # Visit: http://localhost:9090
 ```
 
+**Access Ollama:**
+
+```bash
+kubectl port-forward -n ollama svc/ollama 11434:11434
+# API: http://localhost:11434 — OpenAI-compatible: http://localhost:11434/v1
+```
+
 **Check GPU availability:**
 
 ```bash
@@ -468,7 +482,7 @@ This infrastructure is designed for:
 
 - **ML Platform Deployment**: Foundation for Kubeflow, MLflow, Ray, etc.
 - **AI Model Training**: Distributed training with GPU acceleration
-- **AI Model Serving**: Inference workloads with GPU support
+- **AI Model Serving**: Inference workloads with GPU support, including local LLMs via Ollama
 - **Data Science Workflows**: Jupyter notebooks with GPU access
 - **Custom ML Applications**: Any containerized AI/ML workload
 - **Development & Testing**: GPU-enabled development environments
@@ -482,6 +496,25 @@ This infrastructure is designed for:
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
 - [OpenCost Documentation](https://www.opencost.io/docs/)
+- [Ollama Documentation](https://docs.ollama.com/)
+
+## Region and GPU availability
+
+RTX 4000 Ada plans (`g2-gpu-*`) are not offered in London (`gb-lon`). The default region is `de-fra-2` (Frankfurt 2), a balanced choice for UK and Ukraine access; `fr-par` (Paris) is the other EU region with these plans. Check current availability with:
+
+```bash
+linode-cli regions list-avail --json --all-rows \
+  | jq -r '.[] | select(.plan|startswith("g2-gpu")) | select(.available) | .region' | sort -u
+```
+
+## Migration notes
+
+- `opencost_chart_version` was renamed to `opencost_version`.
+- `allowed_monitoring_ips` was removed (the monitoring firewall rule was unused; all UIs are port-forward only).
+- New optional variables: `metrics_server_version`, `kube_prometheus_stack_version`.
+- Helm releases now use `atomic = true` and `cleanup_on_fail = true`: a failed install/upgrade is rolled back automatically, so inspect pod logs during the timeout window.
+- `install_ollama` defaults to `true`: the next apply adds an Ollama pod that takes the whole GPU and an 80 GB volume (~$8/month). Set `install_ollama = false` to opt out.
+- Changing `region` replaces the cluster, and the kubernetes/helm providers cannot plan across a cluster replacement. Run `tofu destroy` on the old cluster, then `tofu apply`.
 
 ## Support
 
@@ -512,20 +545,3 @@ Ihor Dvoretskyi ([@idvoretskyi](https://github.com/idvoretskyi))
 - [Kubernetes](https://kubernetes.io/) community
 - [NVIDIA](https://www.nvidia.com/) for GPU support and documentation
 - [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) communities
-
-## Region and GPU availability
-
-RTX 4000 Ada plans (`g2-gpu-*`) are not offered in London (`gb-lon`). The default region is `de-fra-2` (Frankfurt 2), a balanced choice for UK and Ukraine access; `fr-par` (Paris) is the other EU region with these plans. Check current availability with:
-
-```bash
-linode-cli regions list-avail --json --all-rows \
-  | jq -r '.[] | select(.plan|startswith("g2-gpu")) | select(.available) | .region' | sort -u
-```
-
-## Migration notes
-
-- `opencost_chart_version` was renamed to `opencost_version`.
-- `allowed_monitoring_ips` was removed (the monitoring firewall rule was unused; all UIs are port-forward only).
-- New optional variables: `metrics_server_version`, `kube_prometheus_stack_version`.
-- Helm releases now use `atomic = true` and `cleanup_on_fail = true`: a failed install/upgrade is rolled back automatically, so inspect pod logs during the timeout window.
-- Changing `region` replaces the cluster, and the kubernetes/helm providers cannot plan across a cluster replacement. Run `tofu destroy` on the old cluster, then `tofu apply`.

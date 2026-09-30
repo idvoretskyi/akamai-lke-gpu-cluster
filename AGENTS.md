@@ -17,11 +17,15 @@ source of truth.
   `tofu/modules/<m>`, run `init -backend=false` + `validate` *inside that module
   dir*, not just at root.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
-  (config `tofu/.tflint.hcl`), `shellcheck` on `tofu/scripts/`, Trivy IaC scan on
+  (config `tofu/.tflint.hcl`, passed explicitly so modules use it too),
+  `shellcheck` on `tofu/scripts/`, `tofu/modules/hami/scripts/` and
+  `tofu/modules/kubeflow/scripts/`, Trivy IaC scan on
   `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md`
   (config `.markdownlint.json`).
 - GPU smoke test: `make -C examples/gpu-validation apply wait logs`
   (needs a live cluster with the GPU Operator running).
+- Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
+  then `make -C examples/ollama models chat` (needs `install_ollama = true`).
 
 ## Local apply quirks
 
@@ -36,6 +40,10 @@ source of truth.
   to skip (CI / externally managed kubeconfig). `kubectl` is also required
   whenever `install_hami = true` (default): the HAMi module restarts its
   scheduler via `modules/hami/scripts/restart-scheduler.sh`.
+- The first apply with `install_ollama = true` blocks until the models are
+  downloaded: the chart pulls them in a `postStart` hook, so the pod isn't
+  Ready until they finish (~49 GB for the defaults). If it times out,
+  re-running `tofu apply` resumes.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*`. `.terraform.lock.hcl`
   **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
   (copy from `tofu.tfvars.example`).
@@ -89,6 +97,9 @@ source of truth.
     of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
     intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
     the Helm pattern.
+- `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
+  because the first install waits for model downloads, and it is the one
+  Helm module with `atomic = false` (see above). Both are intentional.
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
   `g6-standard-8` is recommended only when adding Kubeflow (measured usage
   with the full stack is ~9-10 GB).
