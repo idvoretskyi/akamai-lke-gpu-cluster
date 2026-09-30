@@ -330,8 +330,8 @@ vllm_model_profile = "qwen3-coder-30b"  # or "gpt-oss-20b", "qwen3-14b"
 | `qwen3-14b` | `Qwen/Qwen3-14B-AWQ` (official) | 40K | Dense and slower; thinking mode |
 
 The two MoE presets activate about 3B parameters per token, which matters on
-this GPU's ~360 GB/s memory bandwidth: gpt-oss-20b measured 80 tokens per
-second. Newer Qwen (3.5, 3.6, 3.8), GLM and Kimi models are 24 GB or more at
+this GPU's ~360 GB/s memory bandwidth: measured decode is about 113 tokens per
+second for Qwen3-Coder-30B and 80 for gpt-oss-20b. Newer Qwen (3.5, 3.6, 3.8), GLM and Kimi models are 24 GB or more at
 4-bit and do not fit vLLM on 20 GB; run dense ones such as Qwen3.8-27B as
 GGUF with the optional llama.cpp module (`install_llamacpp = true`). The
 `vllm_context_fits_card` check warns when a context override would not fit.

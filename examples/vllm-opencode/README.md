@@ -94,12 +94,18 @@ Apply, then forward with
 Decode on the RTX 4000 Ada is bound by its ~360 GB/s memory bandwidth, so
 speed follows the active parameters read per token:
 
-- gpt-oss-20b and Qwen3-Coder-30B-A3B (MoE, about 3B active): roughly 50 to
-  90 tokens per second single-stream.
-- Dense 24B to 27B at 4-bit (llama.cpp): roughly 15 to 20 tokens per second.
+| Preset | Decode (measured) | opencode read, edit, run task |
+|---|---|---|
+| `qwen3-coder-30b` | ~113 tokens/s | 5 of 5 clean, 6 to 8 s each |
+| `gpt-oss-20b` | ~80 tokens/s | 4 of 5 completed, 12 invalid tool calls in total |
 
-Prefix caching makes repeated opencode system prompts cheap after the first
-turn.
+Dense 24B to 27B models at 4-bit (llama.cpp) should land around 15 to 20
+tokens per second (estimate, not measured).
+
+Prefix caching makes repeated opencode system prompts cheap: a repeated
+9K-token prompt went from 1.5 s to 0.14 s to first token. opencode's own
+system prompt and tool definitions take a sizeable share of Qwen3-Coder's
+24K window, so start a new session when long ones get close to the limit.
 
 ## Files
 
