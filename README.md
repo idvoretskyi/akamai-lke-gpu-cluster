@@ -89,6 +89,7 @@ linode-cli configure
 ├── examples/              # Runnable examples
 │   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
 │   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
+│   ├── ollama/            # Chat with the cluster's Ollama over port-forward
 │   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
@@ -109,6 +110,7 @@ linode-cli configure
         ├── kubeflow/           # Full Kubeflow Platform (opt-in, kustomize-based)
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
+        ├── ollama/             # Ollama LLM server on the GPU pool
         └── opencost/           # Kubernetes cost monitoring
 ```
 
@@ -266,6 +268,37 @@ make venv compile
 # In another:      make run
 ```
 
+## Serving LLMs with Ollama
+
+With `install_ollama = true` (the default), the GPU node runs an
+[Ollama](https://ollama.com/) server that holds the whole GPU. It pulls
+`ollama_models` onto an 80 GB volume on first start; the first `tofu apply`
+therefore waits for the downloads (~49 GB for the defaults).
+
+| Model | Download | Why |
+|---|---|---|
+| `gpt-oss:20b` | 14 GB | OpenAI's open-weight reasoning model; closest to frontier behaviour that fits 20 GB |
+| `gemma4:12b` | 7.7 GB | Newest Gemma; vision, 128K context |
+| `qwen3.5:9b` | 6.6 GB | Newest Qwen with a small size; vision |
+| `qwen3.8:27b` | 18 GB | Newest Qwen; tight fit, 8K context |
+
+Frontier-scale open models (Kimi K2, DeepSeek V3, GLM-5) are hundreds of GB
+and don't fit a single 20 GB GPU.
+
+Ollama has no authentication, so it stays ClusterIP-only. Reach it from any
+machine with cluster access:
+
+```bash
+kubectl port-forward -n ollama service/ollama 11434:11434
+curl http://localhost:11434/api/tags
+# OpenAI-compatible clients: base URL http://localhost:11434/v1, any API key
+```
+
+See [`examples/ollama/`](examples/ollama/) for chat and benchmark targets, and
+[`tofu/modules/ollama/README.md`](tofu/modules/ollama/README.md) for tuning.
+While Ollama runs, other GPU workloads can't schedule; set
+`install_ollama = false` to free the GPU.
+
 ## Cluster Specifications
 
 | Component | Specification |
@@ -287,8 +320,9 @@ make venv compile
 | GPU node (`g2-gpu-rtx4000a1-s`) | ~$0.52/hr (~$380/month) |
 | System node (`g6-standard-2`) | ~$24/month |
 | Monitoring storage (~20Gi) | ~$2/month |
+| Ollama model storage (80Gi, `install_ollama`) | ~$8/month |
 
-**Estimated running cost:** ~$406/month. Destroy the cluster when not in use to stop paying.
+**Estimated running cost:** ~$414/month. Destroy the cluster when not in use to stop paying.
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
@@ -417,6 +451,11 @@ cd tofu && tofu destroy
 - GPU monitoring with DCGM exporter
 - GPU metrics integration with Prometheus
 - Support for CUDA workloads
+
+### LLM Serving
+
+- Ollama on the GPU pool (`install_ollama = true`) — native and OpenAI-compatible APIs over `kubectl port-forward`
+- Models preloaded onto a persistent volume; flash attention and a quantized KV cache keep ~27B Q4 models on a 20 GB GPU
 
 ### ML Platform (optional)
 

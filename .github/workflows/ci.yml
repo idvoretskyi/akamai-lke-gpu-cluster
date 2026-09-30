@@ -50,6 +50,7 @@ jobs:
           - kubeflow
           - metrics-server
           - kube-prometheus-stack
+          - ollama
           - opencost
 
     steps:

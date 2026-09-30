@@ -1,7 +1,7 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + six modules in `tofu/modules/`, five wrapping Helm charts and one —
+module + seven modules in `tofu/modules/`, six wrapping Helm charts and one —
 `kubeflow` — installing via kustomize/kubectl; see "Module convention"
 below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
 and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
@@ -54,10 +54,18 @@ source of truth.
 - `install_opencost = true` requires `install_monitoring = true` for full
   functionality (documented in the variable description; not currently
   enforced by a `check` block).
+- `install_ollama = true` (default) gives Ollama the whole GPU via HAMi's
+  `nvidia.com/gpumem` (only passed when `install_hami = true`; without HAMi
+  that resource doesn't exist and the pod would never schedule). Other GPU
+  pods can't schedule while it runs. Its Helm release is deliberately **not**
+  `atomic`, unlike the other modules: the first install waits for model
+  downloads, and a rollback would delete the partially filled volume.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
-  and `install_kubeflow` on a system node pool too small for the measured
-  ~9-10 GB usage. Warnings, not failures.
+  `install_kubeflow` on a system node pool too small for the measured
+  ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
+  without the GPU Operator or asking for more GPU memory than one card has.
+  Warnings, not failures.
 
 ## GPU node image (LKE)
 
