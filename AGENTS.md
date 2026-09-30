@@ -59,6 +59,14 @@ source of truth.
   and `install_kubeflow` on a system node pool too small for the measured
   ~9-10 GB usage. Warnings, not failures.
 
+## GPU node image (LKE)
+
+- LKE GPU nodes ship the NVIDIA driver, container toolkit and a containerd
+  `nvidia` runtime. The GPU Operator runs with `install_driver = false` and
+  `gpu_operator_install_toolkit = false`; enabling the operator's toolkit
+  rewrites containerd's config and leaves the node `NotReady`. HAMi therefore
+  uses `runtime_class_name = "nvidia"` and `nvidia_driver_root = "/"`.
+
 ## Module convention
 
 - Each `tofu/modules/<name>/` wraps a Helm chart with the same layout:

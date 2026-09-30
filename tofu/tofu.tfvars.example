@@ -64,7 +64,7 @@ merge_kubeconfig = true
 # ============================================================================
 
 install_gpu_operator  = true
-gpu_operator_version  = "v26.3.2"
+gpu_operator_version  = "v26.7.1"
 enable_gpu_monitoring = true
 
 # ============================================================================

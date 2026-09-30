@@ -150,12 +150,18 @@ variable "install_gpu_operator" {
 variable "gpu_operator_version" {
   description = "Version of the NVIDIA GPU Operator Helm chart (format: 'vX.Y.Z')"
   type        = string
-  default     = "v26.3.2"
+  default     = "v26.7.1"
 
   validation {
     condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.gpu_operator_version))
-    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.3.2')."
+    error_message = "gpu_operator_version must be in the format 'vX.Y.Z' (e.g. 'v26.7.1')."
   }
+}
+
+variable "gpu_operator_install_toolkit" {
+  description = "Let the GPU Operator install the NVIDIA Container Toolkit on GPU nodes. Keep false on LKE: the GPU node image ships the driver, toolkit and a containerd 'nvidia' runtime, and the operator's toolkit rewriting that config leaves containerd unable to restart (node goes NotReady)."
+  type        = bool
+  default     = false
 }
 
 variable "enable_gpu_monitoring" {

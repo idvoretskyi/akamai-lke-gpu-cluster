@@ -25,7 +25,7 @@ happened:
 POD=$(kubectl get pods -n kubeflow-user-example-com -o name | grep container-impl)
 kubectl get -n kubeflow-user-example-com "$POD" \
   -o jsonpath='{.spec.schedulerName} {.spec.runtimeClassName} {.spec.nodeName}{"\n"}'
-# -> hami-scheduler nvidia-legacy <gpu-node-name>
+# -> hami-scheduler nvidia <gpu-node-name>
 ```
 
 **2. HAMi memory *slicing* — not just GPU *count* sharing — works through

@@ -10,7 +10,8 @@ module "gpu_operator" {
 
   namespace                   = "gpu-operator"
   chart_version               = var.gpu_operator_version
-  install_driver              = true
+  install_driver              = false # LKE GPU image ships the NVIDIA driver
+  install_toolkit             = var.gpu_operator_install_toolkit
   device_plugin_enabled       = !var.install_hami
   enable_dcgm_exporter        = var.enable_gpu_monitoring
   enable_node_status_exporter = true

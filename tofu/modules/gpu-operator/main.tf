@@ -29,6 +29,7 @@ resource "helm_release" "gpu_operator" {
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
       install_driver              = var.install_driver
+      install_toolkit             = var.install_toolkit
       device_plugin_enabled       = var.device_plugin_enabled
       enable_dcgm_exporter        = var.enable_dcgm_exporter
       enable_node_status_exporter = var.enable_node_status_exporter
