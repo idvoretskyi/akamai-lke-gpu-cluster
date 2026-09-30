@@ -57,7 +57,10 @@ The chart pulls models in the container's `postStart` hook, so the pod is not
 Ready until every model is downloaded (~49 GB for the defaults). `timeout`
 defaults to 3600 seconds for this reason. The release is not atomic: if the
 apply times out, the partial downloads stay on the volume and re-running
-`tofu apply` resumes them.
+`tofu apply` resumes them: `upgrade_install = true` makes the retry upgrade the
+existing release instead of failing on a name clash. The pull hook stops at
+the first model that fails after three attempts, which fails the container
+instead of reporting Ready with models missing.
 
 Follow download progress with:
 

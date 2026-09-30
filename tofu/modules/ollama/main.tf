@@ -30,9 +30,13 @@ resource "helm_release" "ollama" {
 
   create_namespace = false
 
-  wait            = true
-  wait_for_jobs   = true
-  atomic          = false
+  wait          = true
+  wait_for_jobs = true
+  atomic        = false
+  # A timed-out first install leaves the release in the cluster but not in
+  # state; upgrade_install lets the next apply adopt and upgrade it instead of
+  # failing on "name already in use", keeping the PVC and partial downloads.
+  upgrade_install = true
   cleanup_on_fail = true
   max_history     = 5
   timeout         = var.timeout

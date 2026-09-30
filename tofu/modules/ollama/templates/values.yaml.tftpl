@@ -9,11 +9,28 @@ ollama:
     enabled: true
     type: nvidia
     number: 1
-  models:
-    pull:
-%{ for m in models ~}
-      - "${m}"
-%{ endfor ~}
+
+# Our own postStart hook instead of the chart's ollama.models.pull, which runs
+# the pulls without `set -e` and reports Ready even if one of them failed.
+# Each model gets three attempts; a hook failure restarts the container.
+# Model names are validated in variables.tf, so they are safe to embed.
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          until /bin/ollama ps >/dev/null 2>&1; do sleep 5; done
+          for m in${join("", [for m in models : " ${m}"])}; do
+            n=0
+            until /bin/ollama pull "$m"; do
+              n=$((n + 1))
+              if [ "$n" -ge 3 ]; then echo "failed to pull $m" >&2; exit 1; fi
+              sleep 10
+            done
+          done
 
 # Pin to the GPU pool. With GPU support enabled the chart already tolerates
 # the nvidia.com/gpu taint (NoSchedule), so an explicit toleration is only

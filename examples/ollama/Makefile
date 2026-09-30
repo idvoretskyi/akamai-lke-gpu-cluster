@@ -5,6 +5,10 @@ MODEL     ?= gemma4:12b
 PROMPT    ?= Explain in two sentences what a Kubernetes taint is.
 URL       := http://localhost:$(PORT)
 
+# Passed to the clients through the environment, never spliced into shell or
+# JSON, so prompts with quotes, apostrophes or backslashes work.
+export MODEL PROMPT
+
 .PHONY: port-forward models ps chat openai pull gpu
 
 ## Forward the Ollama API to localhost:$(PORT). Keep it running in its own terminal.
@@ -21,12 +25,13 @@ ps:
 
 ## Chat via the native API (needs port-forward). Override MODEL= and PROMPT=.
 chat:
-	curl -s $(URL)/api/chat -d '{"model":"$(MODEL)","messages":[{"role":"user","content":"$(PROMPT)"}],"stream":false}' \
+	python3 -c 'import json,os; print(json.dumps({"model": os.environ["MODEL"], "messages": [{"role": "user", "content": os.environ["PROMPT"]}], "stream": False}))' \
+	  | curl -s $(URL)/api/chat -H 'Content-Type: application/json' --data-binary @- \
 	  | python3 -c 'import json,sys; print(json.load(sys.stdin)["message"]["content"])'
 
 ## Chat via the OpenAI-compatible API with a stdlib-only Python client (needs port-forward).
 openai:
-	OLLAMA_URL=$(URL) python3 chat.py "$(MODEL)" "$(PROMPT)"
+	OLLAMA_URL=$(URL) python3 -c 'import os,subprocess,sys; sys.exit(subprocess.call([sys.executable, "chat.py", os.environ["MODEL"], os.environ["PROMPT"]]))'
 
 ## Pull another model onto the volume, e.g. make pull MODEL=devstral-small-2:24b
 pull:
