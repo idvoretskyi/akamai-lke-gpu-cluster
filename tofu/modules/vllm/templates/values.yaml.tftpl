@@ -1,0 +1,113 @@
+# Router off: one engine, one GPU, one user. Clients talk to the engine
+# Service directly.
+routerSpec:
+  enableRouter: false
+
+servingEngineSpec:
+  enableEngine: true
+  imagePullPolicy: IfNotPresent
+  containerPort: 8000
+  servicePort: 8000
+  # A second pod can never get the GPU, so a rolling update would hang.
+  strategy:
+    type: Recreate
+  runtimeClassName: "${runtime_class_name}"
+%{ if hami_full_gpu ~}
+  # Scheduled by HAMi, which owns the nvidia.com/* resources on this cluster.
+  schedulerName: hami-scheduler
+%{ endif ~}
+  vllmApiKey:
+    secretName: "${secret_name}"
+    secretKey: api_key
+  # First start downloads the weights and captures CUDA graphs; allow for it.
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    failureThreshold: ${startup_failures}
+    timeoutSeconds: 5
+    httpGet:
+      path: /health
+      port: 8000
+  readinessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+    httpGet:
+      path: /health
+      port: 8000
+  livenessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 30
+    failureThreshold: 5
+    timeoutSeconds: 10
+    httpGet:
+      path: /health
+      port: 8000
+  serviceMonitor:
+    enabled: ${enable_monitoring}
+    interval: 30s
+    scrapeTimeout: 10s
+  modelSpec:
+    - name: "${model_name}"
+      repository: "${image_repository}"
+      tag: "${image_tag}"
+      modelURL: "${model_repo}"
+      replicaCount: 1
+      enableTool: true
+      toolCallParser: "${tool_call_parser}"
+%{ if has_hf_token ~}
+      hf_token:
+        secretName: "${secret_name}"
+        secretKey: hf_token
+%{ endif ~}
+      # Model weights and the compile cache persist on this volume (HF_HOME).
+      pvcStorage: "${cache_size}"
+      storageClass: "${cache_storage_class}"
+      # Setting tensorParallelSize makes the chart mount /dev/shm as memory.
+      shmSize: "${shm_size}"
+      vllmConfig:
+        tensorParallelSize: 1
+        enablePrefixCaching: true
+        enableChunkedPrefill: true
+        maxModelLen: ${max_model_len}
+        maxNumSeqs: ${max_num_seqs}
+        gpuMemoryUtilization: ${gpu_memory_utilization}
+        extraArgs:
+%{ for a in vllm_args ~}
+          - ${jsonencode(a)}
+%{ endfor ~}
+      # Raw resources take priority over the chart's simplified fields.
+      resources:
+        requests:
+          cpu: "${resources.requests.cpu}"
+          memory: "${resources.requests.memory}"
+        limits:
+          memory: "${resources.limits.memory}"
+          nvidia.com/gpu: "1"
+%{ if hami_full_gpu ~}
+          # Ask HAMi for the whole card: without these a plain
+          # nvidia.com/gpu request gets its default slice (8000 MiB).
+          nvidia.com/gpumem-percentage: "100"
+          nvidia.com/gpucores: "100"
+%{ endif ~}
+%{ if gpu_node_toleration != null ~}
+      tolerations:
+        - key: "${gpu_node_toleration.key}"
+          operator: "Exists"
+          effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
+%{ if length(node_selector) > 0 ~}
+      nodeSelectorTerms:
+        - matchExpressions:
+%{ for k, v in node_selector ~}
+            - key: "${k}"
+              operator: In
+              values: ["${v}"]
+%{ endfor ~}
+%{ endif ~}
+
+# Ships the upstream vLLM dashboards as ConfigMaps labelled grafana_dashboard,
+# which the kube-prometheus-stack Grafana sidecar loads from all namespaces.
+grafanaDashboards:
+  enabled: ${enable_monitoring}
