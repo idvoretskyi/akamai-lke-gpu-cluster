@@ -37,8 +37,8 @@ gpu_node_count = 1
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
-system_node_type  = "g6-standard-2"
-system_node_count = 1
+system_node_type   = "g6-standard-2"
+system_node_count  = 1
 dedicate_gpu_nodes = true
 
 # ============================================================================
@@ -99,9 +99,9 @@ install_metrics_server = true
 # Monitoring Stack (Prometheus + Grafana)
 # ============================================================================
 
-install_monitoring     = true
-grafana_admin_password = "admin"
-prometheus_retention   = "7d"
+install_monitoring      = true
+grafana_admin_password  = "admin"
+prometheus_retention    = "7d"
 prometheus_storage_size = "15Gi" # ~$1.50/month
 grafana_storage_size    = "5Gi"  # ~$0.50/month
 

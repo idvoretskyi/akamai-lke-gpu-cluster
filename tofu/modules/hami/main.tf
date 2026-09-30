@@ -121,18 +121,12 @@ resource "terraform_data" "restart_scheduler" {
   }
 
   provisioner "local-exec" {
-    # set -e (via explicit bash interpreter, matching modules/kubeflow) so a
-    # failed `rollout restart` (RBAC issue, wrong Deployment name, ...)
-    # actually fails the apply instead of `rollout status` papering over it
-    # with an unrelated success — the local-exec provisioner's default shell
-    # does not stop on error between statements.
-    command     = <<-EOT
-      set -euo pipefail
-      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
-        rollout restart "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}"
-      kubectl --kubeconfig "${abspath(local_sensitive_file.kubeconfig.filename)}" \
-        rollout status "deployment/${helm_release.hami.name}-scheduler" -n "${kubernetes_namespace_v1.hami.metadata[0].name}" --timeout=120s
-    EOT
+    # Explicit bash interpreter (matching modules/kubeflow) and a script using
+    # `set -euo pipefail`, so a failed `rollout restart` (RBAC issue, wrong
+    # Deployment name, ...) actually fails the apply instead of `rollout
+    # status` papering over it. Paths are absolute and quoted since the module
+    # path could contain spaces.
+    command     = "\"${abspath(path.module)}/scripts/restart-scheduler.sh\" \"${abspath(local_sensitive_file.kubeconfig.filename)}\" \"${kubernetes_namespace_v1.hami.metadata[0].name}\" \"${helm_release.hami.name}-scheduler\""
     interpreter = ["/usr/bin/env", "bash", "-c"]
   }
 }
