@@ -41,22 +41,22 @@ output "cluster_dashboard_url" {
 
 output "gpu_node_pool_id" {
   description = "The ID of the GPU node pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.gpu_node_type])
+  value       = local.gpu_pool.id
 }
 
 output "gpu_node_pool_count" {
   description = "Number of nodes in the GPU pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.gpu_node_type])
+  value       = local.gpu_pool.count
 }
 
 output "system_node_pool_id" {
   description = "The ID of the dedicated system node pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.id if p.type == var.system_node_type])
+  value       = local.system_pool.id
 }
 
 output "system_node_pool_count" {
   description = "Number of nodes in the system pool"
-  value       = one([for p in linode_lke_cluster.gpu_cluster.pool : p.count if p.type == var.system_node_type])
+  value       = local.system_pool.count
 }
 
 # ─── Networking ───────────────────────────────────────────────────────────────

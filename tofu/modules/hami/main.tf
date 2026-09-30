@@ -21,7 +21,6 @@ resource "helm_release" "hami" {
   namespace  = kubernetes_namespace_v1.hami.metadata[0].name
 
   create_namespace = false
-  depends_on       = [kubernetes_namespace_v1.hami]
 
   timeout       = 600
   wait          = true
@@ -95,8 +94,6 @@ resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
       helm_release_revision = helm_release.hami.metadata.revision
     })
   }
-
-  depends_on = [helm_release.hami]
 }
 
 # HAMi's scheduler only reads hami-scheduler-device at process startup, not
@@ -138,9 +135,4 @@ resource "terraform_data" "restart_scheduler" {
     EOT
     interpreter = ["/usr/bin/env", "bash", "-c"]
   }
-
-  depends_on = [
-    kubernetes_config_map_v1_data.device_config_default_memory,
-    local_sensitive_file.kubeconfig,
-  ]
 }

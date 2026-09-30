@@ -18,7 +18,6 @@ resource "helm_release" "gpu_operator" {
   namespace  = kubernetes_namespace_v1.gpu_operator.metadata[0].name
 
   create_namespace = false
-  depends_on       = [kubernetes_namespace_v1.gpu_operator]
 
   timeout       = 600
   wait          = true

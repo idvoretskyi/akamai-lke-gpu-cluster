@@ -19,6 +19,7 @@ variable "prometheus_url" {
   description = "URL of the Prometheus instance OpenCost should scrape (in-cluster service URL)"
   type        = string
   default     = "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  nullable    = false # null (e.g. monitoring disabled at the root) falls back to the default
 }
 
 variable "enable_ui" {

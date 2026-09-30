@@ -65,6 +65,21 @@ locals {
     value  = "present"
     effect = "NoSchedule"
   }
+
+  # Toleration handed to modules; null when GPU nodes are not dedicated.
+  gpu_node_toleration = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
+
+  # CIDRs allowed to talk to each other inside the cluster (nodes + pods).
+  intra_cluster_cidrs = concat(var.node_cidrs, var.pod_cidrs)
+
+  # GPU monitoring only makes sense when the GPU Operator (DCGM) is installed.
+  gpu_monitoring_enabled = var.enable_gpu_monitoring && var.install_gpu_operator
+
+  # Pools are matched by instance type rather than list index, since the order
+  # of the pool blocks is not guaranteed to be stable in state. This relies on
+  # the system_node_type != gpu_node_type validation in variables.tf.
+  gpu_pool    = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.gpu_node_type])
+  system_pool = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.system_node_type])
 }
 
 # Decode and parse the kubeconfig once; reused by kubernetes and helm providers.

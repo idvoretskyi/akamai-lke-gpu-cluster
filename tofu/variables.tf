@@ -12,7 +12,7 @@ variable "region" {
   default     = "us-ord" # Chicago, US
 
   validation {
-    condition     = can(cidrhost("${var.region}/32", 0)) == false && can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
+    condition     = can(regex("^[a-z]{2,3}-[a-z]{2,4}[0-9]?$", var.region))
     error_message = "Region must match the Linode slug format (e.g. 'us-ord', 'eu-west', 'ap-southeast')."
   }
 }
@@ -75,7 +75,7 @@ variable "system_node_type" {
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
-    error_message = "system_node_type must differ from gpu_node_type. The two pools are distinguished by instance type (cost and pool-id outputs match pools via one([... if p.type == var.*_node_type])), so identical types would make those outputs ambiguous and fail."
+    error_message = "system_node_type must differ from gpu_node_type. The two pools are distinguished by instance type (cost and pool-id outputs match pools via local.gpu_pool / local.system_pool, which select by p.type), so identical types would make those outputs ambiguous and fail."
   }
 }
 
