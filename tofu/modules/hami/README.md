@@ -65,8 +65,10 @@ module "hami" {
 | `gpu_node_toleration` | GPU node taint the devicePlugin tolerates; `null` when untainted | `null` |
 | `nvidia_node_selector` | nodeSelector the devicePlugin uses to target GPU nodes | `{ gpu = "on" }` |
 | `scheduler_leader_elect` | HAMi scheduler leader election; `false` avoids an anti-affinity deadlock on single-node system pools | `false` |
-| `runtime_class_name` | RuntimeClass the devicePlugin (and HAMi-scheduled workloads) run under — must be a legacy/non-CDI NVIDIA runtime | `"nvidia-legacy"` |
-| `nvidia_driver_root` | Host path where the GPU Operator's containerized driver is installed | `"/run/nvidia/driver"` |
+| `runtime_class_name` | RuntimeClass the devicePlugin (and HAMi-scheduled workloads) run under — must resolve to an NVIDIA runtime known to the node's containerd | `"nvidia"` |
+| `nvidia_driver_root` | Host path of the NVIDIA driver (`/` on the LKE GPU image; `/run/nvidia/driver` for an operator-managed driver) | `"/"` |
+| `kube_scheduler_image_registry` | Registry for the kube-scheduler sidecar (chart default is an Aliyun mirror) | `"registry.k8s.io"` |
+| `kube_scheduler_image_repository` | Repository for the kube-scheduler sidecar | `"kube-scheduler"` |
 | `wait_for_toolkit_ready` | Gate devicePlugin startup on the GPU Operator's toolkit readiness marker | `true` |
 | `k8s_host` | Kubernetes API server URL | (required) |
 | `k8s_token` | Kubernetes API bearer token | (required, sensitive) |
@@ -134,10 +136,9 @@ hami-scheduler` and request `nvidia.com/gpu` (+ optionally `nvidia.com/gpumem`
 - MIG remains disabled on the GPU Operator side; HAMi's software-level
   splitting (`hami-core` mode) is used instead, which works on GPUs without
   MIG support (e.g. RTX 4000 Ada).
-- `runtime_class_name` must be a **legacy (non-CDI) NVIDIA RuntimeClass**
-  (default: `"nvidia-legacy"`, which the GPU Operator's toolkit registers
-  alongside its own default `"nvidia"`). HAMi's GPU sharing relies on
-  hijacking the driver library via `LD_PRELOAD` + `NVIDIA_VISIBLE_DEVICES`,
-  which conflicts with the modern CDI-based device-injection path — the GPU
-  Operator's default `"nvidia"` RuntimeClass has CDI enabled and fails to
-  resolve HAMi's device references.
+- `runtime_class_name` defaults to `"nvidia"`, the runtime the LKE GPU node
+  image pre-configures in containerd (`/etc/containerd/conf.d/99-nvidia.toml`,
+  toolkit `mode = "auto"`). HAMi's GPU sharing relies on `LD_PRELOAD` +
+  `NVIDIA_VISIBLE_DEVICES`, which `auto` mode handles via the legacy path.
+  `"nvidia-legacy"` only exists when the GPU Operator's own container toolkit
+  is installed, which is disabled on LKE (it breaks containerd on this image).

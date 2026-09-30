@@ -42,6 +42,9 @@ resource "helm_release" "hami" {
       nvidia_driver_root     = var.nvidia_driver_root
       wait_for_toolkit_ready = var.wait_for_toolkit_ready
       scheduler_leader_elect = var.scheduler_leader_elect
+
+      kube_scheduler_image_registry   = var.kube_scheduler_image_registry
+      kube_scheduler_image_repository = var.kube_scheduler_image_repository
     })
   ]
 }

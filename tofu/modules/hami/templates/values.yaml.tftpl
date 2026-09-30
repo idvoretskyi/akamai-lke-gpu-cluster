@@ -4,6 +4,12 @@ scheduler:
   # Anti-affinity is only added by the chart when leaderElect is true, and it
   # deadlocks rolling updates on a single-node system pool (see variables.tf).
   leaderElect: ${scheduler_leader_elect}
+  # The chart defaults this sidecar to registry.cn-hangzhou.aliyuncs.com,
+  # which is unreachable from some regions (e.g. de-fra-2).
+  kubeScheduler:
+    image:
+      registry: "${kube_scheduler_image_registry}"
+      repository: "${kube_scheduler_image_repository}"
 %{ if length(node_selector) > 0 ~}
   # Pin the webhook cert-generation job to the system pool — control-plane
   # bits need no GPU. (The scheduler/extender pods themselves are lightweight
@@ -20,14 +26,12 @@ devicePlugin:
   deviceSplitCount: ${device_split_count}
   deviceMemoryScaling: ${device_memory_scaling}
   deviceCoreScaling: ${device_core_scaling}
-  # Run under the GPU Operator's RuntimeClass so the NVIDIA container runtime
-  # hook actually injects GPU devices/libraries into this pod (containerd's
-  # default runtime is plain runc unless the operator is configured
-  # otherwise).
+  # Run under an NVIDIA RuntimeClass so the container runtime injects GPU
+  # devices/libraries into this pod. On LKE the node image pre-configures the
+  # "nvidia" runtime in containerd.
   runtimeClassName: "${runtime_class_name}"
-  # The GPU Operator installs the driver into this host path (containerized
-  # driver), not directly under the host root — point the plugin at it so it
-  # can load the NVIDIA driver/NVML libraries.
+  # Where the NVIDIA driver lives on the host: "/" on the LKE GPU image
+  # (pre-installed driver), /run/nvidia/driver for an operator-managed driver.
   nvidiaDriverRoot: "${nvidia_driver_root}"
 %{ if wait_for_toolkit_ready ~}
   gpuOperatorToolkitReady:

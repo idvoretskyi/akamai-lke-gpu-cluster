@@ -110,15 +110,15 @@ variable "scheduler_leader_elect" {
 # non-CDI RuntimeClass; the GPU Operator's containerized driver path).
 
 variable "runtime_class_name" {
-  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods. Must be a legacy (non-CDI) NVIDIA runtime — see README.md 'Notes'."
+  description = "Container RuntimeClass the devicePlugin pod runs under, and that HAMi's scheduler injects into GPU workload pods. Must resolve to a runtime the node's containerd knows; on LKE that is the image's pre-configured 'nvidia' runtime (mode = auto, so HAMi's NVIDIA_VISIBLE_DEVICES takes the legacy path) — see README.md 'Notes'."
   type        = string
-  default     = "nvidia-legacy"
+  default     = "nvidia"
 }
 
 variable "nvidia_driver_root" {
-  description = "Host path where the NVIDIA driver is installed, as mounted by the GPU Operator's containerized driver (devicePlugin.nvidiaDriverRoot). Required for the devicePlugin to find the driver/NVML libraries when the driver is installed by the GPU Operator rather than directly on the host at '/'."
+  description = "Host path where the NVIDIA driver is installed (devicePlugin.nvidiaDriverRoot). '/' for a host-installed driver (LKE GPU image); '/run/nvidia/driver' when the GPU Operator installs a containerized driver."
   type        = string
-  default     = "/run/nvidia/driver"
+  default     = "/"
 }
 
 variable "wait_for_toolkit_ready" {
@@ -174,4 +174,16 @@ variable "timeout" {
     condition     = var.timeout >= 60
     error_message = "timeout must be at least 60 seconds."
   }
+}
+
+variable "kube_scheduler_image_registry" {
+  description = "Registry for the kube-scheduler sidecar in the HAMi scheduler pod. The chart default (registry.cn-hangzhou.aliyuncs.com) times out from some regions."
+  type        = string
+  default     = "registry.k8s.io"
+}
+
+variable "kube_scheduler_image_repository" {
+  description = "Repository for the kube-scheduler sidecar image; the tag defaults to the cluster's Kubernetes version."
+  type        = string
+  default     = "kube-scheduler"
 }
