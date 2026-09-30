@@ -111,7 +111,7 @@ module "ollama" {
   depends_on = [module.gpu_operator, module.hami]
 }
 
-# vLLM Module — OpenAI-compatible model server for coding agents (opencode).
+# vLLM Module: OpenAI-compatible model server for coding agents (opencode).
 # Takes the whole GPU. With HAMi it goes through hami-scheduler and asks for
 # 100% of the card's memory and cores; without HAMi the stock device plugin
 # already hands out the whole GPU.
@@ -140,7 +140,7 @@ module "vllm" {
   depends_on = [module.gpu_operator, module.hami, module.kube_prometheus_stack]
 }
 
-# llama.cpp Module — optional GGUF server (llama-server), same GPU rules as
+# llama.cpp Module: optional GGUF server (llama-server), same GPU rules as
 # vLLM. Mutually exclusive with vLLM and Ollama on one GPU (see checks.tf).
 module "llamacpp" {
   count  = var.install_llamacpp ? 1 : 0

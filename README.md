@@ -19,6 +19,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
 - **Local LLM Serving**: Ollama on the GPU node (`install_ollama`, on by default) with native and OpenAI-compatible APIs
+- **Coding-agent backend**: opt-in vLLM (`install_vllm`) or llama.cpp (`install_llamacpp`) serving one model with tool calling and an API key, ready for opencode
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, node-exporter and kube-state-metrics
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
@@ -92,6 +93,7 @@ linode-cli configure
 │   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
 │   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
 │   ├── ollama/            # Chat with the cluster's Ollama over port-forward
+│   ├── vllm-opencode/     # vLLM checks (tool calling) and an opencode config
 │   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
@@ -112,8 +114,10 @@ linode-cli configure
         ├── kubeflow/           # Full Kubeflow Platform (opt-in, kustomize-based)
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
+        ├── llamacpp/           # llama.cpp llama-server for GGUF models (opt-in)
         ├── ollama/             # Ollama LLM server on the GPU pool
-        └── opencost/           # Kubernetes cost monitoring
+        ├── opencost/           # Kubernetes cost monitoring
+        └── vllm/               # vLLM OpenAI-compatible server (opt-in)
 ```
 
 ## Workflow
@@ -306,6 +310,45 @@ See [`examples/ollama/`](examples/ollama/) for chat and benchmark targets, and
 While Ollama runs, other GPU workloads can't schedule; set
 `install_ollama = false` to free the GPU.
 
+## Local LLM serving for opencode
+
+For agentic coding (long repeated system prompts, tool calls on every turn,
+32K to 64K contexts) the cluster can run [vLLM](https://docs.vllm.ai)
+instead of Ollama, as an OpenAI-compatible backend for
+[opencode](https://opencode.ai):
+
+```hcl
+install_ollama     = false          # one GPU server at a time
+install_vllm       = true
+vllm_model_profile = "gpt-oss-20b"  # or "qwen3-coder-30b"
+```
+
+| Preset | Model | Context | Notes |
+|---|---|---|---|
+| `gpt-oss-20b` (default) | `openai/gpt-oss-20b`, MXFP4 | 64K | Fastest; reasoning model with native tool calling |
+| `qwen3-coder-30b` | `QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ` | 32K | Coding-specialised MoE |
+
+Both are MoE models with about 3B active parameters, which matters on this
+GPU's ~360 GB/s memory bandwidth: expect roughly 50 to 90 tokens per second.
+Dense models such as Qwen3.8-27B do not fit vLLM on 20 GB; run them as GGUF
+with the optional llama.cpp module (`install_llamacpp = true`).
+
+The Service is ClusterIP only and requires an API key (generated unless you
+set `vllm_api_key`):
+
+```bash
+make -C examples/vllm-opencode port-forward   # localhost:8000
+export VLLM_API_KEY="$(tofu -chdir=tofu output -raw vllm_api_key)"
+make -C examples/vllm-opencode health tool-call
+opencode -m lke-vllm/gpt-oss-20b              # with examples/vllm-opencode/opencode.json
+```
+
+The model cache uses the `linode-block-storage` class, so `tofu destroy`
+deletes it and nothing stays billed; the weights download again (about 14 to
+17 GB) after each recreate. See
+[`examples/vllm-opencode/`](examples/vllm-opencode/) and
+[`tofu/modules/vllm/README.md`](tofu/modules/vllm/README.md).
+
 ## Cluster Specifications
 
 | Component | Specification |
@@ -328,6 +371,7 @@ While Ollama runs, other GPU workloads can't schedule; set
 | System node (`g6-standard-2`) | ~$24/month |
 | Monitoring storage (~20Gi) | ~$2/month |
 | Ollama model storage (80Gi, `install_ollama`) | ~$8/month |
+| vLLM model cache (50Gi, `install_vllm`, deleted on destroy) | ~$5/month |
 
 **Estimated running cost:** ~$414/month. Destroy the cluster when not in use to stop paying.
 
