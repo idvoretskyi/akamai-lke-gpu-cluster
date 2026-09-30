@@ -33,6 +33,11 @@ make -C examples/vllm-opencode port-forward
 make -C examples/vllm-opencode health chat tool-call vram
 ```
 
+`make port-forward` restarts `kubectl port-forward` whenever it exits:
+kubectl drops the tunnel when a client resets a streamed request, which
+opencode does when it cancels its parallel session-title request. Without
+the restart, later requests hang until opencode times out.
+
 The first start downloads the weights into the cache volume and captures
 CUDA graphs: allow 10 to 20 minutes before the pod is Ready. Follow it with
 `make -C examples/vllm-opencode logs`.

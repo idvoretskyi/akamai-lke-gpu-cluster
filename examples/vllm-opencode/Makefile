@@ -27,9 +27,14 @@ export VLLM_API_KEY MODEL PROMPT
 
 .PHONY: port-forward health chat tool-call vram logs
 
-## Forward the vLLM API to localhost:$(PORT). Keep it running in its own terminal.
+## Forward the API to localhost:$(PORT). Keep it running in its own terminal.
+## kubectl port-forward exits when a client resets a streamed request (opencode
+## cancels its parallel title request), so restart it until Ctrl-C.
 port-forward:
-	kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):$(TARGET_PORT)
+	@trap 'exit 0' INT TERM; while true; do \
+	  kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):$(TARGET_PORT); \
+	  echo "port-forward exited, restarting in 1s (Ctrl-C to stop)" >&2; sleep 1; \
+	done
 
 ## Check /health and list served models (needs port-forward).
 health:
