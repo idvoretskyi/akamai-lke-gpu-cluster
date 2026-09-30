@@ -1,7 +1,7 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + six modules in `tofu/modules/`, five wrapping Helm charts and one —
+module + seven modules in `tofu/modules/`, six wrapping Helm charts and one —
 `kubeflow` — installing via kustomize/kubectl; see "Module convention"
 below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
 and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
@@ -17,11 +17,15 @@ source of truth.
   `tofu/modules/<m>`, run `init -backend=false` + `validate` *inside that module
   dir*, not just at root.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
-  (config `tofu/.tflint.hcl`), `shellcheck` on `tofu/scripts/`, Trivy IaC scan on
+  (config `tofu/.tflint.hcl`, passed explicitly so modules use it too),
+  `shellcheck` on `tofu/scripts/`, `tofu/modules/hami/scripts/` and
+  `tofu/modules/kubeflow/scripts/`, Trivy IaC scan on
   `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md`
   (config `.markdownlint.json`).
 - GPU smoke test: `make -C examples/gpu-validation apply wait logs`
   (needs a live cluster with the GPU Operator running).
+- Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
+  then `make -C examples/ollama models chat` (needs `install_ollama = true`).
 
 ## Local apply quirks
 
@@ -36,6 +40,10 @@ source of truth.
   to skip (CI / externally managed kubeconfig). `kubectl` is also required
   whenever `install_hami = true` (default): the HAMi module restarts its
   scheduler via `modules/hami/scripts/restart-scheduler.sh`.
+- The first apply with `install_ollama = true` blocks until the models are
+  downloaded: the chart pulls them in a `postStart` hook, so the pod isn't
+  Ready until they finish (~49 GB for the defaults). If it times out,
+  re-running `tofu apply` resumes.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*`. `.terraform.lock.hcl`
   **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
   (copy from `tofu.tfvars.example`).
@@ -54,10 +62,18 @@ source of truth.
 - `install_opencost = true` requires `install_monitoring = true` for full
   functionality (documented in the variable description; not currently
   enforced by a `check` block).
+- `install_ollama = true` (default) gives Ollama the whole GPU via HAMi's
+  `nvidia.com/gpumem` (only passed when `install_hami = true`; without HAMi
+  that resource doesn't exist and the pod would never schedule). Other GPU
+  pods can't schedule while it runs. Its Helm release is deliberately **not**
+  `atomic`, unlike the other modules: the first install waits for model
+  downloads, and a rollback would delete the partially filled volume.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
-  and `install_kubeflow` on a system node pool too small for the measured
-  ~9-10 GB usage. Warnings, not failures.
+  `install_kubeflow` on a system node pool too small for the measured
+  ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
+  without the GPU Operator or asking for more GPU memory than one card has.
+  Warnings, not failures.
 
 ## GPU node image (LKE)
 
@@ -81,6 +97,9 @@ source of truth.
     of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
     intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
     the Helm pattern.
+- `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
+  because the first install waits for model downloads, and it is the one
+  Helm module with `atomic = false` (see above). Both are intentional.
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
   `g6-standard-8` is recommended only when adding Kubeflow (measured usage
   with the full stack is ~9-10 GB).
@@ -89,3 +108,6 @@ source of truth.
 
 - Single owner `@idvoretskyi` (CODEOWNERS). CI runs on PRs to `main`.
 - Dependabot commit prefixes: `deps(terraform)`, `deps(actions)`.
+- Every commit needs a DCO `Signed-off-by` trailer (the DCO check fails the
+  PR otherwise): commit with `git commit -s`, or fix a branch with
+  `git rebase --signoff <base>`.

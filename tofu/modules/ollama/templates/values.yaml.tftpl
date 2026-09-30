@@ -1,0 +1,83 @@
+%{ if image_tag != null ~}
+image:
+  tag: "${image_tag}"
+%{ endif ~}
+
+ollama:
+  port: 11434
+  gpu:
+    enabled: true
+    type: nvidia
+    number: 1
+
+# Our own postStart hook instead of the chart's ollama.models.pull, which runs
+# the pulls without `set -e` and reports Ready even if one of them failed.
+# Each model gets three attempts; a hook failure restarts the container.
+# Model names are validated in variables.tf, so they are safe to embed.
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          until /bin/ollama ps >/dev/null 2>&1; do sleep 5; done
+          for m in${join("", [for m in models : " ${m}"])}; do
+            n=0
+            until /bin/ollama pull "$m"; do
+              n=$((n + 1))
+              if [ "$n" -ge 3 ]; then echo "failed to pull $m" >&2; exit 1; fi
+              sleep 10
+            done
+          done
+
+# Pin to the GPU pool. With GPU support enabled the chart already tolerates
+# the nvidia.com/gpu taint (NoSchedule), so an explicit toleration is only
+# added when the GPU nodes are tainted with a different key.
+%{ if length(node_selector) > 0 ~}
+nodeSelector:
+%{ for k, v in node_selector ~}
+  ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+%{ if gpu_node_toleration != null && try(gpu_node_toleration.key, "") != "nvidia.com/gpu" ~}
+tolerations:
+  - key: "${gpu_node_toleration.key}"
+    operator: "Exists"
+    effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
+
+# The chart merges nvidia.com/gpu: 1 into limits. nvidia.com/gpumem is HAMi's
+# per-pod vGPU memory; without it HAMi hands out its default slice
+# (hami_default_gpu_memory), which is too small for the default models.
+resources:
+  requests:
+    cpu: "${resources.requests.cpu}"
+    memory: "${resources.requests.memory}"
+  limits:
+    cpu: "${resources.limits.cpu}"
+    memory: "${resources.limits.memory}"
+%{ if gpu_memory_mib != null ~}
+    nvidia.com/gpumem: "${gpu_memory_mib}"
+%{ endif ~}
+
+extraEnv:
+%{ for k, v in env ~}
+  - name: "${k}"
+    value: "${v}"
+%{ endfor ~}
+
+persistentVolume:
+  enabled: true
+  size: "${storage_size}"
+  storageClass: "${storage_class}"
+
+# The pod can't be replaced in place: the ReadWriteOnce volume and the single
+# GPU are both held by the running pod.
+updateStrategy:
+  type: Recreate
+
+service:
+  type: ClusterIP
+  port: 11434

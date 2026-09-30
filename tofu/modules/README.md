@@ -11,6 +11,7 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana monitoring stack | `kube-prometheus-stack/` |
+| [ollama](ollama/README.md) | Ollama — local LLM serving on the GPU pool | `ollama/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
 
 ## Dependency Graph
@@ -22,9 +23,12 @@ edges between modules (`tofu/modules.tf`):
 
 ```text
 module.gpu_operator
-    ├─> module.hami ─────────────────┐
-    ├─> module.kube_prometheus_stack │
-    └─> module.kubeflow <────────────┘
+    ├─> module.hami
+    │       ├─> module.kubeflow
+    │       └─> module.ollama
+    ├─> module.kube_prometheus_stack
+    ├─> module.kubeflow
+    └─> module.ollama
 module.metrics_server
     └─> module.kube_prometheus_stack
             └─> module.opencost
@@ -50,6 +54,9 @@ kubectl port-forward -n opencost svc/opencost 9090:9090
 
 # Check GPU availability
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
+
+# Access Ollama (when install_ollama = true)
+kubectl port-forward -n ollama svc/ollama 11434:11434
 
 # Check HAMi pods (when install_hami = true)
 kubectl get pods -n hami-system

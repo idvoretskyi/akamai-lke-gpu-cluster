@@ -102,7 +102,7 @@ install_metrics_server = true
 # Monitoring Stack (Prometheus + Grafana)
 # ============================================================================
 
-install_monitoring      = true
+install_monitoring = true
 # kube_prometheus_stack_version = "80.8.0"
 grafana_admin_password  = "admin"
 prometheus_retention    = "7d"
@@ -123,8 +123,26 @@ grafana_storage_size    = "5Gi"  # ~$0.50/month
 # Cost Monitoring (OpenCost)
 # ============================================================================
 
-install_opencost       = true
+install_opencost = true
 opencost_version = "2.5.14"
+
+# ============================================================================
+# Ollama (LLM serving)
+# ============================================================================
+# Serves local LLMs from the GPU node. Reach it with:
+#   kubectl port-forward -n ollama service/ollama 11434:11434
+# Fit on an RTX 4000 Ada (20 GB VRAM), download size in brackets:
+#   gpt-oss:20b (14 GB), gemma4:12b (7.7 GB), qwen3.5:9b (6.6 GB) — comfortable
+#   qwen3.8:27b (18 GB), gemma4:26b (16 GB) — tight, 8K context
+#   Kimi K2 / DeepSeek V3 / GLM-5 — far too large (cloud-only in Ollama)
+# Ollama takes the whole GPU; set install_ollama = false to free it.
+
+install_ollama      = true
+ollama_models       = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
+ollama_storage_size = "80Gi" # ~$8/month
+# ollama_version        = "1.84.0"
+# ollama_gpu_memory_mib = 20000 # whole GPU; ignored without HAMi
+# ollama_context_length = 8192
 
 # ============================================================================
 # Cost Management
