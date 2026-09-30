@@ -92,3 +92,31 @@ locals {
     cluster_ca_certificate = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
   }
 }
+
+# vLLM model presets, all sized for one 20 GB RTX 4000 Ada. Only MoE models:
+# decode speed on this card (~360 GB/s) is bound by active parameters, so
+# the ~3B-active MoEs run several times faster than a dense 24-27B model.
+# Weights measured from the Hugging Face repos: gpt-oss-20b 13.8 GB,
+# Qwen3-Coder-30B-A3B AWQ 16.8 GB, which caps its context at 32K.
+locals {
+  vllm_profiles = {
+    "gpt-oss-20b" = {
+      model_repo        = "openai/gpt-oss-20b"
+      served_model_name = "gpt-oss-20b"
+      max_model_len     = 65536
+      tool_call_parser  = "openai"
+      reasoning_parser  = "openai_gptoss"
+      extra_args        = []
+    }
+    "qwen3-coder-30b" = {
+      model_repo        = "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+      served_model_name = "qwen3-coder-30b"
+      max_model_len     = 32768
+      tool_call_parser  = "qwen3_coder"
+      reasoning_parser  = null
+      extra_args        = []
+    }
+  }
+
+  vllm_profile = local.vllm_profiles[var.vllm_model_profile]
+}

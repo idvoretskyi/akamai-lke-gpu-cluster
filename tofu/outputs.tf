@@ -161,6 +161,49 @@ output "ollama_validation_commands" {
   value       = try(module.ollama[0].validation_commands, null)
 }
 
+# ─── vLLM ─────────────────────────────────────────────────────────────────────
+
+output "vllm_namespace" {
+  description = "vLLM namespace (null when not installed)"
+  value       = try(module.vllm[0].namespace, null)
+}
+
+output "vllm_status" {
+  description = "vLLM Helm release status (null when not installed)"
+  value       = try(module.vllm[0].status, null)
+}
+
+output "vllm_service" {
+  description = "vLLM engine Service name (null when not installed)"
+  value       = try(module.vllm[0].service_name, null)
+}
+
+output "vllm_port" {
+  description = "vLLM engine Service port (null when not installed)"
+  value       = try(module.vllm[0].service_port, null)
+}
+
+output "vllm_base_url" {
+  description = "In-cluster OpenAI-compatible base URL (null when not installed)"
+  value       = try(module.vllm[0].base_url, null)
+}
+
+output "vllm_served_model_name" {
+  description = "Model id to request from vLLM (null when not installed)"
+  value       = try(module.vllm[0].served_model_name, null)
+}
+
+output "vllm_api_key" {
+  description = "vLLM API key (null when not installed)"
+  value       = try(module.vllm[0].api_key, null)
+  sensitive   = true
+}
+
+output "vllm_port_forward_command" {
+  description = "Forward the vLLM API to localhost:8000 (null when not installed)"
+  value       = try(module.vllm[0].port_forward_command, null)
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {

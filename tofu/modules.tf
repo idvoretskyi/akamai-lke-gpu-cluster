@@ -111,6 +111,35 @@ module "ollama" {
   depends_on = [module.gpu_operator, module.hami]
 }
 
+# vLLM Module — OpenAI-compatible model server for coding agents (opencode).
+# Takes the whole GPU. With HAMi it goes through hami-scheduler and asks for
+# 100% of the card's memory and cores; without HAMi the stock device plugin
+# already hands out the whole GPU.
+module "vllm" {
+  count  = var.install_vllm ? 1 : 0
+  source = "./modules/vllm"
+
+  namespace           = "vllm"
+  chart_version       = var.vllm_version
+  image_tag           = var.vllm_image_tag
+  model_repo          = coalesce(var.vllm_model_repo, local.vllm_profile.model_repo)
+  served_model_name   = coalesce(var.vllm_served_model_name, local.vllm_profile.served_model_name)
+  max_model_len       = coalesce(var.vllm_max_model_len, local.vllm_profile.max_model_len)
+  tool_call_parser    = local.vllm_profile.tool_call_parser
+  reasoning_parser    = local.vllm_profile.reasoning_parser
+  extra_args          = concat(local.vllm_profile.extra_args, var.vllm_extra_args)
+  api_key             = var.vllm_api_key
+  hf_token            = var.hf_token
+  hami_full_gpu       = var.install_hami
+  node_selector       = local.gpu_node_labels
+  gpu_node_toleration = local.gpu_node_toleration
+  cache_size          = var.vllm_cache_size
+  cache_storage_class = var.vllm_cache_storage_class
+  enable_monitoring   = var.install_monitoring
+
+  depends_on = [module.gpu_operator, module.hami, module.kube_prometheus_stack]
+}
+
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and

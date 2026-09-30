@@ -145,6 +145,30 @@ ollama_storage_size = "80Gi" # ~$8/month
 # ollama_context_length = 8192
 
 # ============================================================================
+# vLLM (OpenAI-compatible serving for opencode and other coding agents)
+# ============================================================================
+# One model, the whole GPU, API key required. Only one GPU server at a time:
+# set install_ollama = false (and install_llamacpp = false) when enabling it.
+# Reach it with:
+#   kubectl port-forward -n vllm service/vllm-coder-engine-service 8000:8000
+#   tofu output -raw vllm_api_key
+# Presets: gpt-oss-20b (MXFP4, 64K context, default) or qwen3-coder-30b
+# (AWQ 4-bit, 32K context). See examples/vllm-opencode.
+
+install_vllm = false
+# vllm_model_profile       = "gpt-oss-20b"
+# vllm_model_repo          = null  # override the preset's Hugging Face repo
+# vllm_served_model_name   = null
+# vllm_max_model_len       = null
+# vllm_extra_args          = []
+# vllm_version             = "0.1.13"
+# vllm_image_tag           = "v0.30.0"
+# vllm_api_key             = null  # null generates one; or TF_VAR_vllm_api_key
+# hf_token                 = null  # only for gated models; or TF_VAR_hf_token
+# vllm_cache_size          = "50Gi" # ~$5/month while the cluster exists
+# vllm_cache_storage_class = "linode-block-storage" # "-retain" keeps weights across destroy, but stays billed
+
+# ============================================================================
 # Cost Management
 # ============================================================================
 # Destroy the cluster to stop paying for compute:
