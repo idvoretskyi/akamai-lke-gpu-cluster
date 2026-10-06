@@ -45,7 +45,6 @@ tofu/modules/kubeflow/.work/
 
 # Claude Code / Anthropic
 .claude/
-CLAUDE.md
 CLAUDE_HISTORY.md
 .claude-code/
 
