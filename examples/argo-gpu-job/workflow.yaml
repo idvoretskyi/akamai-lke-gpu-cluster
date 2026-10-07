@@ -1,0 +1,29 @@
+# Argo Workflows GPU step. Runs nvidia-smi on a HAMi vGPU slice next to Ollama.
+# Requires install_argo_workflows = true, install_gpu_operator = true and
+# install_hami = true (otherwise Ollama holds the whole card).
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: gpu-smoke
+  namespace: argo
+spec:
+  entrypoint: gpu
+  serviceAccountName: argo-workflow
+  # Delete the finished workflow and its pods after 10 minutes.
+  ttlStrategy:
+    secondsAfterCompletion: 600
+  templates:
+    - name: gpu
+      # Tolerate the GPU node taint (dedicate_gpu_nodes = true, the default).
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      container:
+        image: nvidia/cuda:12.4.1-base-ubuntu22.04
+        command: ["nvidia-smi"]
+        resources:
+          limits:
+            # No nvidia.com/gpumem: HAMi applies hami_default_gpu_memory
+            # (4000 MiB by default), so this fits beside Ollama's slice.
+            nvidia.com/gpu: "1"

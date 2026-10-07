@@ -11,9 +11,9 @@ export MODEL PROMPT
 
 .PHONY: port-forward models ps chat openai pull gpu
 
-## Forward the Ollama API to localhost:$(PORT). Keep it running in its own terminal.
+## Forward the Ollama API to localhost:$(PORT), reconnecting if it drops. Keep it running in its own terminal.
 port-forward:
-	kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):11434
+	while true; do kubectl port-forward -n $(NAMESPACE) service/$(SERVICE) $(PORT):11434; sleep 1; done
 
 ## List downloaded models (needs port-forward).
 models:

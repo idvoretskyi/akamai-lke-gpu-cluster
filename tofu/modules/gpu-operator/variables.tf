@@ -16,9 +16,9 @@ variable "chart_version" {
 }
 
 variable "install_driver" {
-  description = "Install NVIDIA driver (set to true for most cloud environments)"
+  description = "Install NVIDIA driver via the operator. LKE GPU nodes ship the driver, so leave false there; set true only on images without one."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "device_plugin_enabled" {
@@ -67,7 +67,7 @@ variable "timeout" {
 }
 
 variable "install_toolkit" {
-  description = "Deploy the operator's NVIDIA Container Toolkit DaemonSet (rewrites the node's containerd config and restarts containerd). Disable when the node image already ships the toolkit/runtime config."
+  description = "Deploy the operator's NVIDIA Container Toolkit DaemonSet (rewrites the node's containerd config and restarts containerd). Leave false on LKE, whose GPU nodes already ship the toolkit and an nvidia containerd runtime."
   type        = bool
-  default     = true
+  default     = false
 }

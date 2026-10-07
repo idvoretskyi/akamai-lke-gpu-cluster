@@ -27,9 +27,9 @@ fi
 # Ensure ~/.kube exists
 mkdir -p ~/.kube
 
-# Backup existing config if present
+# Keep one backup of the existing config (overwritten on each run)
 if [ -f ~/.kube/config ]; then
-  cp ~/.kube/config ~/.kube/config.backup."$(date +%Y%m%d-%H%M%S)"
+  cp ~/.kube/config ~/.kube/config.backup
 fi
 
 # Decode kubeconfig to a temp file

@@ -6,6 +6,9 @@ resource "helm_release" "metrics_server" {
   version    = var.chart_version
   namespace  = var.namespace
 
+  # kube-system already exists; the module never creates its namespace.
+  create_namespace = false
+
   wait            = true
   wait_for_jobs   = true
   atomic          = true

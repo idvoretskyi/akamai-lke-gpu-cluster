@@ -45,8 +45,8 @@ module "gpu_operator" {
 |---|---|---|
 | `namespace` | Kubernetes namespace | `"gpu-operator"` |
 | `chart_version` | Helm chart version (`vX.Y.Z`) | `"v26.7.1"` |
-| `install_driver` | Install NVIDIA driver | `true` |
-| `install_toolkit` | Install the NVIDIA Container Toolkit (rewrites containerd config) | `true` |
+| `install_driver` | Install NVIDIA driver (LKE nodes ship it) | `false` |
+| `install_toolkit` | Install the NVIDIA Container Toolkit (rewrites containerd config) | `false` |
 | `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |

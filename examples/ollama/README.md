@@ -40,7 +40,7 @@ reply = client.chat.completions.create(
 print(reply.choices[0].message.content)
 ```
 
-Tools that support Ollama natively (Open WebUI, Continue, Zed, the `ollama`
+Tools that support Ollama natively (Open WebUI — see `install_open_webui` —, Continue, Zed, the `ollama`
 CLI via `OLLAMA_HOST=http://localhost:11434`) can point at the same address.
 
 ## Adding models
@@ -54,8 +54,9 @@ make pull MODEL=devstral-small-2:24b
 To make a model part of the declared set, add it to `ollama_models` in
 `tofu/tofu.tfvars` and run `tofu apply`. See the fit table in
 [`tofu/modules/ollama/README.md`](../../tofu/modules/ollama/README.md) —
-anything much over 18 GB will spill out of the RTX 4000 Ada's 20 GB of VRAM
-and run slowly.
+anything much over 16 GB will spill out of Ollama's default 16000 MiB HAMi
+slice and run slowly (raise `ollama_gpu_memory_mib` to use more of the 20 GB
+card, at the cost of room for other GPU pods).
 
 ## Files
 

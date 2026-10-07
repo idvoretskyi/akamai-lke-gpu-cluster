@@ -36,9 +36,9 @@ module "kube_prometheus_stack" {
 | `namespace` | Kubernetes namespace | `"monitoring"` |
 | `chart_version` | Helm chart version | `"80.8.0"` |
 | `grafana_admin_password` | Grafana admin password (sensitive) | — |
-| `prometheus_retention` | Data retention period | `"15d"` |
-| `prometheus_storage_size` | Prometheus PVC size | `"50Gi"` |
-| `grafana_storage_size` | Grafana PVC size | `"10Gi"` |
+| `prometheus_retention` | Data retention period | `"7d"` |
+| `prometheus_storage_size` | Prometheus PVC size | `"15Gi"` |
+| `grafana_storage_size` | Grafana PVC size | `"5Gi"` |
 | `storage_class` | Kubernetes StorageClass | `"linode-block-storage-retain"` |
 | `enable_gpu_monitoring` | Add DCGM scrape config for GPU metrics | `false` |
 | `node_selector` | nodeSelector to pin control-plane components (Prometheus, Grafana, kube-state-metrics, operator) onto a node pool. node-exporter stays cluster-wide. | `{}` |

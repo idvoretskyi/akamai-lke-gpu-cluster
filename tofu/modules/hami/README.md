@@ -41,7 +41,7 @@ module "hami" {
   nvidia_node_selector  = local.gpu_node_labels
   gpu_node_toleration   = local.gpu_node_toleration
 
-  default_gpu_memory         = 8000
+  default_gpu_memory         = 4000
   k8s_host                   = local.k8s_auth.host
   k8s_token                  = local.k8s_auth.token
   k8s_cluster_ca_certificate = local.k8s_auth.cluster_ca_certificate
@@ -60,7 +60,7 @@ module "hami" {
 | `device_memory_scaling` | GPU memory oversubscription ratio | `1` |
 | `device_core_scaling` | GPU compute-core oversubscription ratio | `1` |
 | `scheduler_policy` | `binpack` or `spread` | `"binpack"` |
-| `default_gpu_memory` | vGPU memory (MB) given to `nvidia.com/gpu` requests with no explicit `gpumem`; `0` disables (whole-GPU) | `8000` |
+| `default_gpu_memory` | vGPU memory (MB) given to `nvidia.com/gpu` requests with no explicit `gpumem`; `0` disables (whole-GPU) | `4000` |
 | `node_selector` | nodeSelector for HAMi control-plane bits (webhook cert job) | `{}` |
 | `gpu_node_toleration` | GPU node taint the devicePlugin tolerates; `null` when untainted | `null` |
 | `nvidia_node_selector` | nodeSelector the devicePlugin uses to target GPU nodes | `{ gpu = "on" }` |
@@ -117,7 +117,7 @@ kubectl wait pod/hami-validation-a pod/hami-validation-b --for=jsonpath='{.statu
 kubectl logs hami-validation-a && kubectl logs hami-validation-b
 
 # A Pod that only requests nvidia.com/gpu (no gpumem) gets default_gpu_memory
-# instead of the whole card (8000 MiB below, with the default setting) — see
+# instead of the whole card (4000 MiB below, with the default setting) — see
 # examples/gpu-validation for the tested manifest:
 kubectl apply -f examples/gpu-validation/nvidia-smi-pod.yaml
 kubectl wait pod/gpu-validation --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
