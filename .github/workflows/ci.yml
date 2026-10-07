@@ -22,7 +22,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v2
         with:
-          tofu_version: latest
+          tofu_version: "1.12.1"
 
       - name: Format check
         run: |
@@ -45,12 +45,13 @@ jobs:
     strategy:
       matrix:
         module:
+          - argo-workflows
           - gpu-operator
           - hami
-          - kubeflow
           - metrics-server
           - kube-prometheus-stack
           - ollama
+          - open-webui
           - opencost
 
     steps:
@@ -60,7 +61,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v2
         with:
-          tofu_version: latest
+          tofu_version: "1.12.1"
 
       - name: Init module (${{ matrix.module }})
         run: |
@@ -103,7 +104,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Run Trivy IaC scan (SARIF)
+      # One scan: writes SARIF and fails the job on HIGH/CRITICAL findings.
+      - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
@@ -113,7 +115,7 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           limit-severities-for-sarif: "true"
-          exit-code: "0"
+          exit-code: "1"
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
@@ -121,16 +123,6 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
           category: trivy-iac
-
-      - name: Run Trivy IaC scan (table, fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: tofu
-          version: v0.70.0
-          severity: HIGH,CRITICAL
-          format: table
-          exit-code: "1"
 
   shellcheck:
     name: ShellCheck
@@ -140,7 +132,6 @@ jobs:
         scandir:
           - tofu/scripts
           - tofu/modules/hami/scripts
-          - tofu/modules/kubeflow/scripts
 
     steps:
       - name: Checkout
@@ -165,3 +156,34 @@ jobs:
           globs: |
             **/*.md
             !**/.terraform/**
+
+  examples:
+    name: Examples lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: yamllint manifests
+        run: |
+          pip install --quiet yamllint
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' \
+            examples/*/*.yaml
+
+      - name: Compile Python
+        run: python -m py_compile examples/*/*.py
+
+      - name: Check JSON
+        run: |
+          for f in examples/*/*.json; do
+            [ -e "$f" ] || continue
+            jq empty "$f"
+          done
+
+      - name: Dry-run Makefiles
+        run: |
+          for d in examples/*/; do
+            echo "== $d"
+            make -n -C "$d" -f Makefile $(sed -n 's/^\.PHONY: *//p' "$d/Makefile")
+          done

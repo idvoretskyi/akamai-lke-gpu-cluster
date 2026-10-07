@@ -13,7 +13,7 @@ resource "linode_firewall" "lke_firewall" {
 
   # Allow all intra-cluster TCP: control-plane→kubelet (10250), API server→webhooks (443/9443),
   # node↔node, pod↔pod.  Without this the Linode Cloud Firewall drops these packets and
-  # webhook admission times out, kubectl logs/exec fail, and Trainer v2 / JobSet cannot work.
+  # webhook admission (e.g. HAMi's) times out and kubectl logs/exec fail.
   inbound {
     label    = "allow-intra-cluster-tcp"
     action   = "ACCEPT"
