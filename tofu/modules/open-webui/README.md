@@ -32,8 +32,10 @@ kubectl port-forward -n open-webui service/open-webui 8080:80
 # http://localhost:8080
 ```
 
-The first account you create becomes the admin. Set `enable_signup = false`
-afterwards.
+The first account you create becomes the admin. `enable_signup` only sets the
+*initial* default (`ENABLE_SIGNUP`): Open WebUI saves the setting in its
+database and the saved value wins afterwards, so turn sign-ups off later under
+Admin Settings > General, not by re-applying.
 
 ## Inputs
 
@@ -45,7 +47,7 @@ afterwards.
 | `ollama_url` | In-cluster Ollama API URL | `"http://ollama.ollama.svc.cluster.local:11434"` |
 | `storage_size` | Data PVC size | `"5Gi"` |
 | `storage_class` | Data PVC storage class | `"linode-block-storage"` |
-| `enable_signup` | Allow sign-ups (first account is admin) | `true` |
+| `enable_signup` | Initial sign-up default (persisted by the app afterwards) | `true` |
 | `node_selector` | Node selector | `{}` |
 | `resources` | Requests/limits | 100m/512Mi, 1000m/1Gi |
 

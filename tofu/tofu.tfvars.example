@@ -144,7 +144,8 @@ install_argo_workflows = true
 # Open WebUI — browser front-end for Ollama (opt-in)
 # ============================================================================
 # UI: kubectl port-forward -n open-webui service/open-webui 8080:80
-# The first account you create is the admin; then set the signup flag to false.
+# The first account you create is the admin. The signup flag is only the
+# initial default; turn sign-ups off later in Admin Settings > General.
 
 install_open_webui = false
 # open_webui_version       = "16.6.0"

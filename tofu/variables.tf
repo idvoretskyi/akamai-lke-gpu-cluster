@@ -359,7 +359,7 @@ variable "open_webui_version" {
 }
 
 variable "open_webui_enable_signup" {
-  description = "Allow sign-ups in Open WebUI. The first account becomes the admin; set false once it exists."
+  description = "Initial sign-up default for Open WebUI (ENABLE_SIGNUP). The app persists the setting after first start and the saved value wins, so change it later under Admin Settings > General. The first account becomes the admin."
   type        = bool
   default     = true
 }

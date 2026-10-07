@@ -45,7 +45,7 @@ variable "storage_class" {
 }
 
 variable "enable_signup" {
-  description = "Allow new users to sign up. The first account created becomes the admin, so leave this on only while the UI is reachable only through kubectl port-forward. Set it to false after creating the admin account."
+  description = "Initial default for ENABLE_SIGNUP. Open WebUI persists this setting in its database after the first start and the saved value wins, so changing this later has no reliable effect; use Admin Settings > General in the UI instead. The first account created becomes the admin, so keep it true on first install."
   type        = bool
   default     = true
 }
