@@ -2,9 +2,7 @@
 #
 # The cluster runs two node pools:
 #   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
-#     metrics-server, OpenCost, GPU Operator controller). g6-standard-8 is
-#     recommended when adding Kubeflow — the monitoring stack + Kubeflow system
-#     pods measure ~9-10 GB in practice.
+#     metrics-server, OpenCost, GPU Operator controller, Argo Workflows, Open WebUI).
 #   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
 #     true so it is reserved purely for GPU-intensive workloads.
 #

@@ -69,7 +69,7 @@ variable "gpu_node_count" {
 # GPU-intensive workloads, improving utilization and cost-efficiency.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster. Use g6-standard-8 if adding Kubeflow (the monitoring stack + Kubeflow system pods measure ~9-10 GB in practice, exceeding smaller pools)."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster."
   type        = string
   default     = "g6-standard-2"
 
@@ -209,35 +209,13 @@ variable "hami_device_split_count" {
 }
 
 variable "hami_default_gpu_memory" {
-  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu without an explicit nvidia.com/gpumem limit. Defaults to a real slice (8000 MB) rather than the whole physical GPU (HAMi's own chart default), since most orchestrators — including Kubeflow Pipelines via the kfp SDK — have no easy way to set that extra resource key. Set to 0 to restore whole-GPU behavior for unslotted requests."
+  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu without an explicit nvidia.com/gpumem limit. Defaults to a 4000 MB slice rather than the whole physical GPU (HAMi's own chart default), so a plain GPU pod (validation pods, Argo Workflow steps) fits next to Ollama's slice on a 20 GB card. Set to 0 to restore whole-GPU behavior for unslotted requests."
   type        = number
-  default     = 8000
+  default     = 4000
 
   validation {
     condition     = var.hami_default_gpu_memory >= 0
     error_message = "hami_default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
-  }
-}
-
-# ─── Kubeflow ─────────────────────────────────────────────────────────────────
-# Opt-in and heavy (see modules/kubeflow/README.md) — installs via kustomize +
-# kubectl apply, not Helm, since upstream Kubeflow has no single full-platform
-# Helm chart.
-
-variable "install_kubeflow" {
-  description = "Install the full Kubeflow Platform (kubeflow/community-distribution). Heavy — recommend system_node_type = 'g6-standard-8' (32 GB; measured usage is ~9-10 GB) and a generous GPU pool. Opt-in even for a lab cluster."
-  type        = bool
-  default     = false
-}
-
-variable "kubeflow_ref" {
-  description = "Git tag/branch of kubeflow/community-distribution to install (e.g. a release tag, or 'master')."
-  type        = string
-  default     = "master"
-
-  validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._/-]*$", var.kubeflow_ref))
-    error_message = "kubeflow_ref must be a valid git ref (branch/tag) starting with a letter or digit, using only letters, digits, '.', '_', '/', '-'."
   }
 }
 
@@ -342,10 +320,54 @@ variable "opencost_version" {
   }
 }
 
+# ─── Argo Workflows ───────────────────────────────────────────────────────────
+
+variable "install_argo_workflows" {
+  description = "Install Argo Workflows (CNCF), a workflow engine whose GPU steps share the card with Ollama through HAMi. Reach the UI via kubectl port-forward."
+  type        = bool
+  default     = true
+}
+
+variable "argo_workflows_version" {
+  description = "Version of the argo/argo-workflows Helm chart"
+  type        = string
+  default     = "2.0.11"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.argo_workflows_version))
+    error_message = "argo_workflows_version must be in the format 'X.Y.Z' (e.g. '2.0.11')."
+  }
+}
+
+# ─── Open WebUI ───────────────────────────────────────────────────────────────
+
+variable "install_open_webui" {
+  description = "Install Open WebUI, a browser front-end for Ollama (requires install_ollama = true). CPU-only, runs on the system pool."
+  type        = bool
+  default     = false
+}
+
+variable "open_webui_version" {
+  description = "Version of the open-webui/open-webui Helm chart"
+  type        = string
+  default     = "16.6.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.open_webui_version))
+    error_message = "open_webui_version must be in the format 'X.Y.Z' (e.g. '16.6.0')."
+  }
+}
+
+variable "open_webui_enable_signup" {
+  description = "Allow sign-ups in Open WebUI. The first account becomes the admin; set false once it exists."
+  type        = bool
+  default     = true
+}
+
 # ─── Ollama (LLM serving) ─────────────────────────────────────────────────────
 
 variable "install_ollama" {
-  description = "Install Ollama on the GPU pool to serve local LLMs (reach it via kubectl port-forward). Takes the whole GPU by default; set false when the GPU is needed for other workloads."
+  description = "Install Ollama on the GPU pool to serve local LLMs (reach it via kubectl port-forward). Takes a 16 GB slice of the GPU by default (see ollama_gpu_memory_mib)."
   type        = bool
   default     = true
 }
@@ -364,7 +386,7 @@ variable "ollama_version" {
 variable "ollama_models" {
   description = "Models Ollama pulls on startup (name[:tag] from ollama.com/library). Each must fit the GPU's VRAM on its own; one is loaded at a time."
   type        = list(string)
-  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
+  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
 
   validation {
     condition     = alltrue([for m in var.ollama_models : can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]+)?$", m))])
@@ -373,20 +395,20 @@ variable "ollama_models" {
 }
 
 variable "ollama_storage_size" {
-  description = "Size of the volume holding Ollama's models (~$0.10/GB/month). The default models take ~49 GB."
+  description = "Size of the volume holding Ollama's models (~$0.10/GB/month). The default models take ~29 GB."
   type        = string
-  default     = "80Gi"
+  default     = "50Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Gi|Ti)$", var.ollama_storage_size))
-    error_message = "ollama_storage_size must be a quantity in Gi or Ti (e.g. '80Gi')."
+    error_message = "ollama_storage_size must be a quantity in Gi or Ti (e.g. '50Gi')."
   }
 }
 
 variable "ollama_gpu_memory_mib" {
-  description = "GPU memory (MiB) Ollama requests from HAMi. 20000 gives it the whole RTX 4000 Ada (20 GB). Ignored when install_hami = false, in which case Ollama gets the whole GPU."
+  description = "GPU memory (MiB) Ollama requests from HAMi. 16000 leaves ~4 GB of the RTX 4000 Ada's 20 GB for other GPU pods (see hami_default_gpu_memory). Ignored when install_hami = false, in which case Ollama gets the whole GPU."
   type        = number
-  default     = 20000
+  default     = 16000
 
   validation {
     condition     = var.ollama_gpu_memory_mib >= 1024
@@ -395,7 +417,7 @@ variable "ollama_gpu_memory_mib" {
 }
 
 variable "ollama_context_length" {
-  description = "Default context window in tokens (OLLAMA_CONTEXT_LENGTH). Larger contexts need more VRAM for the KV cache; 8192 keeps ~27B Q4 models fully on a 20 GB GPU."
+  description = "Default context window in tokens (OLLAMA_CONTEXT_LENGTH). Larger contexts need more VRAM for the KV cache; 8192 keeps gpt-oss:20b inside a 16 GB slice."
   type        = number
   default     = 8192
 

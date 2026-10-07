@@ -67,7 +67,7 @@ variable "scheduler_policy" {
 variable "default_gpu_memory" {
   description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu WITHOUT an explicit nvidia.com/gpumem limit (0 = whole physical GPU, HAMi's own chart default). See README.md 'Memory slicing defaults' for why and how this module enforces it (the chart has no Helm value for it)."
   type        = number
-  default     = 8000
+  default     = 4000
 
   validation {
     condition     = var.default_gpu_memory >= 0

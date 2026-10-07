@@ -39,7 +39,7 @@ variable "timeout" {
 variable "models" {
   description = "Ollama models to pull on startup (name[:tag], as on ollama.com/library). Each should fit the GPU's VRAM on its own; only one is loaded at a time."
   type        = list(string)
-  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
+  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
 
   validation {
     condition     = alltrue([for m in var.models : can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]+)?$", m))])
@@ -90,9 +90,9 @@ variable "extra_env" {
 # ─── GPU / Scheduling ────────────────────────────────────────────────────────
 
 variable "gpu_memory_mib" {
-  description = "HAMi vGPU memory to request (nvidia.com/gpumem, MiB). Set to the card's full VRAM to give Ollama the whole GPU. Null omits it, so HAMi applies its default slice — or, without HAMi, the whole GPU."
+  description = "HAMi vGPU memory to request (nvidia.com/gpumem, MiB). Leave headroom on a shared card (16000 of 20 GB by default) or set it to the card's full VRAM to give Ollama the whole GPU. Null omits it, so HAMi applies its default slice — or, without HAMi, the whole GPU."
   type        = number
-  default     = 20000
+  default     = 16000
 
   validation {
     condition     = var.gpu_memory_mib == null || var.gpu_memory_mib >= 1024
@@ -137,13 +137,13 @@ variable "resources" {
 # ─── Storage ─────────────────────────────────────────────────────────────────
 
 variable "storage_size" {
-  description = "Size of the PVC holding downloaded models (/root/.ollama). The default models take ~49 GB."
+  description = "Size of the PVC holding downloaded models (/root/.ollama). The default models take ~29 GB."
   type        = string
-  default     = "80Gi"
+  default     = "50Gi"
 
   validation {
     condition     = can(regex("^[0-9]+(Gi|Ti)$", var.storage_size))
-    error_message = "storage_size must be a quantity in Gi or Ti (e.g. '80Gi')."
+    error_message = "storage_size must be a quantity in Gi or Ti (e.g. '50Gi')."
   }
 }
 

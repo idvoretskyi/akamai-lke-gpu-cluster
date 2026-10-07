@@ -90,8 +90,8 @@ HAMi's chart (v2.9.0) hardcodes `nvidia.defaultMemory: 0` in the
 `hami-scheduler-device` ConfigMap — there's no Helm value for it. A Pod that
 requests `nvidia.com/gpu` without also specifying `nvidia.com/gpumem` then
 gets the **whole physical GPU**, defeating the point of virtualization for
-any workload that has no easy way to set that extra resource key (notably
-Kubeflow Pipelines via the `kfp` SDK — see `examples/roboflow-pipeline`).
+any workload that has no easy way to set that extra resource key (e.g.
+Argo Workflow steps).
 
 This module works around that by authoring the ConfigMap's `nvidia:` section
 directly (`kubernetes_config_map_v1_data`, `force = true`) with our own

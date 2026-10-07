@@ -46,21 +46,6 @@ module "hami" {
   depends_on = [module.gpu_operator]
 }
 
-# Kubeflow Module — full Kubeflow Platform (opt-in, heavy).
-# Installed via kustomize + kubectl apply (see modules/kubeflow/README.md for
-# why this deviates from the Helm-module convention used elsewhere).
-module "kubeflow" {
-  count  = var.install_kubeflow ? 1 : 0
-  source = "./modules/kubeflow"
-
-  kubeflow_ref               = var.kubeflow_ref
-  k8s_host                   = local.k8s_auth.host
-  k8s_token                  = local.k8s_auth.token
-  k8s_cluster_ca_certificate = local.k8s_auth.cluster_ca_certificate
-
-  depends_on = [module.hami, module.gpu_operator]
-}
-
 # Metrics Server Module.
 module "metrics_server" {
   count  = var.install_metrics_server ? 1 : 0
@@ -92,8 +77,8 @@ module "kube_prometheus_stack" {
 }
 
 # Ollama Module — serves local LLMs from the GPU pool.
-# Pinned to the GPU nodes and given the whole GPU through HAMi's
-# nvidia.com/gpumem. Without HAMi that resource doesn't exist (the pod would
+# Pinned to the GPU nodes and given a slice of the GPU through HAMi's
+# nvidia.com/gpumem (var.ollama_gpu_memory_mib), leaving headroom for other GPU pods. Without HAMi that resource doesn't exist (the pod would
 # never schedule), so it is only requested when HAMi is installed.
 module "ollama" {
   count  = var.install_ollama ? 1 : 0
@@ -109,6 +94,35 @@ module "ollama" {
   gpu_node_toleration = local.gpu_node_toleration
 
   depends_on = [module.gpu_operator, module.hami]
+}
+
+# Argo Workflows Module — CNCF workflow engine. Runs on the system pool; its GPU
+# steps are scheduled onto the GPU pool by the Workflow spec (toleration +
+# nvidia.com/gpu limit), sharing the card with Ollama through HAMi.
+module "argo_workflows" {
+  count  = var.install_argo_workflows ? 1 : 0
+  source = "./modules/argo-workflows"
+
+  namespace              = "argo"
+  chart_version          = var.argo_workflows_version
+  enable_service_monitor = var.install_monitoring
+  node_selector          = local.system_node_selector
+
+  depends_on = [module.kube_prometheus_stack]
+}
+
+# Open WebUI Module — browser front-end for Ollama (opt-in, CPU-only).
+module "open_webui" {
+  count  = var.install_open_webui ? 1 : 0
+  source = "./modules/open-webui"
+
+  namespace     = "open-webui"
+  chart_version = var.open_webui_version
+  ollama_url    = "http://${try(module.ollama[0].service_name, "ollama")}.${try(module.ollama[0].namespace, "ollama")}.svc.cluster.local:11434"
+  enable_signup = var.open_webui_enable_signup
+  node_selector = local.system_node_selector
+
+  depends_on = [module.ollama]
 }
 
 # OpenCost Module — Kubernetes cost monitoring.

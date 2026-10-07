@@ -35,8 +35,6 @@ gpu_node_count = 1
 # System Node Pool
 # ============================================================================
 # Small CPU pool for monitoring and system workloads (~$24/month).
-# Use g6-standard-8 if enabling install_kubeflow (measured usage with the
-# full stack is ~9-10 GB; see modules/kubeflow).
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
@@ -77,19 +75,9 @@ install_hami            = true
 hami_version            = "2.9.0"
 hami_device_split_count = 10
 # vGPU memory (MB) given to nvidia.com/gpu requests with no explicit gpumem
-# (e.g. Kubeflow Pipelines components, which have no way to set gpumem via
-# the kfp SDK). 0 = whole physical GPU for such requests (HAMi's own default).
-hami_default_gpu_memory = 8000
-
-# ============================================================================
-# Kubeflow — opt-in, heavy
-# ============================================================================
-# Installs via kustomize + kubectl apply (no full-platform Helm chart
-# upstream). Recommend system_node_type = "g6-standard-8" when enabling
-# (measured usage with the full stack is ~9-10 GB).
-
-install_kubeflow = false
-kubeflow_ref     = "master"
+# (e.g. Argo Workflow GPU steps). Ollama takes 16000 MiB of the 20 GB card, so
+# 4000 leaves room for exactly one such pod. 0 = whole physical GPU.
+hami_default_gpu_memory = 4000
 
 # ============================================================================
 # Metrics Server
@@ -133,16 +121,34 @@ opencost_version = "2.5.14"
 #   kubectl port-forward -n ollama service/ollama 11434:11434
 # Fit on an RTX 4000 Ada (20 GB VRAM), download size in brackets:
 #   gpt-oss:20b (14 GB), gemma4:12b (7.7 GB), qwen3.5:9b (6.6 GB) — comfortable
-#   qwen3.8:27b (18 GB), gemma4:26b (16 GB) — tight, 8K context
+#   qwen3.8:27b (18 GB), gemma4:26b (16 GB) — need ollama_gpu_memory_mib = 20000
 #   Kimi K2 / DeepSeek V3 / GLM-5 — far too large (cloud-only in Ollama)
-# Ollama takes the whole GPU; set install_ollama = false to free it.
+# Ollama takes a 16 GB HAMi slice, leaving ~4 GB for other GPU pods.
 
 install_ollama      = true
-ollama_models       = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
-ollama_storage_size = "80Gi" # ~$8/month
+ollama_models       = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
+ollama_storage_size = "50Gi" # ~$5/month
 # ollama_version        = "1.84.0"
-# ollama_gpu_memory_mib = 20000 # whole GPU; ignored without HAMi
+# ollama_gpu_memory_mib = 16000 # HAMi slice (20000 = whole GPU); ignored without HAMi
 # ollama_context_length = 8192
+
+# ============================================================================
+# Argo Workflows (CNCF) — GPU steps share the card with Ollama via HAMi
+# ============================================================================
+# UI: kubectl port-forward -n argo service/argo-workflows-server 2746:2746
+
+install_argo_workflows = true
+# argo_workflows_version = "2.0.11"
+
+# ============================================================================
+# Open WebUI — browser front-end for Ollama (opt-in)
+# ============================================================================
+# UI: kubectl port-forward -n open-webui service/open-webui 8080:80
+# The first account you create is the admin; then set the signup flag to false.
+
+install_open_webui = false
+# open_webui_version       = "16.6.0"
+# open_webui_enable_signup = true
 
 # ============================================================================
 # Cost Management
