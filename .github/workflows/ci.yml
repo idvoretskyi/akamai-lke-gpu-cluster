@@ -52,6 +52,7 @@ jobs:
           - kube-prometheus-stack
           - ollama
           - opencost
+          - vllm
 
     steps:
       - name: Checkout

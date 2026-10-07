@@ -111,6 +111,33 @@ module "ollama" {
   depends_on = [module.gpu_operator, module.hami]
 }
 
+# vLLM Module — opt-in alternative/companion to Ollama: one Hugging Face model
+# behind an OpenAI-compatible API, with Prometheus metrics. GPU memory is
+# requested from HAMi on the same terms as Ollama (only when HAMi is
+# installed); the ServiceMonitor is only created when the Prometheus Operator
+# CRDs exist (install_monitoring).
+module "vllm" {
+  count  = var.install_vllm ? 1 : 0
+  source = "./modules/vllm"
+
+  namespace              = "vllm"
+  chart_version          = var.vllm_version
+  image_tag              = var.vllm_image_tag
+  model                  = var.vllm_model
+  model_revision         = var.vllm_model_revision
+  hf_token               = var.vllm_hf_token
+  max_model_len          = var.vllm_max_model_len
+  gpu_memory_utilization = var.vllm_gpu_memory_utilization
+  extra_args             = var.vllm_extra_args
+  storage_size           = var.vllm_storage_size
+  gpu_memory_mib         = var.install_hami ? var.vllm_gpu_memory_mib : null
+  enable_service_monitor = var.install_monitoring
+  node_selector          = local.gpu_node_labels
+  gpu_node_toleration    = local.gpu_node_toleration
+
+  depends_on = [module.gpu_operator, module.hami, module.kube_prometheus_stack]
+}
+
 # OpenCost Module — Kubernetes cost monitoring.
 # OpenCost depends on a Prometheus reachable in-cluster. The URL is sourced from
 # the kube-prometheus-stack module output to avoid hardcoding the namespace and

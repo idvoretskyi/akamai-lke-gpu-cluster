@@ -13,6 +13,7 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana monitoring stack | `kube-prometheus-stack/` |
 | [ollama](ollama/README.md) | Ollama — local LLM serving on the GPU pool | `ollama/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
+| [vllm](vllm/README.md) | vLLM — single-model LLM serving with metrics (opt-in) | `vllm/` |
 
 ## Dependency Graph
 
@@ -25,13 +26,16 @@ edges between modules (`tofu/modules.tf`):
 module.gpu_operator
     ├─> module.hami
     │       ├─> module.kubeflow
-    │       └─> module.ollama
+    │       ├─> module.ollama
+    │       └─> module.vllm
     ├─> module.kube_prometheus_stack
     ├─> module.kubeflow
-    └─> module.ollama
+    ├─> module.ollama
+    └─> module.vllm
 module.metrics_server
     └─> module.kube_prometheus_stack
-            └─> module.opencost
+            ├─> module.opencost
+            └─> module.vllm
 ```
 
 `terraform_data.merge_kubeconfig` (writes `~/.kube/config`, `tofu/kubeconfig.tf`)
@@ -57,6 +61,9 @@ kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 
 # Access Ollama (when install_ollama = true)
 kubectl port-forward -n ollama svc/ollama 11434:11434
+
+# Access vLLM (when install_vllm = true)
+kubectl port-forward -n vllm svc/vllm-llm-engine-service 8000:80
 
 # Check HAMi pods (when install_hami = true)
 kubectl get pods -n hami-system

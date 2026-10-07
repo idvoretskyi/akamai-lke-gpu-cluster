@@ -18,7 +18,7 @@ This repository provides automated infrastructure deployment for GPU-accelerated
 - **Dedicated System Pool**: A small, cheap CPU node pool runs the system/monitoring stack so the GPU nodes are reserved purely for GPU-intensive workloads
 - **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
 - **HAMi GPU Virtualization**: Splits physical GPUs into shareable vGPU slices so multiple pods can run on one GPU (enabled by default — lab setup)
-- **Local LLM Serving**: Ollama on the GPU node (`install_ollama`, on by default) with native and OpenAI-compatible APIs
+- **Local LLM Serving**: Ollama on the GPU node (`install_ollama`, on by default) with native and OpenAI-compatible APIs; vLLM as an opt-in alternative (`install_vllm`) with Prometheus serving metrics
 - **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
 - **Monitoring Stack**: Complete observability with Prometheus, Grafana, node-exporter and kube-state-metrics
 - **Cost Monitoring**: OpenCost for real-time Kubernetes cost allocation
@@ -92,6 +92,7 @@ linode-cli configure
 │   ├── gpu-validation/    # Kubeflow-free nvidia-smi GPU smoke test
 │   ├── hami-validation/   # Two Pods sharing one GPU via HAMi vGPU slices
 │   ├── ollama/            # Chat with the cluster's Ollama over port-forward
+│   ├── vllm/              # Chat with / scrape metrics from the cluster's vLLM (opt-in)
 │   └── roboflow-pipeline/ # Keyless Roboflow RF-DETR workload on Kubeflow Pipelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── versions.tf        # Required providers and OpenTofu version (>= 1.9)
@@ -113,7 +114,8 @@ linode-cli configure
         ├── metrics-server/     # Kubernetes Metrics Server
         ├── kube-prometheus-stack/ # Monitoring stack
         ├── ollama/             # Ollama LLM server on the GPU pool
-        └── opencost/           # Kubernetes cost monitoring
+        ├── opencost/           # Kubernetes cost monitoring
+        └── vllm/               # vLLM engine on the GPU pool (opt-in)
 ```
 
 ## Workflow
@@ -306,6 +308,38 @@ See [`examples/ollama/`](examples/ollama/) for chat and benchmark targets, and
 While Ollama runs, other GPU workloads can't schedule; set
 `install_ollama = false` to free the GPU.
 
+### vLLM (opt-in)
+
+`install_vllm = true` adds a [vLLM](https://docs.vllm.ai/) engine
+(vllm-project `production-stack` chart, router disabled) serving one Hugging
+Face model, `Qwen/Qwen3-8B-AWQ` by default, over an OpenAI-compatible API.
+Unlike Ollama it exports Prometheus metrics (time to first token,
+throughput, KV cache usage), scraped through a `ServiceMonitor` when
+monitoring is on. It loads Hugging Face checkpoints rather than GGUF, so on a
+20 GB card use AWQ/GPTQ/FP8 checkpoints above ~8B parameters.
+
+| | Ollama (default) | vLLM (opt-in) |
+|---|---|---|
+| Models | Several, hot-swapped | One per engine |
+| Best for | Trying many models on one card | Concurrency, OpenAI API fidelity, serving metrics |
+
+Both engines want the whole GPU. To try vLLM on its own:
+
+```hcl
+install_ollama = false
+install_vllm   = true
+```
+
+```bash
+kubectl port-forward -n vllm service/vllm-llm-engine-service 8000:80
+curl http://localhost:8000/v1/models
+```
+
+See [`examples/vllm/`](examples/vllm/) and
+[`tofu/modules/vllm/README.md`](tofu/modules/vllm/README.md). Running both
+engines at once needs HAMi and both `*_gpu_memory_mib` values to fit one
+card; the `llm_engines_share_one_gpu` check warns otherwise.
+
 ## Cluster Specifications
 
 | Component | Specification |
@@ -328,6 +362,7 @@ While Ollama runs, other GPU workloads can't schedule; set
 | System node (`g6-standard-2`) | ~$24/month |
 | Monitoring storage (~20Gi) | ~$2/month |
 | Ollama model storage (80Gi, `install_ollama`) | ~$8/month |
+| vLLM model storage (50Gi, `install_vllm`, off by default) | ~$5/month |
 
 **Estimated running cost:** ~$414/month. Destroy the cluster when not in use to stop paying.
 
@@ -413,6 +448,13 @@ kubectl port-forward -n ollama svc/ollama 11434:11434
 # API: http://localhost:11434 — OpenAI-compatible: http://localhost:11434/v1
 ```
 
+**Access vLLM (when `install_vllm = true`):**
+
+```bash
+kubectl port-forward -n vllm svc/vllm-llm-engine-service 8000:80
+# OpenAI-compatible: http://localhost:8000/v1 — metrics: http://localhost:8000/metrics
+```
+
 **Check GPU availability:**
 
 ```bash
@@ -470,6 +512,7 @@ cd tofu && tofu destroy
 
 - Ollama on the GPU pool (`install_ollama = true`) — native and OpenAI-compatible APIs over `kubectl port-forward`
 - Models preloaded onto a persistent volume; flash attention and a quantized KV cache keep ~27B Q4 models on a 20 GB GPU
+- vLLM as an opt-in engine (`install_vllm = true`) — one Hugging Face model, continuous batching, Prometheus metrics via ServiceMonitor
 
 ### ML Platform (optional)
 
@@ -482,7 +525,7 @@ This infrastructure is designed for:
 
 - **ML Platform Deployment**: Foundation for Kubeflow, MLflow, Ray, etc.
 - **AI Model Training**: Distributed training with GPU acceleration
-- **AI Model Serving**: Inference workloads with GPU support, including local LLMs via Ollama
+- **AI Model Serving**: Inference workloads with GPU support, including local LLMs via Ollama or vLLM
 - **Data Science Workflows**: Jupyter notebooks with GPU access
 - **Custom ML Applications**: Any containerized AI/ML workload
 - **Development & Testing**: GPU-enabled development environments
@@ -497,6 +540,7 @@ This infrastructure is designed for:
 - [Grafana Documentation](https://grafana.com/docs/)
 - [OpenCost Documentation](https://www.opencost.io/docs/)
 - [Ollama Documentation](https://docs.ollama.com/)
+- [vLLM Documentation](https://docs.vllm.ai/)
 
 ## Region and GPU availability
 

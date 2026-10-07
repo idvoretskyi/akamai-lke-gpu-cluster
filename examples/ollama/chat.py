@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Minimal OpenAI-compatible chat client for the cluster's Ollama.
+"""Minimal OpenAI-compatible chat client for the cluster's Ollama or vLLM.
 
 Standard library only. Usage: chat.py MODEL PROMPT
-Reads the base URL from OLLAMA_URL (default http://localhost:11434), so it
-works through `kubectl port-forward`. Any OpenAI SDK works the same way with
-base_url=f"{OLLAMA_URL}/v1" and any API key.
+Reads the base URL from LLM_URL, falling back to OLLAMA_URL (default
+http://localhost:11434), so it works through `kubectl port-forward` to either
+engine (examples/vllm sets LLM_URL=http://localhost:8000). Any OpenAI SDK
+works the same way with base_url=f"{LLM_URL}/v1" and any API key.
 """
 
 import json
@@ -19,7 +20,8 @@ def main() -> int:
         print(__doc__.strip(), file=sys.stderr)
         return 2
     model, prompt = sys.argv[1], sys.argv[2]
-    base = os.environ.get("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+    base = os.environ.get("LLM_URL") or os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    base = base.rstrip("/")
 
     request = urllib.request.Request(
         f"{base}/v1/chat/completions",
@@ -28,7 +30,7 @@ def main() -> int:
         ).encode(),
         headers={
             "Content-Type": "application/json",
-            "Authorization": "Bearer ollama",  # ignored by Ollama, required by the API shape
+            "Authorization": "Bearer none",  # ignored by both engines here, required by the API shape
         },
     )
     started = time.monotonic()

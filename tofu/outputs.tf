@@ -161,6 +161,38 @@ output "ollama_validation_commands" {
   value       = try(module.ollama[0].validation_commands, null)
 }
 
+# ─── vLLM ─────────────────────────────────────────────────────────────────────
+
+output "vllm_namespace" {
+  description = "vLLM namespace (null when not installed)"
+  value       = try(module.vllm[0].namespace, null)
+}
+
+output "vllm_version" {
+  description = "vllm-stack chart version (null when not installed)"
+  value       = try(module.vllm[0].version, null)
+}
+
+output "vllm_status" {
+  description = "vLLM Helm release status (null when not installed)"
+  value       = try(module.vllm[0].status, null)
+}
+
+output "vllm_service" {
+  description = "vLLM engine service name for port-forwarding, port 80 (null when not installed)"
+  value       = try(module.vllm[0].service_name, null)
+}
+
+output "vllm_model" {
+  description = "Model vLLM serves (null when not installed)"
+  value       = try(module.vllm[0].model, null)
+}
+
+output "vllm_validation_commands" {
+  description = "Commands to reach and validate vLLM (null when not installed)"
+  value       = try(module.vllm[0].validation_commands, null)
+}
+
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {

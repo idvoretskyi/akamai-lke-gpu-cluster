@@ -405,6 +405,110 @@ variable "ollama_context_length" {
   }
 }
 
+# ─── vLLM (LLM serving, opt-in) ───────────────────────────────────────────────
+
+variable "install_vllm" {
+  description = "Install vLLM on the GPU pool to serve one Hugging Face model over an OpenAI-compatible API, with Prometheus metrics (reach it via kubectl port-forward). Takes the whole GPU by default; running it alongside Ollama needs HAMi and both GPU memory requests to fit one card."
+  type        = bool
+  default     = false
+}
+
+variable "vllm_version" {
+  description = "Version of the vllm-project production-stack chart (vllm-stack)"
+  type        = string
+  default     = "0.1.13"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.vllm_version))
+    error_message = "vllm_version must be in the format 'X.Y.Z' (e.g. '0.1.13')."
+  }
+}
+
+variable "vllm_image_tag" {
+  description = "vllm/vllm-openai image tag. Pinned; newly released model architectures sometimes need a newer vLLM."
+  type        = string
+  default     = "v0.31.0"
+
+  validation {
+    condition     = var.vllm_image_tag != "latest" && length(var.vllm_image_tag) > 0
+    error_message = "vllm_image_tag must be a pinned tag (e.g. 'v0.31.0'), not 'latest'."
+  }
+}
+
+variable "vllm_model" {
+  description = "Hugging Face model vLLM serves (org/name). Must fit the GPU with room for the KV cache; on a 20 GB card use an AWQ/GPTQ/FP8 checkpoint above ~8B parameters."
+  type        = string
+  default     = "Qwen/Qwen3-8B-AWQ"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$", var.vllm_model))
+    error_message = "vllm_model must be a Hugging Face repo id like 'org/name' (e.g. 'Qwen/Qwen3-8B-AWQ')."
+  }
+}
+
+variable "vllm_model_revision" {
+  description = "Hugging Face revision (branch, tag or commit) to pin vllm_model to. Null uses the default branch."
+  type        = string
+  default     = null
+}
+
+variable "vllm_hf_token" {
+  description = "Hugging Face token, only needed for gated models. Stored in a Kubernetes Secret (and in OpenTofu state — protect it accordingly)."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "vllm_gpu_memory_mib" {
+  description = "GPU memory (MiB) vLLM requests from HAMi. 20000 gives it the whole RTX 4000 Ada (20 GB). Ignored when install_hami = false, in which case vLLM gets the whole GPU."
+  type        = number
+  default     = 20000
+
+  validation {
+    condition     = var.vllm_gpu_memory_mib >= 1024
+    error_message = "vllm_gpu_memory_mib must be at least 1024."
+  }
+}
+
+variable "vllm_gpu_memory_utilization" {
+  description = "Fraction of its GPU memory vLLM pre-allocates for weights, activations and KV cache (--gpu-memory-utilization)."
+  type        = number
+  default     = 0.9
+
+  validation {
+    condition     = var.vllm_gpu_memory_utilization > 0 && var.vllm_gpu_memory_utilization <= 1
+    error_message = "vllm_gpu_memory_utilization must be in (0, 1]."
+  }
+}
+
+variable "vllm_max_model_len" {
+  description = "Maximum context length in tokens (--max-model-len). vLLM reserves KV cache for it at startup."
+  type        = number
+  default     = 8192
+
+  validation {
+    condition     = var.vllm_max_model_len >= 2048
+    error_message = "vllm_max_model_len must be at least 2048."
+  }
+}
+
+variable "vllm_extra_args" {
+  description = "Extra `vllm serve` arguments, e.g. [\"--enable-auto-tool-choice\", \"--tool-call-parser\", \"hermes\"]."
+  type        = list(string)
+  default     = []
+}
+
+variable "vllm_storage_size" {
+  description = "Size of the volume caching vLLM's model weights (~$0.10/GB/month)."
+  type        = string
+  default     = "50Gi"
+
+  validation {
+    condition     = can(regex("^[0-9]+(Gi|Ti)$", var.vllm_storage_size))
+    error_message = "vllm_storage_size must be a quantity in Gi or Ti (e.g. '50Gi')."
+  }
+}
+
 # ─── Monitoring Resource Requests ────────────────────────────────────────────
 
 variable "prometheus_resources" {

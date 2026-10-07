@@ -1,0 +1,112 @@
+# Single vLLM engine, no router: the router, LMCache server and LoRA
+# controller only pay off with several engine replicas, and this cluster has
+# one GPU. Clients talk to the engine's ClusterIP Service directly.
+routerSpec:
+  enableRouter: false
+
+cacheserverSpec:
+  enabled: false
+
+loraController:
+  enableLoraController: false
+
+servingEngineSpec:
+  enableEngine: true
+  # Pinned tag, so never re-pull a ~10 GB image on restart.
+  imagePullPolicy: IfNotPresent
+  # LKE GPU nodes ship a containerd "nvidia" runtime (the GPU Operator's
+  # toolkit is disabled; see AGENTS.md).
+  runtimeClassName: nvidia
+
+  # The engine can't be replaced in place: the ReadWriteOnce volume and the
+  # single GPU are both held by the running pod.
+  strategy:
+    type: Recreate
+
+  # The first start downloads the weights before the server listens, so the
+  # startup probe must cover the whole Helm timeout (10 s period).
+  startupProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    failureThreshold: ${startup_probe_failures}
+    httpGet:
+      path: /health
+      port: 8000
+
+%{ if gpu_node_toleration != null ~}
+  tolerations:
+    - key: "${gpu_node_toleration.key}"
+      operator: "Exists"
+      effect: "${gpu_node_toleration.effect}"
+%{ endif ~}
+
+  serviceMonitor:
+    enabled: ${enable_service_monitor}
+
+  modelSpec:
+    - name: "${model_name}"
+      repository: "${image_repository}"
+      tag: "${image_tag}"
+      modelURL: "${model}"
+%{ if model_revision != null ~}
+      modelRevision: "${model_revision}"
+%{ endif ~}
+      replicaCount: 1
+%{ if length(node_selector) > 0 ~}
+      nodeSelectorTerms:
+        - matchExpressions:
+%{ for k, v in node_selector ~}
+            - key: "${k}"
+              operator: In
+              values: ["${v}"]
+%{ endfor ~}
+%{ endif ~}
+
+      # Raw resources block (takes priority over the chart's request*/limit*
+      # fields). nvidia.com/gpumem is HAMi's per-pod vGPU memory; without it
+      # HAMi hands out its default slice (hami_default_gpu_memory).
+      resources:
+        requests:
+          cpu: "${resources.requests.cpu}"
+          memory: "${resources.requests.memory}"
+          nvidia.com/gpu: "1"
+%{ if gpu_memory_mib != null ~}
+          nvidia.com/gpumem: "${gpu_memory_mib}"
+%{ endif ~}
+        limits:
+          cpu: "${resources.limits.cpu}"
+          memory: "${resources.limits.memory}"
+          nvidia.com/gpu: "1"
+%{ if gpu_memory_mib != null ~}
+          nvidia.com/gpumem: "${gpu_memory_mib}"
+%{ endif ~}
+
+      # Hugging Face cache (HF_HOME=/data) on a persistent volume, so restarts
+      # don't re-download the weights.
+      pvcStorage: "${storage_size}"
+      storageClass: "${storage_class}"
+      pvcAccessMode:
+        - ReadWriteOnce
+
+      shmSize: "${shm_size}"
+
+%{ if hf_token_secret != null ~}
+      hf_token:
+        secretName: "${hf_token_secret}"
+        secretKey: "token"
+%{ endif ~}
+
+      vllmConfig:
+        # tensorParallelSize is set only because the chart mounts the /dev/shm
+        # volume when it is present; 1 is the single-GPU value anyway.
+        tensorParallelSize: 1
+        enablePrefixCaching: true
+        maxModelLen: ${max_model_len}
+        gpuMemoryUtilization: ${gpu_memory_utilization}
+        dtype: "${dtype}"
+%{ if length(extra_args) > 0 ~}
+        extraArgs:
+%{ for a in extra_args ~}
+          - ${jsonencode(a)}
+%{ endfor ~}
+%{ endif ~}

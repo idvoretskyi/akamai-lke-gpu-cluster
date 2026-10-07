@@ -1,7 +1,7 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + seven modules in `tofu/modules/`, six wrapping Helm charts and one —
+module + eight modules in `tofu/modules/`, seven wrapping Helm charts and one —
 `kubeflow` — installing via kustomize/kubectl; see "Module convention"
 below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
 and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
@@ -26,6 +26,8 @@ source of truth.
   (needs a live cluster with the GPU Operator running).
 - Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
   then `make -C examples/ollama models chat` (needs `install_ollama = true`).
+- vLLM smoke test: `make -C examples/vllm port-forward` in one terminal,
+  then `make -C examples/vllm models chat metrics` (needs `install_vllm = true`).
 
 ## Local apply quirks
 
@@ -68,11 +70,18 @@ source of truth.
   pods can't schedule while it runs. Its Helm release is deliberately **not**
   `atomic`, unlike the other modules: the first install waits for model
   downloads, and a rollback would delete the partially filled volume.
+- `install_vllm = true` (default `false`) is the opt-in alternative engine:
+  one Hugging Face model, same HAMi `gpumem` handling and same non-`atomic`
+  posture as Ollama (weights download on first start). Its ServiceMonitor is
+  tied to `install_monitoring`. Both engines default to the whole GPU; with
+  one GPU node, enabling both needs HAMi and the two `*_gpu_memory_mib`
+  values to fit one card.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: `install_kubeflow` without `install_hami`,
   `install_kubeflow` on a system node pool too small for the measured
-  ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
-  without the GPU Operator or asking for more GPU memory than one card has.
+  ~9-10 GB usage, a GPU plan not offered in the chosen region, Ollama or
+  vLLM without the GPU Operator or asking for more GPU memory than one card
+  has, and Ollama + vLLM together not fitting one GPU.
   Warnings, not failures.
 
 ## GPU node image (LKE)
@@ -97,9 +106,12 @@ source of truth.
     of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
     intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
     the Helm pattern.
-- `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
-  because the first install waits for model downloads, and it is the one
-  Helm module with `atomic = false` (see above). Both are intentional.
+- `modules/ollama` and `modules/vllm` default `timeout` to 3600 (the others
+  use 300-900) because the first install waits for model downloads, and they
+  are the only Helm modules with `atomic = false` (see above). Both are
+  intentional. `modules/vllm` sizes the engine's startup probe from
+  `timeout`, and passes `hf_token` via its own Secret rather than Helm values
+  (a `set` on `modelSpec[0]` would replace the whole list).
 - Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
   `g6-standard-8` is recommended only when adding Kubeflow (measured usage
   with the full stack is ~9-10 GB).

@@ -101,6 +101,20 @@ updates:
           - "*"
 
   - package-ecosystem: "terraform"
+    directory: "/tofu/modules/vllm"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
     directory: "/tofu/modules/opencost"
     schedule:
       interval: "weekly"

@@ -145,6 +145,30 @@ ollama_storage_size = "80Gi" # ~$8/month
 # ollama_context_length = 8192
 
 # ============================================================================
+# vLLM (LLM serving, opt-in)
+# ============================================================================
+# Serves one Hugging Face model over an OpenAI-compatible API, with Prometheus
+# metrics (vllm:* — TTFT, throughput, KV cache). Reach it with:
+#   kubectl port-forward -n vllm service/vllm-llm-engine-service 8000:80
+# vLLM loads Hugging Face checkpoints, not Ollama's GGUF models; on a 20 GB
+# RTX 4000 Ada use an AWQ/GPTQ/FP8 checkpoint above ~8B parameters.
+# Like Ollama, it takes the whole GPU by default. To try vLLM on its own, set
+# install_ollama = false above. Running both needs HAMi and
+# ollama_gpu_memory_mib + vllm_gpu_memory_mib to fit one card.
+
+install_vllm = false
+# vllm_model                  = "Qwen/Qwen3-8B-AWQ"
+# vllm_model_revision         = null      # pin a commit for reproducibility
+# vllm_hf_token               = null      # only for gated models
+# vllm_storage_size           = "50Gi"    # ~$5/month
+# vllm_version                = "0.1.13"
+# vllm_image_tag              = "v0.31.0"
+# vllm_gpu_memory_mib         = 20000     # whole GPU; ignored without HAMi
+# vllm_gpu_memory_utilization = 0.9
+# vllm_max_model_len          = 8192
+# vllm_extra_args             = ["--enable-auto-tool-choice", "--tool-call-parser", "hermes"]
+
+# ============================================================================
 # Cost Management
 # ============================================================================
 # Destroy the cluster to stop paying for compute:
