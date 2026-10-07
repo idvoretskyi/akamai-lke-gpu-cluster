@@ -49,7 +49,7 @@ servingEngineSpec:
       tag: "${image_tag}"
       modelURL: "${model}"
 %{ if model_revision != null ~}
-      modelRevision: "${model_revision}"
+      modelRevision: ${jsonencode(model_revision)}
 %{ endif ~}
       replicaCount: 1
 %{ if length(node_selector) > 0 ~}

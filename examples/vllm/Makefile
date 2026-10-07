@@ -25,8 +25,9 @@ chat:
 	LLM_URL=$(URL) python3 ../ollama/chat.py "$$MODEL" "$$PROMPT"
 
 ## Show vLLM's Prometheus metrics (TTFT, throughput, KV cache usage) (needs port-forward).
+## Fails if the engine is unreachable or exports none of the expected metrics.
 metrics:
-	curl -s $(URL)/metrics | grep -E '^vllm:(num_requests_(running|waiting)|kv_cache_usage_perc|gpu_cache_usage_perc|prompt_tokens_total|generation_tokens_total|time_to_first_token_seconds_(sum|count))' || true
+	curl -sSf $(URL)/metrics | grep -E '^vllm:(num_requests_(running|waiting)|kv_cache_usage_perc|gpu_cache_usage_perc|prompt_tokens_total|generation_tokens_total|time_to_first_token_seconds_(sum|count))'
 
 ## Follow the engine logs (model download and load progress on first start).
 logs:

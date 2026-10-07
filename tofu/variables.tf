@@ -465,8 +465,8 @@ variable "vllm_gpu_memory_mib" {
   default     = 20000
 
   validation {
-    condition     = var.vllm_gpu_memory_mib >= 1024
-    error_message = "vllm_gpu_memory_mib must be at least 1024."
+    condition     = var.vllm_gpu_memory_mib >= 1024 && floor(var.vllm_gpu_memory_mib) == var.vllm_gpu_memory_mib
+    error_message = "vllm_gpu_memory_mib must be a whole number of at least 1024."
   }
 }
 
@@ -487,8 +487,8 @@ variable "vllm_max_model_len" {
   default     = 8192
 
   validation {
-    condition     = var.vllm_max_model_len >= 2048
-    error_message = "vllm_max_model_len must be at least 2048."
+    condition     = var.vllm_max_model_len >= 2048 && floor(var.vllm_max_model_len) == var.vllm_max_model_len
+    error_message = "vllm_max_model_len must be a whole number of at least 2048."
   }
 }
 

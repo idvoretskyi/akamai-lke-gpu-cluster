@@ -88,8 +88,8 @@ variable "max_model_len" {
   default     = 8192
 
   validation {
-    condition     = var.max_model_len >= 2048
-    error_message = "max_model_len must be at least 2048."
+    condition     = var.max_model_len >= 2048 && floor(var.max_model_len) == var.max_model_len
+    error_message = "max_model_len must be a whole number of at least 2048."
   }
 }
 
@@ -129,8 +129,8 @@ variable "gpu_memory_mib" {
   default     = 20000
 
   validation {
-    condition     = var.gpu_memory_mib == null || var.gpu_memory_mib >= 1024
-    error_message = "gpu_memory_mib must be null or at least 1024."
+    condition     = var.gpu_memory_mib == null || (var.gpu_memory_mib >= 1024 && floor(var.gpu_memory_mib) == var.gpu_memory_mib)
+    error_message = "gpu_memory_mib must be null or a whole number of at least 1024."
   }
 }
 
