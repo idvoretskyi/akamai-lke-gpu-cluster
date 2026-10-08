@@ -215,10 +215,27 @@ jobs:
             kubectl kustomize "$d" > /dev/null
           done
 
+      # Each chart is rendered with its defaults and with every ci/*-values.yaml
+      # (representative inputs, e.g. a non-empty Application list), and the
+      # output must contain objects whose metadata.name/namespace are strings.
       - name: Lint and render local Helm charts
         run: |
           for c in tofu/modules/*/chart; do
-            echo "== $c"
-            helm lint "$c"
-            helm template ci "$c" > /dev/null
+            for v in "" "$c"/ci/*-values.yaml; do
+              [ -z "$v" ] || [ -e "$v" ] || continue
+              echo "== $c ${v:+(-f $v)}"
+              helm lint "$c" ${v:+-f "$v"}
+              helm template ci "$c" -n ci-ns ${v:+-f "$v"} > rendered.yaml
+              python3 - <<'EOF'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open("rendered.yaml")) if d]
+          for d in docs:
+              for key in ("name", "namespace"):
+                  val = d.get("metadata", {}).get(key)
+                  assert val is None or isinstance(val, str), f"{d['kind']} metadata.{key} is {type(val).__name__}: {val!r}"
+              dest = d.get("spec", {}).get("destination", {}).get("namespace")
+              assert dest is None or isinstance(dest, str), f"{d['kind']} spec.destination.namespace is {type(dest).__name__}"
+          print(f"   {len(docs)} object(s): " + ", ".join(sorted({d['kind'] for d in docs})))
+          EOF
+            done
           done

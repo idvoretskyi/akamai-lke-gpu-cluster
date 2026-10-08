@@ -2,14 +2,14 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: {{ .Values.gatewayClassName }}-proxy
-  namespace: {{ .Release.Namespace }}
+  name: {{ printf "%s-proxy" .Values.gatewayClassName | quote }}
+  namespace: {{ .Release.Namespace | quote }}
 spec:
   provider:
     type: Kubernetes
     kubernetes:
       envoyService:
-        type: {{ .Values.serviceType }}
+        type: {{ .Values.serviceType | quote }}
       {{- with .Values.nodeSelector }}
       envoyDeployment:
         pod:
@@ -20,11 +20,11 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: {{ .Values.gatewayClassName }}
+  name: {{ .Values.gatewayClassName | quote }}
 spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
   parametersRef:
     group: gateway.envoyproxy.io
     kind: EnvoyProxy
-    name: {{ .Values.gatewayClassName }}-proxy
-    namespace: {{ .Release.Namespace }}
+    name: {{ printf "%s-proxy" .Values.gatewayClassName | quote }}
+    namespace: {{ .Release.Namespace | quote }}

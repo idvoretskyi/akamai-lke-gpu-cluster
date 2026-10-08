@@ -3,8 +3,8 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: {{ .name }}
-  namespace: {{ $.Release.Namespace }}
+  name: {{ .name | quote }}
+  namespace: {{ $.Release.Namespace | quote }}
   # Deleting the Application deletes what it synced.
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -16,7 +16,7 @@ spec:
     path: {{ .path | quote }}
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .namespace }}
+    namespace: {{ .namespace | quote }}
   syncPolicy:
     automated:
       prune: true
