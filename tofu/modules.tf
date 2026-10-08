@@ -90,6 +90,7 @@ module "ollama" {
   storage_size        = var.ollama_storage_size
   context_length      = var.ollama_context_length
   gpu_memory_mib      = var.install_hami ? var.ollama_gpu_memory_mib : null
+  scheduler_name      = var.install_hami ? "hami-scheduler" : null
   node_selector       = local.gpu_node_labels
   gpu_node_toleration = local.gpu_node_toleration
 

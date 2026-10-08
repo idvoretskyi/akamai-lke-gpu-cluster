@@ -103,6 +103,7 @@ kubectl exec -n ollama deploy/ollama -- ollama pull devstral-small-2:24b
 | `kv_cache_type` | `OLLAMA_KV_CACHE_TYPE` (`f16`, `q8_0`, `q4_0`) | `"q8_0"` |
 | `extra_env` | Extra container environment variables | `{}` |
 | `gpu_memory_mib` | HAMi `nvidia.com/gpumem`; `null` omits it | `16000` |
+| `scheduler_name` | Pod schedulerName (`hami-scheduler` with HAMi) | `null` |
 | `node_selector` | nodeSelector for the GPU pool | `{}` |
 | `gpu_node_toleration` | GPU node taint to tolerate | `null` |
 | `resources` | CPU/host-memory requests and limits | See variables.tf |

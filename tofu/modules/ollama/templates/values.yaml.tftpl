@@ -32,6 +32,12 @@ lifecycle:
             done
           done
 
+# Set explicitly rather than relying on HAMi's webhook, which is
+# failurePolicy Ignore and may not be serving yet on a fresh cluster.
+%{ if scheduler_name != null ~}
+podSchedulerName: "${scheduler_name}"
+%{ endif ~}
+
 # Pin to the GPU pool. With GPU support enabled the chart already tolerates
 # the nvidia.com/gpu taint (NoSchedule), so an explicit toleration is only
 # added when the GPU nodes are tainted with a different key.

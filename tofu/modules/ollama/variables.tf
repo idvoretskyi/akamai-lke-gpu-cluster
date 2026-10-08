@@ -100,6 +100,12 @@ variable "gpu_memory_mib" {
   }
 }
 
+variable "scheduler_name" {
+  description = "Pod schedulerName. Set to \"hami-scheduler\" with HAMi: the default scheduler can't place a pod requesting nvidia.com/gpumem, and HAMi's webhook (failurePolicy Ignore) silently skips setting it if it isn't serving yet when the pod is created. Null leaves the cluster default."
+  type        = string
+  default     = null
+}
+
 variable "node_selector" {
   description = "nodeSelector pinning Ollama onto the GPU pool. Empty schedules anywhere a GPU is available."
   type        = map(string)
