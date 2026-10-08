@@ -225,6 +225,12 @@ when Helm tries to patch Grafana's PVC (and the release rolls back). Either:
 - **Keep the old class**: set `monitoring_storage_class =
   "linode-block-storage-retain"` in `tofu.tfvars` before applying.
 
+Either way, the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
+resources in the state are destroyed by the first apply. The root module still
+requires the otherwise unused `hashicorp/local` provider so OpenTofu can drop
+HAMi's old scratch-kubeconfig resource from the state; without it, plan and
+apply fail with "Failed to load plugin schemas".
+
 ## Security
 
 - API token comes from `~/.config/linode-cli` or `LINODE_TOKEN`; it is never
