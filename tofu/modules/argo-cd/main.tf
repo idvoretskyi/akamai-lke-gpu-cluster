@@ -53,7 +53,7 @@ resource "helm_release" "applications" {
   atomic          = true
   cleanup_on_fail = true
   max_history     = 5
-  timeout         = 300
+  timeout         = var.timeout
 
   values = [
     yamlencode({ applications = var.applications })

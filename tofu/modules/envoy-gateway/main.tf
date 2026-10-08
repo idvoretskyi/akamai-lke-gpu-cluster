@@ -50,7 +50,7 @@ resource "helm_release" "gateway_class" {
   atomic          = true
   cleanup_on_fail = true
   max_history     = 5
-  timeout         = 300
+  timeout         = var.timeout
 
   values = [
     yamlencode({

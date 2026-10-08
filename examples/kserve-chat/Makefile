@@ -8,6 +8,8 @@ URL           ?= http://localhost:$(PORT)
 HOST          ?= $(ISVC)-$(NAMESPACE).$(DOMAIN)
 PROMPT        ?= Explain in two sentences what KServe does.
 
+export PROMPT
+
 .PHONY: status wait port-forward models chat stream logs gpu
 
 ## Show the InferenceService (READY, URL) and its predictor pod.
@@ -31,7 +33,7 @@ models:
 
 ## One chat completion (set PROMPT=...).
 chat:
-	jq -n --arg m $(ISVC) --arg p "$(PROMPT)" \
+	jq -n --arg m $(ISVC) --arg p "$$PROMPT" \
 	  '{model: $$m, max_tokens: 512, messages: [{role: "user", content: $$p}]}' \
 	| curl -sf $(URL)/openai/v1/chat/completions -H 'Host: $(HOST)' \
 	    -H 'Content-Type: application/json' -d @- \
