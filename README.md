@@ -231,6 +231,17 @@ requires the otherwise unused `hashicorp/local` provider so OpenTofu can drop
 HAMi's old scratch-kubeconfig resource from the state; without it, plan and
 apply fail with "Failed to load plugin schemas".
 
+Retained volumes keep billing after their PVC is gone. Ollama's 50 Gi model
+volume used `linode-block-storage-retain`, so after the first apply on a kept
+cluster it is left detached in your account (~$5/month), as are the old
+monitoring volumes if you recreate. Find and delete detached volumes once you
+no longer need their data:
+
+```bash
+linode-cli volumes list --text --format id,label,size,linode_id   # empty linode_id = detached
+linode-cli volumes delete <id>
+```
+
 ## Security
 
 - API token comes from `~/.config/linode-cli` or `LINODE_TOKEN`; it is never

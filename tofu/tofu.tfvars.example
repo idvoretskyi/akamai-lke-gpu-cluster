@@ -123,7 +123,8 @@ gateway_service_type = "ClusterIP"
 # ============================================================================
 # Bootstraps the "vllm" Application, which syncs gitops_path from
 # gitops_repo_url. Fork the repo (or point at a branch) to change the model.
-# UI: kubectl port-forward -n argocd svc/argo-cd-argocd-server 8080:80
+# UI: kubectl port-forward -n argocd svc/argo-cd-argocd-server 8081:80
+#     (8080 is used by the model Gateway port-forward)
 
 install_argo_cd = true
 # argo_cd_version        = "10.10.1"
