@@ -54,9 +54,10 @@ resource "helm_release" "kserve" {
 
   values = [
     templatefile("${path.module}/templates/values.yaml.tftpl", {
-      namespace     = kubernetes_namespace_v1.kserve.metadata[0].name
-      domain        = var.ingress_domain
-      node_selector = var.node_selector
+      namespace                        = kubernetes_namespace_v1.kserve.metadata[0].name
+      domain                           = var.ingress_domain
+      storage_initializer_memory_limit = var.storage_initializer_memory_limit
+      node_selector                    = var.node_selector
     })
   ]
 

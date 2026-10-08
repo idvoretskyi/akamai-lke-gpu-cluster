@@ -1,48 +1,72 @@
-# Akamai LKE GPU Lab
+# Akamai LKE + KServe GPU Reference Architecture
 
 [![CI](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/akamai-lke-gpu-cluster/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D1.9-844FBA?logo=opentofu&logoColor=white)](https://opentofu.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 
-A reference lab: one Akamai (Linode) LKE cluster with the cheapest
-single-GPU plan on the market (NVIDIA RTX 4000 Ada, 20 GB), running useful
-open source software from the CNCF and Linux Foundation, with
-[Ollama](https://ollama.com/) as the key tool. Everything is OpenTofu; destroy
-it when you are done.
+A baseline for serving LLMs on Akamai (Linode) Kubernetes Engine with
+[KServe](https://kserve.github.io/website/) and [vLLM](https://docs.vllm.ai/):
+one LKE cluster on the cheapest single-GPU plan (NVIDIA RTX 4000 Ada, 20 GB),
+the platform installed by OpenTofu, and the model itself delivered by
+[Argo CD](https://argo-cd.readthedocs.io/) from this repository. Everything is
+open source from the CNCF and Linux Foundation ecosystems; destroy it when you
+are done.
 
-## What you get
-
-| Component | Project | Where | Default |
-|---|---|---|---|
-| GPU Operator | NVIDIA | system pool (operands on GPU) | on |
-| [HAMi](https://github.com/Project-HAMi/HAMi) | CNCF sandbox | GPU slicing | on |
-| [Ollama](https://ollama.com/) | MIT | GPU pool, 16 GB slice | on |
-| [Argo Workflows](https://argoproj.github.io/workflows/) | CNCF graduated | system pool | on |
-| Prometheus + Grafana (kube-prometheus-stack) | CNCF | system pool | on |
-| [OpenCost](https://www.opencost.io/) | CNCF | system pool | on |
-| Metrics Server | Kubernetes SIG | system pool | on |
-| [Open WebUI](https://github.com/open-webui/open-webui) | MIT | system pool | off |
-
-The cluster has two fixed-size pools (autoscaling is off, so costs are
-predictable): a small CPU **system** pool and the **GPU** pool.
-
-## The GPU story
-
-One 20 GB card is shared through HAMi vGPU slices:
+## Architecture
 
 ```text
-RTX 4000 Ada, 20 GB
-├── Ollama           16000 MiB   ollama_gpu_memory_mib
-└── any GPU pod       4000 MiB   hami_default_gpu_memory (e.g. an Argo Workflow step)
+                       ┌──────────────────────── LKE cluster ────────────────────────┐
+ you ── kubectl ──────►│ system pool (g6-standard-4)          GPU pool (RTX 4000 Ada) │
+   port-forward        │                                      taint nvidia.com/gpu    │
+                       │  Envoy Gateway ── Gateway ─HTTPRoute─► InferenceService      │
+                       │  (Gateway API)   kserve-ingress-       "qwen3"               │
+                       │                  gateway               KServe HF runtime     │
+                       │                                         = vLLM, Qwen3-8B-FP8 │
+                       │  KServe controller (Standard mode) ──► Deployment/Service/HPA│
+                       │  cert-manager (KServe webhook TLS)                           │
+                       │  Argo CD ◄── gitops/vllm in Git                              │
+                       │  Prometheus + Grafana ◄── DCGM GPU metrics, ServiceMonitors  │
+                       │  metrics-server, GPU Operator controller                     │
+                       └──────────────────────────────────────────────────────────────┘
 ```
 
-Ollama serves the models; a plain `nvidia.com/gpu: 1` request from any other
-pod gets the 4000 MiB default slice and schedules next to it. HAMi's admission
-webhook sets the scheduler automatically; nothing extra is needed in the pod.
-Set `install_hami = false` to hand the whole card to Ollama (then other GPU
-pods will not schedule), or raise `ollama_gpu_memory_mib` to 20000 for the
-larger models.
+| Layer | Component | Project | Managed by |
+|---|---|---|---|
+| Infrastructure | LKE cluster, node pools, Cloud Firewall | Akamai | OpenTofu |
+| GPU | [GPU Operator](https://github.com/NVIDIA/gpu-operator) (device plugin, GFD, DCGM) | NVIDIA | OpenTofu |
+| Ingress | [Envoy Gateway](https://gateway.envoyproxy.io/) + Gateway API | CNCF (Envoy) / Kubernetes SIG | OpenTofu |
+| Serving | [KServe](https://kserve.github.io/website/) Standard mode + [cert-manager](https://cert-manager.io/) | CNCF incubating / graduated | OpenTofu |
+| Inference engine | [vLLM](https://docs.vllm.ai/) via KServe's Hugging Face runtime | LF AI & Data | OpenTofu (runtime) |
+| Model | `InferenceService` serving `Qwen/Qwen3-8B-FP8` | | **Argo CD** (`gitops/vllm`) |
+| GitOps | [Argo CD](https://argo-cd.readthedocs.io/) | CNCF graduated | OpenTofu |
+| Observability | [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts), [Metrics Server](https://github.com/kubernetes-sigs/metrics-server) | CNCF / Kubernetes SIG | OpenTofu |
+
+The split is deliberate: OpenTofu owns the platform (things you install once
+per cluster), Argo CD owns the workloads (things you change often). Swapping
+the model is a Git commit, not a `tofu apply`.
+
+## The serving story
+
+- **KServe Standard mode.** No Knative or Istio: an `InferenceService` becomes
+  a plain Deployment, Service and HPA, plus an `HTTPRoute` on the shared
+  `kserve-ingress-gateway`. This is KServe's recommended mode for generative
+  workloads.
+- **vLLM.** KServe's Hugging Face runtime runs vLLM and exposes an
+  OpenAI-compatible API under `/openai/v1`. Its default image is CPU-only; the
+  `kserve` module pins the CUDA build (`kserve/huggingfaceserver:<ver>-gpu`).
+- **The model.** `Qwen/Qwen3-8B-FP8`: ungated (no Hugging Face token), ~9 GB
+  of FP8 weights, which the Ada GPU runs natively. vLLM gets 90% of the 20 GB
+  card; what the weights leave over holds the KV cache for a 32k-token
+  context. One replica with a `Recreate` strategy, since there is one GPU.
+- **Private by default.** The Envoy proxy behind the Gateway is a ClusterIP
+  service. Requests reach it through `kubectl port-forward` and pick the
+  InferenceService with the `Host` header
+  (`qwen3-vllm.kserve.local`).
+
+Measured on `de-fra-2` (KServe v0.20.0, vLLM v0.24.0): weights download in
+~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB of weights leave a 7.6 GiB
+KV cache (~55k tokens), and a single stream decodes at ~35 tokens/s.
 
 ## Quick start
 
@@ -59,60 +83,89 @@ kubectl get nodes            # kubeconfig is merged into ~/.kube/config
 `tofu.tfvars` is **not** loaded automatically; pass `-var-file=tofu.tfvars`
 (or name the file `tofu.auto.tfvars`, which is loaded without the flag).
 
-Timing: ~15-30 minutes for the cluster and charts, plus ~20-40 minutes on the
-first apply for the ~29 GB of Ollama model downloads.
+Timing: ~15-20 minutes for the cluster and platform. Argo CD then syncs the
+InferenceService; the first start pulls the ~7 GB vLLM image and ~9 GB of
+weights, so allow another ~10 minutes before it reports `READY=True`.
 
-Prerequisites: [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, and
+Prerequisites: [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `jq`, and
 `linode-cli` (the provider reads its token from `~/.config/linode-cli`, else
 `LINODE_TOKEN`). `kubectl` is also used by `tofu apply` to merge the
-kubeconfig and restart the HAMi scheduler.
+kubeconfig.
 
 ## Try it
 
 ```bash
-make -C examples/gpu-validation apply wait logs   # nvidia-smi in a CUDA pod
-make -C examples/hami-validation apply wait logs  # two pods sharing the card
-make -C examples/argo-gpu-job submit wait logs    # GPU step in an Argo Workflow
+make -C examples/kserve-chat wait                # model loaded and serving
+make -C examples/kserve-chat port-forward        # terminal 1: Gateway -> :8080
+make -C examples/kserve-chat models chat         # terminal 2
+make -C examples/kserve-chat chat PROMPT="What is the Gateway API?"
+make -C examples/kserve-chat stream gpu          # streamed reply; nvidia-smi
 
-make -C examples/ollama port-forward              # terminal 1
-make -C examples/ollama models chat               # terminal 2
+make -C examples/argocd apps status              # GitOps view of the model
 ```
+
+The endpoint is OpenAI-compatible, so any OpenAI client works with base URL
+`http://localhost:8080/openai/v1`, model `qwen3`, any API key, and the
+`Host: qwen3-vllm.kserve.local` header.
 
 Web UIs are ClusterIP only; reach them with `kubectl port-forward`:
 
 | UI | Command | URL |
 |---|---|---|
+| Model API (via Gateway) | `make -C examples/kserve-chat port-forward` | <http://localhost:8080/openai/v1> |
+| Argo CD (user `admin`, `make -C examples/argocd password`) | `kubectl port-forward -n argocd svc/argo-cd-argocd-server 8081:80` | <http://localhost:8081> |
 | Grafana (admin/admin by default) | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80` | <http://localhost:3000> |
 | Prometheus | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` | <http://localhost:9090> |
-| OpenCost | `kubectl port-forward -n opencost svc/opencost 9091:9090` | <http://localhost:9091> |
-| Argo Workflows | `kubectl port-forward -n argo svc/argo-workflows-server 2746:2746` | <http://localhost:2746> |
-| Open WebUI | `kubectl port-forward -n open-webui svc/open-webui 8080:80` | <http://localhost:8080> |
-| Ollama API | `kubectl port-forward -n ollama svc/ollama 11434:11434` | <http://localhost:11434> |
 
-Every `tofu apply` also prints `*_validation_commands` outputs per component.
+`tofu output inference_commands` prints the raw `kubectl`/`curl` equivalents,
+and every component has a `*_validation_commands` output.
+
+## Changing the model (GitOps)
+
+The bootstrap Application `vllm` syncs [`gitops/vllm`](gitops/vllm/) from
+`gitops_repo_url` at `gitops_target_revision`, with automated prune and
+self-heal. To serve something else:
+
+1. Fork the repository and set `gitops_repo_url` to the fork (Argo CD reads it
+   anonymously, so it must be public, or add repo credentials to Argo CD).
+2. Edit [`gitops/vllm/inferenceservice.yaml`](gitops/vllm/inferenceservice.yaml):
+   `storageUri: hf://<org>/<model>` and the vLLM `args`. For the 20 GB card,
+   `Qwen/Qwen3-14B-FP8` (~16 GB of weights) also fits with
+   `--max-model-len=8192`.
+3. Commit and push. Argo CD recreates the predictor pod with the new model
+   (`make -C examples/argocd refresh` skips the ~3-minute poll).
+
+Gated models (Llama, Gemma) need a Hugging Face token; see
+[`gitops/vllm/README.md`](gitops/vllm/README.md). To test changes on a
+branch first, set `gitops_target_revision` to the branch name.
 
 ## Scheduling
 
-- Pools are labelled `nodepool.lke/role=system|gpu`; system components are
-  pinned to the system pool.
+- Pools are labelled `nodepool.lke/role=system|gpu`; every platform component
+  is pinned to the system pool.
 - With `dedicate_gpu_nodes = true` (default) the GPU pool carries the taint
-  `nvidia.com/gpu=present:NoSchedule`. GPU pods need this toleration and an
-  `nvidia.com/gpu` limit:
+  `nvidia.com/gpu=present:NoSchedule`. GPU workloads need this toleration, a
+  `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
+  InferenceService does:
 
 ```yaml
-tolerations:
-  - key: nvidia.com/gpu
-    operator: Exists
-    effect: NoSchedule
-containers:
-  - name: cuda
-    image: nvidia/cuda:12.4.1-base-ubuntu22.04
-    command: ["nvidia-smi"]
-    resources:
-      limits:
-        nvidia.com/gpu: "1"
+spec:
+  predictor:
+    nodeSelector:
+      nodepool.lke/role: gpu
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    model:
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
 ```
 
+- The InferenceService holds the only GPU. Other GPU pods (such as
+  [`examples/gpu-validation`](examples/gpu-validation/)) stay `Pending` until
+  it is removed or a second GPU node is added (`gpu_node_count = 2`).
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
   `nvidia` containerd runtime, so the GPU Operator installs neither.
 
@@ -125,38 +178,38 @@ for variable names and defaults. The ones you are most likely to change:
 |---|---|---|
 | `region` | `de-fra-2` | must offer the RTX 4000 Ada plan |
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
-| `system_node_type` | `g6-standard-2` | 4 GB; must differ from `gpu_node_type` |
-| `install_ollama`, `ollama_models` | on, 3 models | see [`modules/ollama`](tofu/modules/ollama/README.md) |
-| `ollama_gpu_memory_mib` | `16000` | HAMi slice for Ollama |
-| `hami_default_gpu_memory` | `4000` | slice for plain GPU pods |
-| `install_argo_workflows` | on | |
-| `install_open_webui` | off | needs `install_ollama` |
+| `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
+| `install_kserve` | on | also installs cert-manager and Envoy Gateway |
+| `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
+| `install_argo_cd` | on | bootstraps the `vllm` Application |
+| `gitops_repo_url`, `gitops_target_revision`, `gitops_path` | this repo, `main`, `gitops/vllm` | where the model comes from |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `grafana_admin_password` | `admin` | change it |
 
-Advisory `check` blocks print warnings (never failures) for common mistakes
-such as a GPU plan not offered in the region, or Ollama plus the default slice
-exceeding the card's VRAM.
+Advisory `check` blocks print warnings (never failures) for common mistakes,
+such as a GPU plan not offered in the region or a public Gateway.
 
 ## Cost
 
 | Resource | Approx. cost |
 |---|---|
 | GPU node (`g2-gpu-rtx4000a1-s`) | ~$0.52/hr (~$380/month) |
-| System node (`g6-standard-2`) | ~$24/month |
-| Volumes (monitoring ~20 Gi, Ollama 50 Gi) | ~$7/month |
+| System node (`g6-standard-4`) | ~$48/month |
+| Volumes (Prometheus 15 Gi, Grafana 5 Gi) | ~$2/month |
+| NodeBalancer (only with `gateway_service_type = "LoadBalancer"`) | ~$10/month |
 
-About $410/month if left running; billing stops when the cluster is destroyed.
-Costs are approximate, see [Linode pricing](https://www.linode.com/pricing/).
+About $430/month if left running; billing stops when the cluster is
+destroyed. Costs are approximate, see
+[Linode pricing](https://www.linode.com/pricing/).
 
 ```bash
 cd tofu && tofu destroy     # stop paying
 cd tofu && tofu apply -var-file=tofu.tfvars   # bring it back
 ```
 
-Note: the Ollama and monitoring volumes use the `linode-block-storage-retain`
-class, so they survive `tofu destroy` and keep billing until deleted in the
-Linode Cloud Manager.
+The monitoring volumes use the `linode-block-storage` class, so `tofu
+destroy` deletes them too. Model weights live in the predictor pod's
+ephemeral storage and are downloaded again on each start.
 
 ## Security
 
@@ -164,16 +217,21 @@ Linode Cloud Manager.
   written to state or git. Kubeconfigs and `*.tfvars` are git-ignored.
 - A Linode Cloud Firewall allows only the Kubernetes API (443) from
   `allowed_kubectl_ips` plus intra-cluster traffic.
-- Ollama, Argo (`auth_mode = "server"`, no login) and Open WebUI have no
-  public endpoint; keep them behind `kubectl port-forward`.
+- The model endpoint has no authentication. It stays private (ClusterIP
+  Gateway) unless you set `gateway_service_type = "LoadBalancer"`; put
+  authentication in front of it before doing that.
+- Argo CD, Grafana and Prometheus have no public endpoint; reach them with
+  `kubectl port-forward`.
 
 ## Repository layout
 
 ```text
 .
-├── tofu/                    # OpenTofu root module
+├── tofu/                    # OpenTofu root module (platform)
 │   ├── modules/             # one module per component, see modules/README.md
 │   └── tofu.tfvars.example
+├── gitops/                  # workloads synced by Argo CD
+│   └── vllm/                # the InferenceService
 ├── examples/                # runnable smoke tests (Makefiles)
 ├── AGENTS.md                # contributor / agent notes
 └── .github/                 # CI and Dependabot
@@ -181,8 +239,9 @@ Linode Cloud Manager.
 
 Contributing: run `tofu fmt -recursive` from `tofu/`, validate the root and
 each changed module (`tofu init -backend=false && tofu validate`), and sign
-commits (`git commit -s`). CI also runs tflint, shellcheck, Trivy and
-markdownlint.
+commits (`git commit -s`). CI also runs tflint, shellcheck, Trivy,
+markdownlint, yamllint and `helm lint`/`kustomize build` on the GitOps tree
+and local charts.
 
 ## License
 

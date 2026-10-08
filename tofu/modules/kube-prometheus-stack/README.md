@@ -12,7 +12,9 @@ Includes:
 - **Kube State Metrics** — Kubernetes object metrics
 - **DCGM Exporter integration** — GPU metrics (when enabled)
 
-Alertmanager is disabled by default. Storage uses `linode-block-storage-retain` to prevent data loss on pod restarts.
+Alertmanager is disabled by default. Storage uses `linode-block-storage`, so the volumes are deleted with the cluster; set `storage_class = "linode-block-storage-retain"` to keep metrics across rebuilds (the volumes then keep billing until deleted).
+
+Every ServiceMonitor and PodMonitor in the cluster is scraped (the selectors are not limited to this release), which picks up cert-manager and Argo CD.
 
 ## Usage
 
@@ -39,7 +41,7 @@ module "kube_prometheus_stack" {
 | `prometheus_retention` | Data retention period | `"7d"` |
 | `prometheus_storage_size` | Prometheus PVC size | `"15Gi"` |
 | `grafana_storage_size` | Grafana PVC size | `"5Gi"` |
-| `storage_class` | Kubernetes StorageClass | `"linode-block-storage-retain"` |
+| `storage_class` | Kubernetes StorageClass | `"linode-block-storage"` |
 | `enable_gpu_monitoring` | Add DCGM scrape config for GPU metrics | `false` |
 | `node_selector` | nodeSelector to pin control-plane components (Prometheus, Grafana, kube-state-metrics, operator) onto a node pool. node-exporter stays cluster-wide. | `{}` |
 

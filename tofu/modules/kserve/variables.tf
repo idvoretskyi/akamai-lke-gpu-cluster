@@ -21,6 +21,17 @@ variable "ingress_domain" {
   default     = "kserve.local"
 }
 
+variable "storage_initializer_memory_limit" {
+  description = "Memory limit of KServe's storage initializer, the init container that downloads storageUri (e.g. hf://) before the model server starts. The chart's 1Gi default is OOM-killed on multi-GB LLM checkpoints."
+  type        = string
+  default     = "4Gi"
+
+  validation {
+    condition     = can(regex("^[0-9]+(Mi|Gi)$", var.storage_initializer_memory_limit))
+    error_message = "storage_initializer_memory_limit must be a quantity in Mi or Gi (e.g. '4Gi')."
+  }
+}
+
 variable "vllm_shm_size" {
   description = "Size of the in-memory /dev/shm volume given to Hugging Face (vLLM) runtime pods."
   type        = string
