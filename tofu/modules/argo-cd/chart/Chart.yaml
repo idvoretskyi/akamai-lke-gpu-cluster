@@ -1,0 +1,5 @@
+apiVersion: v2
+name: argo-cd-applications
+description: Bootstrap Argo CD Applications (local chart, managed by OpenTofu)
+type: application
+version: 0.1.0

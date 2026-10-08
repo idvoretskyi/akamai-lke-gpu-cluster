@@ -1,0 +1,17 @@
+# CRDs are installed and upgraded by the chart.
+crds:
+  enabled: true
+  keep: false
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: ${enable_service_monitor}
+%{ if length(node_selector) > 0 ~}
+
+global:
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}

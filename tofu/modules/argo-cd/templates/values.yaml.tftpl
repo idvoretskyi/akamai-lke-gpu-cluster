@@ -1,0 +1,44 @@
+global:
+  domain: argocd.local
+%{ if length(node_selector) > 0 ~}
+  nodeSelector:
+    kubernetes.io/os: linux
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+
+configs:
+  params:
+    # TLS is terminated by kubectl port-forward's tunnel; serve plain HTTP.
+    server.insecure: true
+
+# Lab install: local admin only, no SSO or notification controller.
+dex:
+  enabled: false
+notifications:
+  enabled: false
+
+controller:
+  metrics:
+    enabled: ${enable_service_monitor}
+    serviceMonitor:
+      enabled: ${enable_service_monitor}
+
+server:
+  metrics:
+    enabled: ${enable_service_monitor}
+    serviceMonitor:
+      enabled: ${enable_service_monitor}
+
+repoServer:
+  metrics:
+    enabled: ${enable_service_monitor}
+    serviceMonitor:
+      enabled: ${enable_service_monitor}
+
+applicationSet:
+  metrics:
+    enabled: ${enable_service_monitor}
+    serviceMonitor:
+      enabled: ${enable_service_monitor}

@@ -1,0 +1,30 @@
+{{- /* Settings for the Envoy proxy Deployment/Service created for each Gateway of this class. */ -}}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ .Values.gatewayClassName }}-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: {{ .Values.serviceType }}
+      {{- with .Values.nodeSelector }}
+      envoyDeployment:
+        pod:
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+      {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.gatewayClassName }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: {{ .Values.gatewayClassName }}-proxy
+    namespace: {{ .Release.Namespace }}

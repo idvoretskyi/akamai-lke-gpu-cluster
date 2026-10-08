@@ -1,0 +1,15 @@
+{
+  "model": "qwen3",
+  "max_tokens": 256,
+  "temperature": 0.7,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a concise assistant."
+    },
+    {
+      "role": "user",
+      "content": "Write a haiku about GPUs in Frankfurt. /no_think"
+    }
+  ]
+}

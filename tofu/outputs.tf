@@ -95,60 +95,6 @@ output "gpu_validation_commands" {
   value       = try(module.gpu_operator[0].validation_commands, null)
 }
 
-# ─── HAMi (GPU Virtualization) ───────────────────────────────────────────────
-
-output "hami_namespace" {
-  description = "HAMi namespace (null when not installed)"
-  value       = try(module.hami[0].namespace, null)
-}
-
-output "hami_version" {
-  description = "HAMi chart version (null when not installed)"
-  value       = try(module.hami[0].version, null)
-}
-
-output "hami_status" {
-  description = "HAMi Helm release status (null when not installed)"
-  value       = try(module.hami[0].status, null)
-}
-
-output "hami_validation_commands" {
-  description = "Commands to validate GPU virtualization via HAMi (null when not installed)"
-  value       = try(module.hami[0].validation_commands, null)
-}
-
-# ─── Ollama ───────────────────────────────────────────────────────────────────
-
-output "ollama_namespace" {
-  description = "Ollama namespace (null when not installed)"
-  value       = try(module.ollama[0].namespace, null)
-}
-
-output "ollama_version" {
-  description = "Ollama chart version (null when not installed)"
-  value       = try(module.ollama[0].version, null)
-}
-
-output "ollama_status" {
-  description = "Ollama Helm release status (null when not installed)"
-  value       = try(module.ollama[0].status, null)
-}
-
-output "ollama_service" {
-  description = "Ollama service name for port-forwarding (null when not installed)"
-  value       = try(module.ollama[0].service_name, null)
-}
-
-output "ollama_models" {
-  description = "Models Ollama pulls on startup (null when not installed)"
-  value       = try(module.ollama[0].models, null)
-}
-
-output "ollama_validation_commands" {
-  description = "Commands to reach and validate Ollama (null when not installed)"
-  value       = try(module.ollama[0].validation_commands, null)
-}
-
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 output "metrics_server_namespace" {
@@ -203,75 +149,95 @@ output "prometheus_service" {
   value       = try(module.kube_prometheus_stack[0].prometheus_service, null)
 }
 
-# ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
+# ─── cert-manager / Envoy Gateway ─────────────────────────────────────────────
 
-output "opencost_namespace" {
-  description = "OpenCost namespace (null when not installed)"
-  value       = try(module.opencost[0].namespace, null)
+output "cert_manager_status" {
+  description = "cert-manager Helm release status (null when not installed)"
+  value       = try(module.cert_manager[0].status, null)
 }
 
-output "opencost_version" {
-  description = "OpenCost chart version (null when not installed)"
-  value       = try(module.opencost[0].version, null)
+output "envoy_gateway_status" {
+  description = "Envoy Gateway Helm release status (null when not installed)"
+  value       = try(module.envoy_gateway[0].status, null)
 }
 
-output "opencost_status" {
-  description = "OpenCost Helm release status (null when not installed)"
-  value       = try(module.opencost[0].status, null)
+output "envoy_gateway_validation_commands" {
+  description = "Commands to validate Envoy Gateway (null when not installed)"
+  value       = try(module.envoy_gateway[0].validation_commands, null)
 }
 
-output "opencost_service" {
-  description = "OpenCost service name for port-forwarding (null when not installed)"
-  value       = try(module.opencost[0].service_name, null)
+# ─── KServe ───────────────────────────────────────────────────────────────────
+
+output "kserve_namespace" {
+  description = "KServe control-plane namespace (null when not installed)"
+  value       = try(module.kserve[0].namespace, null)
 }
 
-output "opencost_validation_commands" {
-  description = "Commands to access and validate OpenCost (null when not installed)"
-  value       = try(module.opencost[0].validation_commands, null)
+output "kserve_version" {
+  description = "KServe chart version (null when not installed)"
+  value       = try(module.kserve[0].version, null)
 }
 
-# ─── Argo Workflows ───────────────────────────────────────────────────────────
-
-output "argo_workflows_namespace" {
-  description = "Argo Workflows namespace (null when not installed)"
-  value       = try(module.argo_workflows[0].namespace, null)
+output "kserve_status" {
+  description = "KServe controller Helm release status (null when not installed)"
+  value       = try(module.kserve[0].status, null)
 }
 
-output "argo_workflows_version" {
-  description = "Argo Workflows chart version (null when not installed)"
-  value       = try(module.argo_workflows[0].version, null)
+output "kserve_validation_commands" {
+  description = "Commands to validate KServe (null when not installed)"
+  value       = try(module.kserve[0].validation_commands, null)
 }
 
-output "argo_workflows_status" {
-  description = "Argo Workflows Helm release status (null when not installed)"
-  value       = try(module.argo_workflows[0].status, null)
+output "inference_commands" {
+  description = "Commands to reach the GitOps-managed vLLM InferenceService through the Gateway (null when KServe is not installed)"
+  value       = var.install_kserve ? local.inference_commands : null
 }
 
-output "argo_workflows_validation_commands" {
-  description = "Commands to access and validate Argo Workflows (null when not installed)"
-  value       = try(module.argo_workflows[0].validation_commands, null)
+locals {
+  inference_host = "qwen3-${var.model_namespace}.${var.kserve_ingress_domain}"
+
+  inference_commands = <<-EOT
+    # Wait for READY=True (the first start downloads ~9 GB of weights)
+    kubectl get inferenceservice -n ${var.model_namespace} -w
+
+    # Forward the private Gateway to localhost:8080 (keep this running)
+    kubectl port-forward -n envoy-gateway-system \
+      "$(kubectl get svc -n envoy-gateway-system -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -o name)" 8080:80
+
+    # OpenAI-compatible chat completion; the Host header selects the InferenceService
+    curl -s http://localhost:8080/openai/v1/chat/completions \
+      -H 'Host: ${local.inference_host}' -H 'Content-Type: application/json' \
+      -d '{"model":"qwen3","messages":[{"role":"user","content":"Hello"}]}'
+
+    # Same thing via the example: make -C examples/kserve-chat port-forward, then chat
+  EOT
 }
 
-# ─── Open WebUI ───────────────────────────────────────────────────────────────
+# ─── Argo CD ──────────────────────────────────────────────────────────────────
 
-output "open_webui_namespace" {
-  description = "Open WebUI namespace (null when not installed)"
-  value       = try(module.open_webui[0].namespace, null)
+output "argo_cd_namespace" {
+  description = "Argo CD namespace (null when not installed)"
+  value       = try(module.argo_cd[0].namespace, null)
 }
 
-output "open_webui_version" {
-  description = "Open WebUI chart version (null when not installed)"
-  value       = try(module.open_webui[0].version, null)
+output "argo_cd_version" {
+  description = "Argo CD chart version (null when not installed)"
+  value       = try(module.argo_cd[0].version, null)
 }
 
-output "open_webui_status" {
-  description = "Open WebUI Helm release status (null when not installed)"
-  value       = try(module.open_webui[0].status, null)
+output "argo_cd_status" {
+  description = "Argo CD Helm release status (null when not installed)"
+  value       = try(module.argo_cd[0].status, null)
 }
 
-output "open_webui_validation_commands" {
-  description = "Commands to access and validate Open WebUI (null when not installed)"
-  value       = try(module.open_webui[0].validation_commands, null)
+output "argo_cd_applications" {
+  description = "Bootstrap Argo CD Applications (null when not installed)"
+  value       = try(module.argo_cd[0].application_names, null)
+}
+
+output "argo_cd_validation_commands" {
+  description = "Commands to reach and validate Argo CD (null when not installed)"
+  value       = try(module.argo_cd[0].validation_commands, null)
 }
 
 # ─── Secrets ─────────────────────────────────────────────────────────────────

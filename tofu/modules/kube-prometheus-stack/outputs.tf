@@ -29,7 +29,7 @@ output "prometheus_service" {
 }
 
 output "prometheus_internal_url" {
-  description = "In-cluster URL for Prometheus, suitable for consumption by other workloads (e.g. OpenCost)"
+  description = "In-cluster URL for Prometheus, suitable for consumption by other workloads"
   value       = "http://${helm_release.kube_prometheus_stack.name}-prometheus.${kubernetes_namespace_v1.monitoring.metadata[0].name}.svc.cluster.local:9090"
 }
 

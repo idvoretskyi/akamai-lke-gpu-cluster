@@ -23,10 +23,9 @@ tofu.rc
 *.tfvars.json
 !*.tfvars.example
 
-# Kubeconfigs, including the scratch file written by modules/hami
+# Kubeconfigs
 kubeconfig*.yaml
 *.kubeconfig
-.kubeconfig-*
 .kube/
 
 # Editors, OS, Python bytecode, local env

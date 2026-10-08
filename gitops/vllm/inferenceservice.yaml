@@ -1,0 +1,45 @@
+# Qwen3-8B (FP8) served by KServe's Hugging Face runtime (vLLM backend) on the
+# GPU pool. Synced by the Argo CD Application "vllm" (see tofu/modules.tf).
+#
+# Sizing for one RTX 4000 Ada (20 GB): ~8.8 GB of FP8 weights, the rest of the
+# 90% vLLM budget goes to the KV cache, enough for a 32k-token context.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen3
+  annotations:
+    serving.kserve.io/deploymentMode: Standard
+spec:
+  predictor:
+    # One GPU, one replica: Standard mode can't scale to zero, and a rolling
+    # update would need a second GPU, so replace the pod instead.
+    minReplicas: 1
+    maxReplicas: 1
+    deploymentStrategy:
+      type: Recreate
+    # GPU pool only; tolerate its dedicated-node taint.
+    nodeSelector:
+      nodepool.lke/role: gpu
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    model:
+      modelFormat:
+        name: huggingface
+      runtime: kserve-huggingfaceserver
+      # Downloaded by KServe's storage initializer before vLLM starts.
+      storageUri: hf://Qwen/Qwen3-8B-FP8
+      args:
+        - --model_name=qwen3
+        - --max-model-len=32768
+        - --gpu-memory-utilization=0.90
+      resources:
+        requests:
+          cpu: "2"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "3"
+          memory: 12Gi
+          nvidia.com/gpu: "1"

@@ -63,15 +63,15 @@ variable "gpu_node_count" {
 }
 
 # ─── System Node Pool ─────────────────────────────────────────────────────────
-# A small, dedicated CPU node pool that hosts the cluster's "system" workloads
-# (monitoring stack, metrics-server, OpenCost, GPU Operator controller). Keeping
-# these off the GPU nodes means the expensive GPU is reserved purely for
-# GPU-intensive workloads, improving utilization and cost-efficiency.
+# A dedicated CPU node pool that hosts the cluster's "system" workloads
+# (monitoring, metrics-server, GPU Operator controller, cert-manager, Envoy
+# Gateway, KServe controller, Argo CD). Keeping these off the GPU nodes means
+# the expensive GPU is reserved purely for model serving.
 
 variable "system_node_type" {
-  description = "Linode instance type for the dedicated system node pool. g6-standard-2 (2 vCPU, 4 GB, ~$24/month) fits the monitoring stack and GPU Operator controller for a lab cluster."
+  description = "Linode instance type for the dedicated system node pool. g6-standard-4 (4 vCPU, 8 GB, ~$48/month) fits the full platform stack; g6-standard-2 (4 GB) is too small once KServe, Envoy Gateway and Argo CD are installed."
   type        = string
-  default     = "g6-standard-2"
+  default     = "g6-standard-4"
 
   validation {
     condition     = var.system_node_type != var.gpu_node_type
@@ -170,55 +170,6 @@ variable "enable_gpu_monitoring" {
   default     = true
 }
 
-# ─── HAMi (GPU Virtualization) ────────────────────────────────────────────────
-# Lab/experimental: enabled by default since this cluster is destroyed and
-# recreated freely (no in-place migration concerns). Replaces the GPU
-# Operator's stock device plugin so GPUs can be split into vGPU slices.
-
-variable "install_hami" {
-  description = "Install HAMi for GPU virtualization/sharing (splits physical GPUs into schedulable vGPU slices). Disables the GPU Operator's stock device plugin when true. Requires install_gpu_operator = true."
-  type        = bool
-  default     = true
-
-  validation {
-    condition     = !var.install_hami || var.install_gpu_operator
-    error_message = "install_hami = true requires install_gpu_operator = true (HAMi relies on the operator's NVIDIA driver and container toolkit)."
-  }
-}
-
-variable "hami_version" {
-  description = "Version of the HAMi Helm chart (format: 'X.Y.Z')"
-  type        = string
-  default     = "2.9.0"
-
-  validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.hami_version))
-    error_message = "hami_version must be in the format 'X.Y.Z' (e.g. '2.9.0')."
-  }
-}
-
-variable "hami_device_split_count" {
-  description = "Number of vGPU slices each physical GPU is split into by HAMi. E.g. 10 lets up to 10 pods share one physical GPU."
-  type        = number
-  default     = 10
-
-  validation {
-    condition     = var.hami_device_split_count >= 1
-    error_message = "hami_device_split_count must be at least 1."
-  }
-}
-
-variable "hami_default_gpu_memory" {
-  description = "vGPU memory (MB) a Pod gets when it requests nvidia.com/gpu without an explicit nvidia.com/gpumem limit. Defaults to a 4000 MB slice rather than the whole physical GPU (HAMi's own chart default), so a plain GPU pod (validation pods, Argo Workflow steps) fits next to Ollama's slice on a 20 GB card. Set to 0 to restore whole-GPU behavior for unslotted requests."
-  type        = number
-  default     = 4000
-
-  validation {
-    condition     = var.hami_default_gpu_memory >= 0
-    error_message = "hami_default_gpu_memory must be >= 0 (0 disables the override, giving the whole physical GPU)."
-  }
-}
-
 # ─── Metrics Server ───────────────────────────────────────────────────────────
 
 variable "install_metrics_server" {
@@ -301,130 +252,112 @@ variable "grafana_storage_size" {
   }
 }
 
-# ─── Cost Monitoring (OpenCost) ───────────────────────────────────────────────
+# ─── Model Serving (KServe + vLLM) ────────────────────────────────────────────
+# install_kserve also installs its dependencies: cert-manager (webhook TLS) and
+# Envoy Gateway (Gateway API implementation).
 
-variable "install_opencost" {
-  description = "Install OpenCost for Kubernetes cost monitoring (requires install_monitoring = true for full functionality)"
+variable "install_kserve" {
+  description = "Install KServe (Standard mode, Gateway API) with its dependencies cert-manager and Envoy Gateway, plus the vLLM-backed Hugging Face serving runtime. Requires install_gpu_operator = true to serve on the GPU."
   type        = bool
   default     = true
 }
 
-variable "opencost_version" {
-  description = "Version of the OpenCost Helm chart"
+variable "kserve_version" {
+  description = "KServe version for its kserve-crd, kserve-resources and kserve-runtime-configs Helm charts (format: 'vX.Y.Z'). Also selects the vLLM runtime image (kserve/huggingfaceserver:<version>-gpu)."
   type        = string
-  default     = "2.5.14"
+  default     = "v0.20.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.opencost_version))
-    error_message = "opencost_version must be in the format 'X.Y.Z' (e.g. '2.5.14')."
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.kserve_version))
+    error_message = "kserve_version must be in the format 'vX.Y.Z' (e.g. 'v0.20.0')."
   }
 }
 
-# ─── Argo Workflows ───────────────────────────────────────────────────────────
+variable "kserve_ingress_domain" {
+  description = "Domain for InferenceService hostnames (<name>-<namespace>.<domain>). The Gateway routes on the Host header, so clients without matching DNS set it explicitly."
+  type        = string
+  default     = "kserve.local"
+}
 
-variable "install_argo_workflows" {
-  description = "Install Argo Workflows (CNCF), a workflow engine whose GPU steps share the card with Ollama through HAMi. Reach the UI via kubectl port-forward."
+variable "cert_manager_version" {
+  description = "Version of the jetstack/cert-manager Helm chart (format: 'vX.Y.Z')"
+  type        = string
+  default     = "v1.21.2"
+
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.cert_manager_version))
+    error_message = "cert_manager_version must be in the format 'vX.Y.Z' (e.g. 'v1.21.2')."
+  }
+}
+
+variable "envoy_gateway_version" {
+  description = "Version of the envoyproxy/gateway-helm chart (format: 'vX.Y.Z')"
+  type        = string
+  default     = "v1.9.2"
+
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$", var.envoy_gateway_version))
+    error_message = "envoy_gateway_version must be in the format 'vX.Y.Z' (e.g. 'v1.9.2')."
+  }
+}
+
+variable "gateway_service_type" {
+  description = "Service type of the Envoy proxy behind KServe's Gateway. ClusterIP (default) keeps the unauthenticated model endpoint private, reached with kubectl port-forward. LoadBalancer exposes it publicly through a Linode NodeBalancer (~$10/month)."
+  type        = string
+  default     = "ClusterIP"
+
+  validation {
+    condition     = contains(["ClusterIP", "LoadBalancer"], var.gateway_service_type)
+    error_message = "gateway_service_type must be ClusterIP or LoadBalancer."
+  }
+}
+
+variable "model_namespace" {
+  description = "Namespace the GitOps-managed InferenceService is deployed into (created by Argo CD). Must not be the KServe control-plane namespace."
+  type        = string
+  default     = "vllm"
+
+  validation {
+    condition     = var.model_namespace != "kserve"
+    error_message = "model_namespace must not be 'kserve': KServe's webhooks skip its control-plane namespace."
+  }
+}
+
+# ─── GitOps (Argo CD) ─────────────────────────────────────────────────────────
+
+variable "install_argo_cd" {
+  description = "Install Argo CD. With install_kserve it bootstraps the 'vllm' Application, which syncs the InferenceService from gitops_path in gitops_repo_url."
   type        = bool
   default     = true
 }
 
-variable "argo_workflows_version" {
-  description = "Version of the argo/argo-workflows Helm chart"
+variable "argo_cd_version" {
+  description = "Version of the argo/argo-cd Helm chart (format: 'X.Y.Z')"
   type        = string
-  default     = "2.0.11"
+  default     = "10.10.1"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.argo_workflows_version))
-    error_message = "argo_workflows_version must be in the format 'X.Y.Z' (e.g. '2.0.11')."
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.argo_cd_version))
+    error_message = "argo_cd_version must be in the format 'X.Y.Z' (e.g. '10.10.1')."
   }
 }
 
-# ─── Open WebUI ───────────────────────────────────────────────────────────────
-
-variable "install_open_webui" {
-  description = "Install Open WebUI, a browser front-end for Ollama (requires install_ollama = true). CPU-only, runs on the system pool."
-  type        = bool
-  default     = false
-}
-
-variable "open_webui_version" {
-  description = "Version of the open-webui/open-webui Helm chart"
+variable "gitops_repo_url" {
+  description = "Git repository Argo CD syncs the model workloads from. Must be readable without credentials (a public repo or fork)."
   type        = string
-  default     = "16.6.0"
-
-  validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.open_webui_version))
-    error_message = "open_webui_version must be in the format 'X.Y.Z' (e.g. '16.6.0')."
-  }
+  default     = "https://github.com/idvoretskyi/akamai-lke-gpu-cluster.git"
 }
 
-variable "open_webui_enable_signup" {
-  description = "Initial sign-up default for Open WebUI (ENABLE_SIGNUP). The app persists the setting after first start and the saved value wins, so change it later under Admin Settings > General. The first account becomes the admin."
-  type        = bool
-  default     = true
-}
-
-# ─── Ollama (LLM serving) ─────────────────────────────────────────────────────
-
-variable "install_ollama" {
-  description = "Install Ollama on the GPU pool to serve local LLMs (reach it via kubectl port-forward). Takes a 16 GB slice of the GPU by default (see ollama_gpu_memory_mib)."
-  type        = bool
-  default     = true
-}
-
-variable "ollama_version" {
-  description = "Version of the otwld/ollama-helm chart"
+variable "gitops_target_revision" {
+  description = "Branch, tag or commit of gitops_repo_url to sync. Point it at a feature branch to test changes to gitops/ before merging."
   type        = string
-  default     = "1.84.0"
-
-  validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ollama_version))
-    error_message = "ollama_version must be in the format 'X.Y.Z' (e.g. '1.84.0')."
-  }
+  default     = "main"
 }
 
-variable "ollama_models" {
-  description = "Models Ollama pulls on startup (name[:tag] from ollama.com/library). Each must fit the GPU's VRAM on its own; one is loaded at a time."
-  type        = list(string)
-  default     = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
-
-  validation {
-    condition     = alltrue([for m in var.ollama_models : can(regex("^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]+)?$", m))])
-    error_message = "Each ollama_models entry must look like 'name' or 'name:tag' (e.g. 'gemma4:12b')."
-  }
-}
-
-variable "ollama_storage_size" {
-  description = "Size of the volume holding Ollama's models (~$0.10/GB/month). The default models take ~29 GB."
+variable "gitops_path" {
+  description = "Directory in gitops_repo_url holding the model workloads (a Kustomize directory). Empty skips the bootstrap Application."
   type        = string
-  default     = "50Gi"
-
-  validation {
-    condition     = can(regex("^[0-9]+(Gi|Ti)$", var.ollama_storage_size))
-    error_message = "ollama_storage_size must be a quantity in Gi or Ti (e.g. '50Gi')."
-  }
-}
-
-variable "ollama_gpu_memory_mib" {
-  description = "GPU memory (MiB) Ollama requests from HAMi. 16000 leaves ~4 GB of the RTX 4000 Ada's 20 GB for other GPU pods (see hami_default_gpu_memory). Ignored when install_hami = false, in which case Ollama gets the whole GPU."
-  type        = number
-  default     = 16000
-
-  validation {
-    condition     = var.ollama_gpu_memory_mib >= 1024
-    error_message = "ollama_gpu_memory_mib must be at least 1024."
-  }
-}
-
-variable "ollama_context_length" {
-  description = "Default context window in tokens (OLLAMA_CONTEXT_LENGTH). Larger contexts need more VRAM for the KV cache; 8192 keeps gpt-oss:20b inside a 16 GB slice."
-  type        = number
-  default     = 8192
-
-  validation {
-    condition     = var.ollama_context_length >= 2048
-    error_message = "ollama_context_length must be at least 2048."
-  }
+  default     = "gitops/vllm"
 }
 
 # ─── Monitoring Resource Requests ────────────────────────────────────────────

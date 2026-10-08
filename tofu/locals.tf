@@ -48,11 +48,7 @@ locals {
   node_role_label_key = "nodepool.lke/role"
 
   system_node_labels = { (local.node_role_label_key) = "system" }
-  # "gpu" = "on" matches the label the HAMi chart's devicePlugin targets by
-  # default (devicePlugin.nvidiaNodeSelector); Helm merges map values rather
-  # than replacing them, so the module's nvidia_node_selector override is
-  # additive on top of that default — the GPU nodes must carry both labels.
-  gpu_node_labels = { (local.node_role_label_key) = "gpu", gpu = "on" }
+  gpu_node_labels    = { (local.node_role_label_key) = "gpu" }
 
   # Selector used to pin system/monitoring workloads onto the system pool.
   system_node_selector = local.system_node_labels

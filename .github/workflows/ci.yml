@@ -22,7 +22,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v2
         with:
-          tofu_version: "1.12.1"
+          tofu_version: "1.13.1"
 
       - name: Format check
         run: |
@@ -45,14 +45,13 @@ jobs:
     strategy:
       matrix:
         module:
-          - argo-workflows
+          - argo-cd
+          - cert-manager
+          - envoy-gateway
           - gpu-operator
-          - hami
-          - metrics-server
+          - kserve
           - kube-prometheus-stack
-          - ollama
-          - open-webui
-          - opencost
+          - metrics-server
 
     steps:
       - name: Checkout
@@ -61,7 +60,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v2
         with:
-          tofu_version: "1.12.1"
+          tofu_version: "1.13.1"
 
       - name: Init module (${{ matrix.module }})
         run: |
@@ -84,7 +83,7 @@ jobs:
       - name: Setup tflint
         uses: terraform-linters/setup-tflint@v6
         with:
-          tflint_version: latest
+          tflint_version: v0.64.0
 
       - name: Init tflint
         run: |
@@ -110,7 +109,7 @@ jobs:
         with:
           scan-type: config
           scan-ref: tofu
-          version: v0.70.0
+          version: v0.75.0
           severity: HIGH,CRITICAL
           format: sarif
           output: trivy-results.sarif
@@ -131,7 +130,6 @@ jobs:
       matrix:
         scandir:
           - tofu/scripts
-          - tofu/modules/hami/scripts
 
     steps:
       - name: Checkout
@@ -172,7 +170,10 @@ jobs:
             examples/*/*.yaml
 
       - name: Compile Python
-        run: python -m py_compile examples/*/*.py
+        run: |
+          shopt -s nullglob
+          files=(examples/*/*.py)
+          [ ${#files[@]} -eq 0 ] || python -m py_compile "${files[@]}"
 
       - name: Check JSON
         run: |
@@ -186,4 +187,38 @@ jobs:
           for d in examples/*/; do
             echo "== $d"
             make -n -C "$d" -f Makefile $(sed -n 's/^\.PHONY: *//p' "$d/Makefile")
+          done
+
+  gitops:
+    name: GitOps manifests and local charts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.19.0
+
+      - name: yamllint gitops/
+        run: |
+          pip install --quiet yamllint
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' gitops/
+
+      - name: Build every Kustomize directory
+        run: |
+          for k in $(find gitops -name kustomization.yaml); do
+            d=$(dirname "$k")
+            echo "== $d"
+            kubectl kustomize "$d" > /dev/null
+          done
+
+      - name: Lint and render local Helm charts
+        run: |
+          for c in tofu/modules/*/chart; do
+            echo "== $c"
+            helm lint "$c"
+            helm template ci "$c" > /dev/null
           done

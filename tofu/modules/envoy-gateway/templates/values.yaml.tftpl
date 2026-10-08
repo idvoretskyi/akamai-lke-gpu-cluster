@@ -1,0 +1,19 @@
+# Installs Envoy Gateway's own CRDs and the Gateway API CRDs.
+crds:
+  enabled: true
+%{ if length(node_selector) > 0 ~}
+
+deployment:
+  pod:
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+
+certgen:
+  job:
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
