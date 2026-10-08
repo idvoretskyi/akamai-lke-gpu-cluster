@@ -76,9 +76,13 @@ Helm charts; see "Module convention" below). The model workload lives in
   stay `envoy`.
 - The `kserve` namespace is labelled `control-plane`; KServe's webhooks skip it,
   so InferenceServices must never go there (`model_namespace` validation).
-- The Hugging Face runtime's default image is CPU-only; the kserve module pins
-  `kserve/huggingfaceserver:<kserve_version>-gpu`. KServe v0.21.0 charts are
-  only on GHCR as `-rc1`, hence the v0.20.0 default.
+- The Hugging Face runtime's default image is CPU-only. Don't fix that with
+  `huggingfaceserver.tag` in the kserve module: the multinode runtime shares
+  the tag and appends `-gpu` itself (`<ver>-gpu` renders `<ver>-gpu-gpu`).
+  Instead the InferenceService sets `image: kserve/huggingfaceserver:<ver>-gpu`;
+  keep `<ver>` in `gitops/vllm/inferenceservice.yaml` in step with
+  `kserve_version`. KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the
+  v0.20.0 default.
 - Destroy order matters: `module.argo_cd` depends on `module.kserve` so the
   `vllm` Application (with Argo CD's resources finalizer) and its
   InferenceService are deleted while KServe still runs.

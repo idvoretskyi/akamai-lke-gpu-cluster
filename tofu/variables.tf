@@ -263,7 +263,7 @@ variable "install_kserve" {
 }
 
 variable "kserve_version" {
-  description = "KServe version for its kserve-crd, kserve-resources and kserve-runtime-configs Helm charts (format: 'vX.Y.Z'). Also selects the vLLM runtime image (kserve/huggingfaceserver:<version>-gpu)."
+  description = "KServe version for its kserve-crd, kserve-resources and kserve-runtime-configs Helm charts (format: 'vX.Y.Z'). Keep the image tag in gitops/vllm/inferenceservice.yaml (kserve/huggingfaceserver:<version>-gpu) in step."
   type        = string
   default     = "v0.20.0"
 

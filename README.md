@@ -53,8 +53,9 @@ the model is a Git commit, not a `tofu apply`.
   `kserve-ingress-gateway`. This is KServe's recommended mode for generative
   workloads.
 - **vLLM.** KServe's Hugging Face runtime runs vLLM and exposes an
-  OpenAI-compatible API under `/openai/v1`. Its default image is CPU-only; the
-  `kserve` module pins the CUDA build (`kserve/huggingfaceserver:<ver>-gpu`).
+  OpenAI-compatible API under `/openai/v1`. The runtime's default image is
+  KServe's CPU build, so the InferenceService requests the CUDA build
+  (`kserve/huggingfaceserver:<ver>-gpu`) itself.
 - **The model.** `Qwen/Qwen3-8B-FP8`: ungated (no Hugging Face token), ~9 GB
   of FP8 weights, which the Ada GPU runs natively. vLLM gets 90% of the 20 GB
   card; what the weights leave over holds the KV cache for a 32k-token

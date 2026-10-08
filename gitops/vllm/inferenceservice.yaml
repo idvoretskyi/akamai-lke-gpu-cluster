@@ -28,6 +28,9 @@ spec:
       modelFormat:
         name: huggingface
       runtime: kserve-huggingfaceserver
+      # The runtime's default image is KServe's CPU build; use the CUDA build.
+      # Keep the version in step with kserve_version in tofu.tfvars.
+      image: kserve/huggingfaceserver:v0.20.0-gpu
       # Downloaded by KServe's storage initializer before vLLM starts.
       storageUri: hf://Qwen/Qwen3-8B-FP8
       args:

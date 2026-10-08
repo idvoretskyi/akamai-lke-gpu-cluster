@@ -5,7 +5,7 @@ variable "namespace" {
 }
 
 variable "chart_version" {
-  description = "KServe version for the kserve-crd, kserve-resources and kserve-runtime-configs charts (format: 'vX.Y.Z'). Also selects the Hugging Face runtime image tag ('<version>-gpu')."
+  description = "KServe version for the kserve-crd, kserve-resources and kserve-runtime-configs charts (format: 'vX.Y.Z')."
   type        = string
   default     = "v0.20.0"
 

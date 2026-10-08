@@ -20,8 +20,11 @@ Three Helm releases from `oci://ghcr.io/kserve/charts`, all at
      and KServe attaches an `HTTPRoute` per InferenceService.
    - Hostnames are `<name>-<namespace>.<ingress_domain>`.
 3. `kserve-runtime-configs`: the `ClusterServingRuntime`s. The Hugging Face
-   runtime (vLLM) defaults to the CPU image; the module pins
-   `kserve/huggingfaceserver:<chart_version>-gpu` and enlarges `/dev/shm`.
+   runtime (vLLM) gets a larger `/dev/shm`. Its default image is the CPU
+   build, and the module deliberately leaves the tag alone: the multinode
+   runtime shares it and appends `-gpu` itself, so overriding it renders
+   `<ver>-gpu-gpu`. GPU InferenceServices set
+   `image: kserve/huggingfaceserver:<chart_version>-gpu` on the model.
 
 Requires cert-manager (webhook certificate) and a GatewayClass named `envoy`
 (the `envoy-gateway` module). The namespace is labelled `control-plane`, which

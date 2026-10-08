@@ -64,9 +64,15 @@ resource "helm_release" "kserve" {
   depends_on = [helm_release.kserve_crd]
 }
 
-# 3/3 — ClusterServingRuntimes. Only the Hugging Face runtime matters here: it
-# is KServe's vLLM-backed LLM server. Its default image is the CPU build, so the
-# tag is pinned to the CUDA ("-gpu") build, and /dev/shm is enlarged for vLLM.
+# 3/3 — ClusterServingRuntimes, including the Hugging Face runtime (KServe's
+# vLLM-backed LLM server) with an enlarged /dev/shm for vLLM.
+#
+# The image tag is deliberately NOT overridden: the single-node runtime and the
+# multinode one share huggingfaceserver.tag, but only the multinode template
+# appends "-gpu", so any tag that makes one of them use the CUDA build breaks
+# the other (e.g. "<ver>-gpu" renders "<ver>-gpu-gpu"). The single-node default
+# is the CPU build; GPU InferenceServices set the CUDA image themselves (see
+# gitops/vllm/inferenceservice.yaml).
 resource "helm_release" "runtimes" {
   name       = "kserve-runtime-configs"
   repository = "oci://ghcr.io/kserve/charts"
@@ -88,7 +94,6 @@ resource "helm_release" "runtimes" {
         servingruntime = {
           enabled = true
           huggingfaceserver = {
-            tag    = "${var.chart_version}-gpu"
             devShm = { enabled = true, sizeLimit = var.vllm_shm_size }
           }
         }
