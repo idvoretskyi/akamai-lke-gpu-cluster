@@ -68,6 +68,11 @@ locals {
   # CIDRs allowed to talk to each other inside the cluster (nodes + pods).
   intra_cluster_cidrs = concat(var.node_cidrs, var.pod_cidrs)
 
+  # The bootstrap "vllm" Application (and so the InferenceService) exists only
+  # with Argo CD, KServe (its CRD) and a GitOps path. Shared by modules.tf and
+  # outputs.tf so the two can't drift.
+  model_application_enabled = var.install_argo_cd && var.install_kserve && var.gitops_path != ""
+
   # GPU monitoring only makes sense when the GPU Operator (DCGM) is installed.
   gpu_monitoring_enabled = var.enable_gpu_monitoring && var.install_gpu_operator
 

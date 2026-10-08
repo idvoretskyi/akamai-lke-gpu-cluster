@@ -190,7 +190,7 @@ output "kserve_validation_commands" {
 
 output "inference_commands" {
   description = "Commands to reach the GitOps-managed vLLM InferenceService through the Gateway (null when the vllm Application is not created)"
-  value       = var.install_argo_cd && var.install_kserve && var.gitops_path != "" ? local.inference_commands : null
+  value       = local.model_application_enabled ? local.inference_commands : null
 }
 
 locals {

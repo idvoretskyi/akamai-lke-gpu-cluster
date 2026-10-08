@@ -111,7 +111,7 @@ module "argo_cd" {
   node_selector          = local.system_node_selector
   enable_service_monitor = var.install_monitoring
 
-  applications = var.install_kserve && var.gitops_path != "" ? [{
+  applications = local.model_application_enabled ? [{
     name            = "vllm"
     namespace       = var.model_namespace
     repo_url        = var.gitops_repo_url
