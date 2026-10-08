@@ -43,7 +43,7 @@ module "envoy_gateway" {
 |---|---|---|
 | `namespace` | Namespace for the controller and the Envoy proxies | `"envoy-gateway-system"` |
 | `chart_version` | gateway-helm chart version | `"v1.9.2"` |
-| `gateway_class_name` | GatewayClass to create (KServe's Gateway expects `envoy`) | `"envoy"` |
+| `gateway_class_name` | GatewayClass to create; must be `envoy` (KServe hardcodes it, enforced by validation) | `"envoy"` |
 | `service_type` | Envoy proxy Service type: ClusterIP, LoadBalancer, NodePort | `"ClusterIP"` |
 | `node_selector` | nodeSelector for controller, certgen job and proxies | `{}` |
 | `timeout` | Helm install/upgrade timeout (s) | `600` |

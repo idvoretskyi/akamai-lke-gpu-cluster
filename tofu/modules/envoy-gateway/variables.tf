@@ -16,9 +16,14 @@ variable "chart_version" {
 }
 
 variable "gateway_class_name" {
-  description = "Name of the GatewayClass to create. KServe's built-in Gateway (createGateway = true) references a class named 'envoy'."
+  description = "Name of the GatewayClass to create. Must be 'envoy': KServe's chart hardcodes gatewayClassName: envoy on the Gateway it creates (createGateway = true), so any other class would leave that Gateway unprogrammed."
   type        = string
   default     = "envoy"
+
+  validation {
+    condition     = var.gateway_class_name == "envoy"
+    error_message = "gateway_class_name must be 'envoy': KServe's built-in Gateway hardcodes that class name."
+  }
 }
 
 variable "service_type" {
