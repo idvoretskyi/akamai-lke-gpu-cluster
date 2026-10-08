@@ -117,18 +117,6 @@ output "hami_validation_commands" {
   value       = try(module.hami[0].validation_commands, null)
 }
 
-# ─── Kubeflow ─────────────────────────────────────────────────────────────────
-
-output "kubeflow_ref" {
-  description = "Git ref of kubeflow/community-distribution installed (null when not installed)"
-  value       = try(module.kubeflow[0].kubeflow_ref, null)
-}
-
-output "kubeflow_validation_commands" {
-  description = "Commands to access and validate the Kubeflow install (null when not installed)"
-  value       = try(module.kubeflow[0].validation_commands, null)
-}
-
 # ─── Ollama ───────────────────────────────────────────────────────────────────
 
 output "ollama_namespace" {
@@ -240,6 +228,50 @@ output "opencost_service" {
 output "opencost_validation_commands" {
   description = "Commands to access and validate OpenCost (null when not installed)"
   value       = try(module.opencost[0].validation_commands, null)
+}
+
+# ─── Argo Workflows ───────────────────────────────────────────────────────────
+
+output "argo_workflows_namespace" {
+  description = "Argo Workflows namespace (null when not installed)"
+  value       = try(module.argo_workflows[0].namespace, null)
+}
+
+output "argo_workflows_version" {
+  description = "Argo Workflows chart version (null when not installed)"
+  value       = try(module.argo_workflows[0].version, null)
+}
+
+output "argo_workflows_status" {
+  description = "Argo Workflows Helm release status (null when not installed)"
+  value       = try(module.argo_workflows[0].status, null)
+}
+
+output "argo_workflows_validation_commands" {
+  description = "Commands to access and validate Argo Workflows (null when not installed)"
+  value       = try(module.argo_workflows[0].validation_commands, null)
+}
+
+# ─── Open WebUI ───────────────────────────────────────────────────────────────
+
+output "open_webui_namespace" {
+  description = "Open WebUI namespace (null when not installed)"
+  value       = try(module.open_webui[0].namespace, null)
+}
+
+output "open_webui_version" {
+  description = "Open WebUI chart version (null when not installed)"
+  value       = try(module.open_webui[0].version, null)
+}
+
+output "open_webui_status" {
+  description = "Open WebUI Helm release status (null when not installed)"
+  value       = try(module.open_webui[0].status, null)
+}
+
+output "open_webui_validation_commands" {
+  description = "Commands to access and validate Open WebUI (null when not installed)"
+  value       = try(module.open_webui[0].validation_commands, null)
 }
 
 # ─── Secrets ─────────────────────────────────────────────────────────────────

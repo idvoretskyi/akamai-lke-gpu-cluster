@@ -1,0 +1,49 @@
+# Workflows run in the release namespace only (Role/RoleBinding, not Cluster*).
+singleNamespace: true
+
+workflow:
+  serviceAccount:
+    create: true
+    name: argo-workflow
+  rbac:
+    create: true
+
+controller:
+  resources:
+    requests:
+      cpu: ${resources.requests.cpu}
+      memory: ${resources.requests.memory}
+    limits:
+      cpu: ${resources.limits.cpu}
+      memory: ${resources.limits.memory}
+%{ if enable_service_monitor ~}
+  # The ServiceMonitor and its metrics Service only render when the metrics
+  # server is enabled too.
+  metricsConfig:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+%{ endif ~}
+%{ if length(node_selector) > 0 ~}
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+
+server:
+  authModes:
+    - ${auth_mode}
+  resources:
+    requests:
+      cpu: ${resources.requests.cpu}
+      memory: ${resources.requests.memory}
+    limits:
+      cpu: ${resources.limits.cpu}
+      memory: ${resources.limits.memory}
+%{ if length(node_selector) > 0 ~}
+  nodeSelector:
+%{ for k, v in node_selector ~}
+    ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}

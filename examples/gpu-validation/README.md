@@ -1,15 +1,14 @@
 # GPU Substrate Validation
 
-A minimal, **Kubeflow-free** GPU smoke test. Runs `nvidia-smi` in a bare CUDA
+A minimal GPU smoke test. Runs `nvidia-smi` in a bare CUDA
 Pod to confirm the GPU substrate is working immediately after `tofu apply`.
 
-**No prerequisites beyond the GPU Operator.** Does not require Kubeflow,
-MLflow, or any ML platform — just a kubeconfig and `kubectl`.
+**No prerequisites beyond the GPU Operator.** Just a kubeconfig and `kubectl`.
 
 > **Note:** with this repo's default `install_hami = true`, HAMi's admission
 > webhook intercepts this Pod too (it requests `nvidia.com/gpu` like any
 > other workload) and caps its visible GPU memory at `hami_default_gpu_memory`
-> (default **8000 MiB**), not the full ~20 GB card. That's expected — see
+> (default **4000 MiB**), not the full ~20 GB card. That's expected — see
 > `tofu/modules/hami/README.md`. Set `install_hami = false` (or
 > `hami_default_gpu_memory = 0`) to validate the raw, unvirtualized substrate
 > instead.
@@ -61,16 +60,6 @@ kubectl delete pod/gpu-validation
 
 ## After validation
 
-Once this passes:
-
-- **Install Kubeflow in-repo** — set `install_kubeflow = true` (see root
-  `README.md` and `tofu/modules/kubeflow/README.md`), then run
-  [`examples/roboflow-pipeline/`](../roboflow-pipeline/) for an end-to-end
-  Kubeflow Pipelines + HAMi GPU workload smoke test.
-- For a more elaborate CV MLOps lab (Trainer v2, custom datasets, etc.), see
-  [`kubeflow-cv-lab`](https://github.com/idvoretskyi/kubeflow-cv-lab):
-
-  ```bash
-  git clone https://github.com/idvoretskyi/kubeflow-cv-lab
-  PRESET=lke make -C kubeflow-cv-lab platform-install
-  ```
+- [`../hami-validation/`](../hami-validation/) — two pods sharing the card.
+- [`../argo-gpu-job/`](../argo-gpu-job/) — a GPU step in an Argo Workflow.
+- [`../ollama/`](../ollama/) — chat with the models served from the GPU.

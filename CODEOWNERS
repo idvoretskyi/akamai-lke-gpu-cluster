@@ -1,4 +1,4 @@
-# CODEOWNERS file for linode-kubeflow
+# CODEOWNERS file for akamai-lke-gpu-cluster
 # This file defines individuals or teams that are responsible for code in this repository.
 # More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
@@ -9,7 +9,6 @@
 /tofu/ @idvoretskyi
 
 # Documentation
-/docs/ @idvoretskyi
 *.md @idvoretskyi
 
 # GitHub workflows and settings

@@ -6,12 +6,13 @@ Reusable OpenTofu modules for GPU-enabled Kubernetes infrastructure on Linode (L
 
 | Module | Purpose | Directory |
 |---|---|---|
-| [gpu-operator](gpu-operator/README.md) | NVIDIA GPU Operator — automated driver & device plugin | `gpu-operator/` |
-| [hami](hami/README.md) | HAMi — GPU virtualization/sharing (vGPU slices) | `hami/` |
-| [kubeflow](kubeflow/README.md) | Full Kubeflow Platform (opt-in, kustomize-based) | `kubeflow/` |
+| [gpu-operator](gpu-operator/README.md) | NVIDIA GPU Operator (operands only; LKE ships the driver) | `gpu-operator/` |
+| [hami](hami/README.md) | HAMi — GPU sharing (vGPU slices) | `hami/` |
+| [ollama](ollama/README.md) | Ollama — local LLM serving on the GPU pool | `ollama/` |
+| [argo-workflows](argo-workflows/README.md) | Argo Workflows — CNCF workflow engine | `argo-workflows/` |
+| [open-webui](open-webui/README.md) | Open WebUI — browser front-end for Ollama (opt-in) | `open-webui/` |
 | [metrics-server](metrics-server/README.md) | Kubernetes Metrics Server — `kubectl top` & HPA | `metrics-server/` |
 | [kube-prometheus-stack](kube-prometheus-stack/README.md) | Prometheus + Grafana monitoring stack | `kube-prometheus-stack/` |
-| [ollama](ollama/README.md) | Ollama — local LLM serving on the GPU pool | `ollama/` |
 | [opencost](opencost/README.md) | OpenCost — Kubernetes cost monitoring | `opencost/` |
 
 ## Dependency Graph
@@ -24,14 +25,14 @@ edges between modules (`tofu/modules.tf`):
 ```text
 module.gpu_operator
     ├─> module.hami
-    │       ├─> module.kubeflow
     │       └─> module.ollama
+    │               └─> module.open_webui
     ├─> module.kube_prometheus_stack
-    ├─> module.kubeflow
+    │       ├─> module.argo_workflows
+    │       └─> module.opencost
     └─> module.ollama
 module.metrics_server
     └─> module.kube_prometheus_stack
-            └─> module.opencost
 ```
 
 `terraform_data.merge_kubeconfig` (writes `~/.kube/config`, `tofu/kubeconfig.tf`)
@@ -40,27 +41,5 @@ is independent — no module depends on it, and disabling it
 
 All modules are optional and independently toggled via `install_*` root variables.
 
-## Quick Reference
-
-```bash
-# Access Grafana
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-
-# Access Prometheus
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-
-# Access OpenCost UI
-kubectl port-forward -n opencost svc/opencost 9090:9090
-
-# Check GPU availability
-kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
-
-# Access Ollama (when install_ollama = true)
-kubectl port-forward -n ollama svc/ollama 11434:11434
-
-# Check HAMi pods (when install_hami = true)
-kubectl get pods -n hami-system
-
-# Resource usage
-kubectl top nodes && kubectl top pods -A
-```
+For port-forward commands and other access, see the root `README.md`; each
+module's `validation_commands` output prints the exact commands.

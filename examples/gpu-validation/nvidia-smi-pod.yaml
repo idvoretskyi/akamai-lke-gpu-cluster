@@ -1,7 +1,7 @@
 # GPU substrate validation — requires NO additional software beyond the GPU Operator.
 # Runs nvidia-smi in a bare CUDA Pod and exits immediately.
 # Use this to confirm the cluster can schedule a GPU workload right after
-# `tofu apply` — before installing Kubeflow or any ML platform.
+# `tofu apply` — before installing any workload on top.
 apiVersion: v1
 kind: Pod
 metadata:

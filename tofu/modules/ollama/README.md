@@ -31,8 +31,8 @@ module "ollama" {
 
   namespace           = "ollama"
   chart_version       = "1.84.0"
-  models              = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]
-  gpu_memory_mib      = 20000
+  models              = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
+  gpu_memory_mib      = 16000
   node_selector       = local.gpu_node_labels
   gpu_node_toleration = local.gpu_node_toleration
 
@@ -42,19 +42,23 @@ module "ollama" {
 
 ## Model fit on an RTX 4000 Ada (20 GB VRAM)
 
+The default HAMi slice is 16000 MiB, leaving ~4 GB for other GPU pods. Models
+marked "needs 20000" require `ollama_gpu_memory_mib = 20000`, which takes the
+whole card.
+
 | Model | Download | Fit |
 |---|---|---|
 | `gpt-oss:20b` | 14 GB | Fits; MoE, fast |
 | `gemma4:12b` | 7.7 GB | Fits comfortably; vision |
 | `qwen3.5:9b` | 6.6 GB | Fits comfortably; vision |
-| `qwen3.8:27b` | 18 GB | Tight; fits at 8K context with the q8_0 KV cache |
-| `gemma4:26b` | 16 GB | Tight; short context only |
+| `qwen3.8:27b` | 18 GB | Needs 20000; fits at 8K context with the q8_0 KV cache |
+| `gemma4:26b` | 16 GB | Needs 20000; short context only |
 | Kimi K2, DeepSeek V3, GLM-5 | 400 GB+ | No; cloud-only in Ollama |
 
 ## First install
 
 The chart pulls models in the container's `postStart` hook, so the pod is not
-Ready until every model is downloaded (~49 GB for the defaults). `timeout`
+Ready until every model is downloaded (~29 GB for the defaults). `timeout`
 defaults to 3600 seconds for this reason. The release is not atomic: if the
 apply times out, the partial downloads stay on the volume and re-running
 `tofu apply` resumes them: `upgrade_install = true` makes the retry upgrade the
@@ -92,17 +96,18 @@ kubectl exec -n ollama deploy/ollama -- ollama pull devstral-small-2:24b
 | `chart_version` | Helm chart version | `"1.84.0"` |
 | `image_tag` | Override the Ollama image tag | `null` (chart appVersion) |
 | `timeout` | Helm wait timeout in seconds; must cover first-time downloads | `3600` |
-| `models` | Models pulled on startup | `["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b", "qwen3.8:27b"]` |
+| `models` | Models pulled on startup | `["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]` |
 | `keep_alive` | `OLLAMA_KEEP_ALIVE` | `"24h"` |
 | `context_length` | `OLLAMA_CONTEXT_LENGTH` | `8192` |
 | `flash_attention` | `OLLAMA_FLASH_ATTENTION` | `true` |
 | `kv_cache_type` | `OLLAMA_KV_CACHE_TYPE` (`f16`, `q8_0`, `q4_0`) | `"q8_0"` |
 | `extra_env` | Extra container environment variables | `{}` |
-| `gpu_memory_mib` | HAMi `nvidia.com/gpumem`; `null` omits it | `20000` |
+| `gpu_memory_mib` | HAMi `nvidia.com/gpumem`; `null` omits it | `16000` |
+| `scheduler_name` | Pod schedulerName (`hami-scheduler` with HAMi) | `null` |
 | `node_selector` | nodeSelector for the GPU pool | `{}` |
 | `gpu_node_toleration` | GPU node taint to tolerate | `null` |
 | `resources` | CPU/host-memory requests and limits | See variables.tf |
-| `storage_size` | Model PVC size | `"80Gi"` |
+| `storage_size` | Model PVC size | `"50Gi"` |
 | `storage_class` | Model PVC StorageClass | `"linode-block-storage-retain"` |
 
 ## Outputs

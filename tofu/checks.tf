@@ -7,32 +7,6 @@
 # treated as a real misconfiguration rather than a "you might want to
 # reconsider" suggestion.
 
-# Shared-CPU Linode plans known to be smaller than the ~9-10 GB Kubeflow +
-# monitoring stack measurably uses (g6-standard-1/2/4 = 2/4/8 GB RAM).
-# g6-standard-8 (32 GB) and up, or any dedicated-CPU/other plan, are assumed
-# large enough and aren't flagged (this is advisory, not exhaustive).
-locals {
-  system_node_types_too_small_for_kubeflow = [
-    "g6-standard-1",
-    "g6-standard-2",
-    "g6-standard-4",
-  ]
-}
-
-check "kubeflow_recommends_hami" {
-  assert {
-    condition     = !var.install_kubeflow || var.install_hami
-    error_message = "install_kubeflow is enabled without install_hami — Kubeflow notebooks/pipelines will only be able to request whole GPUs instead of shared vGPU slices. Consider install_hami = true."
-  }
-}
-
-check "kubeflow_recommends_larger_system_pool" {
-  assert {
-    condition     = !var.install_kubeflow || !contains(local.system_node_types_too_small_for_kubeflow, var.system_node_type)
-    error_message = "install_kubeflow is enabled with system_node_type = '${var.system_node_type}' — the monitoring stack plus Kubeflow's system pods (Istio, Knative, Dex, dashboard, etc.) typically use ~9-10 GB in practice. Recommend system_node_type = 'g6-standard-8' (32 GB) or larger."
-  }
-}
-
 # RTX 4000 Ada plans (g2-gpu-*) are only offered in a subset of Linode regions
 # (notably not London). Point-in-time list — re-check with:
 #   linode-cli regions list-avail --json --all-rows
@@ -68,5 +42,26 @@ check "ollama_gpu_memory_fits_card" {
   assert {
     condition     = !var.install_ollama || !var.install_hami || local.gpu_vram_mib == null || var.ollama_gpu_memory_mib <= local.gpu_vram_mib
     error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — HAMi will never schedule the Ollama pod."
+  }
+}
+
+check "ollama_leaves_headroom_for_default_slice" {
+  assert {
+    condition     = !var.install_ollama || !var.install_hami || local.gpu_vram_mib == null || var.hami_default_gpu_memory == 0 || var.ollama_gpu_memory_mib + var.hami_default_gpu_memory <= local.gpu_vram_mib
+    error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) + hami_default_gpu_memory (${var.hami_default_gpu_memory}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — a plain nvidia.com/gpu pod (e.g. an Argo Workflow GPU step) will not schedule while Ollama runs."
+  }
+}
+
+check "open_webui_requires_ollama" {
+  assert {
+    condition     = !var.install_open_webui || var.install_ollama
+    error_message = "install_open_webui is enabled without install_ollama — Open WebUI has no model backend to talk to."
+  }
+}
+
+check "argo_workflows_gpu_steps_need_hami" {
+  assert {
+    condition     = !var.install_argo_workflows || !var.install_ollama || var.install_hami
+    error_message = "install_argo_workflows and install_ollama are both enabled without install_hami — Ollama then holds the whole GPU and Argo Workflow GPU steps will not schedule."
   }
 }

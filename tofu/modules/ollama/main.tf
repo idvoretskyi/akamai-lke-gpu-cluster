@@ -46,6 +46,7 @@ resource "helm_release" "ollama" {
       image_tag           = var.image_tag
       models              = var.models
       gpu_memory_mib      = var.gpu_memory_mib
+      scheduler_name      = var.scheduler_name
       gpu_node_toleration = var.gpu_node_toleration
       node_selector       = var.node_selector
       resources           = var.resources

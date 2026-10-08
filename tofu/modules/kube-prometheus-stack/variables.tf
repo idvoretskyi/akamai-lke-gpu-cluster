@@ -24,19 +24,19 @@ variable "grafana_admin_password" {
 variable "prometheus_retention" {
   description = "Prometheus data retention period (e.g. '15d')"
   type        = string
-  default     = "15d"
+  default     = "7d"
 }
 
 variable "prometheus_storage_size" {
   description = "Prometheus persistent storage size (e.g. '50Gi')"
   type        = string
-  default     = "50Gi"
+  default     = "15Gi"
 }
 
 variable "grafana_storage_size" {
   description = "Grafana persistent storage size (e.g. '10Gi')"
   type        = string
-  default     = "10Gi"
+  default     = "5Gi"
 }
 
 variable "storage_class" {

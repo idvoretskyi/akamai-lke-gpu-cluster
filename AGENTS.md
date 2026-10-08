@@ -1,9 +1,8 @@
 # AGENTS.md
 
 OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + seven modules in `tofu/modules/`, six wrapping Helm charts and one —
-`kubeflow` — installing via kustomize/kubectl; see "Module convention"
-below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
+module + eight modules in `tofu/modules/`, each wrapping one Helm chart; see
+"Module convention" below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
 and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
 source of truth.
 
@@ -18,12 +17,14 @@ source of truth.
   dir*, not just at root.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
   (config `tofu/.tflint.hcl`, passed explicitly so modules use it too),
-  `shellcheck` on `tofu/scripts/`, `tofu/modules/hami/scripts/` and
-  `tofu/modules/kubeflow/scripts/`, Trivy IaC scan on
-  `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md`
+  `shellcheck` on `tofu/scripts/` and `tofu/modules/hami/scripts/`, an
+  `examples` job (yamllint, `py_compile`, JSON check, `make -n`), Trivy IaC
+  scan on `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md`
   (config `.markdownlint.json`).
 - GPU smoke test: `make -C examples/gpu-validation apply wait logs`
   (needs a live cluster with the GPU Operator running).
+- Argo GPU step: `make -C examples/argo-gpu-job submit wait logs`
+  (needs `install_argo_workflows = true` and HAMi).
 - Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
   then `make -C examples/ollama models chat` (needs `install_ollama = true`).
 
@@ -44,7 +45,7 @@ source of truth.
   downloaded: the chart pulls them in a `postStart` hook, so the pod isn't
   Ready until they finish (~49 GB for the defaults). If it times out,
   re-running `tofu apply` resumes.
-- Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*`. `.terraform.lock.hcl`
+- Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*.yaml`. `.terraform.lock.hcl`
   **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
   (copy from `tofu.tfvars.example`).
 
@@ -62,18 +63,24 @@ source of truth.
 - `install_opencost = true` requires `install_monitoring = true` for full
   functionality (documented in the variable description; not currently
   enforced by a `check` block).
-- `install_ollama = true` (default) gives Ollama the whole GPU via HAMi's
-  `nvidia.com/gpumem` (only passed when `install_hami = true`; without HAMi
-  that resource doesn't exist and the pod would never schedule). Other GPU
-  pods can't schedule while it runs. Its Helm release is deliberately **not**
-  `atomic`, unlike the other modules: the first install waits for model
-  downloads, and a rollback would delete the partially filled volume.
+- `install_ollama = true` (default) gives Ollama a **slice** of the GPU via
+  HAMi's `nvidia.com/gpumem` (`ollama_gpu_memory_mib`, default 16000 of the
+  card's 20 GB; only passed when `install_hami = true` — without HAMi that
+  resource doesn't exist and the pod would never schedule). The rest is for
+  plain `nvidia.com/gpu` pods, which get `hami_default_gpu_memory` (4000);
+  Argo Workflow GPU steps rely on this. Setting `ollama_gpu_memory_mib` to the
+  full card, or `install_hami = false`, starves other GPU pods. Its Helm
+  release is deliberately **not** `atomic`, unlike the other modules: the
+  first install waits for model downloads, and a rollback would delete the
+  partially filled volume.
+- `install_open_webui = true` (default off) needs `install_ollama`; it is
+  CPU-only, on the system pool. Argo runs with `auth_mode = "server"` (no
+  login), so neither UI may be exposed beyond `kubectl port-forward`.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
-  advisory warnings — currently: `install_kubeflow` without `install_hami`,
-  `install_kubeflow` on a system node pool too small for the measured
-  ~9-10 GB usage, a GPU plan not offered in the chosen region, and Ollama
-  without the GPU Operator or asking for more GPU memory than one card has.
-  Warnings, not failures.
+  advisory warnings — currently: a GPU plan not offered in the chosen region,
+  Ollama without the GPU Operator, Ollama asking for more GPU memory than one
+  card has (alone, or together with the default HAMi slice), Open WebUI without
+  Ollama, and Argo plus Ollama without HAMi. Warnings, not failures.
 
 ## GPU node image (LKE)
 
@@ -90,19 +97,11 @@ source of truth.
   `templates/values.yaml.tftpl`, `README.md`. New modules must mirror this and
   be added to the CI matrix in `.github/workflows/ci.yml` and to
   `.github/dependabot.yml`.
-  - **Exception: `modules/kubeflow`.** Upstream Kubeflow has no single Helm
-    chart covering the full platform (only a few individual components ship
-    experimental charts) — this module installs via
-    `kustomize build | kubectl apply` in a `local-exec` provisioner instead
-    of `helm_release`, and has no `templates/values.yaml.tftpl`. This is
-    intentional (see `modules/kubeflow/README.md`); don't "fix" it back into
-    the Helm pattern.
 - `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
   because the first install waits for model downloads, and it is the one
   Helm module with `atomic = false` (see above). Both are intentional.
-- Default `system_node_type` is `g6-standard-2` (`variables.tf:74`);
-  `g6-standard-8` is recommended only when adding Kubeflow (measured usage
-  with the full stack is ~9-10 GB).
+- Default `system_node_type` is `g6-standard-2` (4 GB), enough for the default
+  stack including Argo Workflows and Open WebUI.
 
 ## Conventions
 

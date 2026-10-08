@@ -1,0 +1,39 @@
+# Use the cluster's existing Ollama instead of the chart's bundled one.
+ollama:
+  enabled: false
+ollamaUrls:
+  - "${ollama_url}"
+
+# No Pipelines, and the in-memory websocket manager (single replica) so no
+# Redis is deployed.
+pipelines:
+  enabled: false
+websocket:
+  enabled: true
+  manager: ""
+  redis:
+    enabled: false
+
+extraEnvVars:
+  - name: ENABLE_SIGNUP
+    value: "${enable_signup}"
+
+persistence:
+  enabled: true
+  size: ${storage_size}
+  storageClass: "${storage_class}"
+
+resources:
+  requests:
+    cpu: ${resources.requests.cpu}
+    memory: ${resources.requests.memory}
+  limits:
+    cpu: ${resources.limits.cpu}
+    memory: ${resources.limits.memory}
+%{ if length(node_selector) > 0 ~}
+
+nodeSelector:
+%{ for k, v in node_selector ~}
+  ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}

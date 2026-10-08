@@ -55,8 +55,8 @@ resource "helm_release" "hami" {
 # controls the vGPU memory slice a Pod gets when it requests
 # `nvidia.com/gpu` WITHOUT an explicit `nvidia.com/gpumem` limit — 0 means
 # "give the whole physical GPU", which defeats the point of virtualization
-# for any workload (e.g. most Kubeflow-orchestrated pods) that can't easily
-# set that extra resource key.
+# for any workload (e.g. Argo Workflow steps) that can't easily set that
+# extra resource key.
 #
 # Authors the ConfigMap's data directly (rather than reading Helm's rendered
 # version and merging in the one field we want) because the Terraform
@@ -106,7 +106,7 @@ resource "kubernetes_config_map_v1_data" "device_config_default_memory" {
 # on ConfigMap change (kubelet updates the mounted file, but the running
 # process doesn't watch it) — so the patch above has no effect until the
 # scheduler restarts. Do that here, right after the patch, using a scratch
-# kubeconfig (same approach as modules/kubeflow) since this module otherwise
+# kubeconfig since this module otherwise
 # only talks to the cluster via the Helm/Kubernetes Terraform providers,
 # neither of which can trigger a Deployment rollout restart directly.
 resource "local_sensitive_file" "kubeconfig" {
@@ -127,7 +127,7 @@ resource "terraform_data" "restart_scheduler" {
   }
 
   provisioner "local-exec" {
-    # Explicit bash interpreter (matching modules/kubeflow) and a script using
+    # Explicit bash interpreter and a script using
     # `set -euo pipefail`, so a failed `rollout restart` (RBAC issue, wrong
     # Deployment name, ...) actually fails the apply instead of `rollout
     # status` papering over it. Paths are absolute and quoted since the module
