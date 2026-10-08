@@ -23,9 +23,12 @@ tofu.rc
 *.tfvars.json
 !*.tfvars.example
 
-# Kubeconfigs
+# Kubeconfigs. .kubeconfig-* covers the token-bearing scratch file the removed
+# HAMi module wrote (tofu/modules/hami/.kubeconfig-hami); it can still be on
+# disk in checkouts that predate the KServe rebuild, so keep it ignored.
 kubeconfig*.yaml
 *.kubeconfig
+.kubeconfig-*
 .kube/
 
 # Editors, OS, Python bytecode, local env

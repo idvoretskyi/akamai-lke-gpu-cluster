@@ -32,8 +32,8 @@ output "validation_commands" {
     # Applications: SYNC STATUS should be Synced, HEALTH Healthy
     kubectl get applications -n ${helm_release.argo_cd.namespace}
 
-    # UI on http://localhost:8080 (user: admin)
+    # UI on http://localhost:8081 (user: admin); 8080 is the model Gateway
     kubectl -n ${helm_release.argo_cd.namespace} get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
-    kubectl port-forward -n ${helm_release.argo_cd.namespace} svc/argo-cd-argocd-server 8080:80
+    kubectl port-forward -n ${helm_release.argo_cd.namespace} svc/argo-cd-argocd-server 8081:80
   EOT
 }
