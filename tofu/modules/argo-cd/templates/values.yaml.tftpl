@@ -10,7 +10,10 @@ global:
 
 configs:
   params:
-    # TLS is terminated by kubectl port-forward's tunnel; serve plain HTTP.
+    # Serve plain HTTP. kubectl port-forward does not terminate TLS; it only
+    # forwards the connection. The server is reachable solely through that
+    # tunnel (ClusterIP, no Ingress), which is authenticated by the Kubernetes
+    # API, so the UI is never exposed in cleartext outside the cluster.
     server.insecure: true
 
 # Lab install: local admin only, no SSO or notification controller.

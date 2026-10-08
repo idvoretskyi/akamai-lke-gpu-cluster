@@ -42,6 +42,11 @@ variable "applications" {
     condition     = alltrue([for a in var.applications : can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", a.name))])
     error_message = "Each application name must be a valid Kubernetes resource name (lowercase alphanumerics and '-')."
   }
+
+  validation {
+    condition     = length(distinct([for a in var.applications : a.name])) == length(var.applications)
+    error_message = "Application names must be unique: they all become Application objects in the Argo CD namespace."
+  }
 }
 
 variable "timeout" {

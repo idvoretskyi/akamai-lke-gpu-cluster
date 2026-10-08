@@ -86,7 +86,7 @@ grafana_storage_size    = "5Gi"  # ~$0.50/month
 # Deleted with the cluster. Upgrading a cluster created with the old
 # "linode-block-storage-retain" default in place? Set that value here: a PVC's
 # storage class can't be changed (see README "Upgrading an existing cluster").
-# monitoring_storage_class = "linode-block-storage"
+# monitoring_storage_class = "linode-block-storage-retain"
 
 # Optional: override default CPU/memory requests+limits (defaults shown)
 # prometheus_resources = {
