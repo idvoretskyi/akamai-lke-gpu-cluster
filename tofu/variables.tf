@@ -252,6 +252,17 @@ variable "grafana_storage_size" {
   }
 }
 
+variable "monitoring_storage_class" {
+  description = "StorageClass for the Prometheus and Grafana volumes. linode-block-storage deletes the Linode volumes with the cluster. Clusters created before this default changed use linode-block-storage-retain, and a PVC's class is immutable, so set that value to upgrade them in place (see README 'Upgrading an existing cluster')."
+  type        = string
+  default     = "linode-block-storage"
+
+  validation {
+    condition     = contains(["linode-block-storage", "linode-block-storage-retain"], var.monitoring_storage_class)
+    error_message = "monitoring_storage_class must be linode-block-storage or linode-block-storage-retain."
+  }
+}
+
 # ─── Model Serving (KServe + vLLM) ────────────────────────────────────────────
 # install_kserve also installs its dependencies: cert-manager (webhook TLS) and
 # Envoy Gateway (Gateway API implementation).

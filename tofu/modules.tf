@@ -50,6 +50,7 @@ module "kube_prometheus_stack" {
   prometheus_retention    = var.prometheus_retention
   prometheus_storage_size = var.prometheus_storage_size
   grafana_storage_size    = var.grafana_storage_size
+  storage_class           = var.monitoring_storage_class
   enable_gpu_monitoring   = local.gpu_monitoring_enabled
   dcgm_exporter_namespace = try(module.gpu_operator[0].namespace, "gpu-operator")
   prometheus_resources    = var.prometheus_resources

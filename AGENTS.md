@@ -61,7 +61,10 @@ Helm charts; see "Module convention" below). The model workload lives in
   cert-manager, Envoy Gateway, KServe, Argo CD) does not fit `g6-standard-2`.
 - Cost is managed by destroying and recreating the cluster (`tofu destroy` /
   `tofu apply`). There are no suspend/resume scripts. Monitoring volumes use
-  `linode-block-storage` (deleted with the PVC), so destroy leaves no volumes.
+  `monitoring_storage_class` = `linode-block-storage` (deleted with the PVC),
+  so destroy leaves no volumes. A PVC's class is immutable: clusters created
+  with the old `-retain` default must set that value or be recreated (README
+  "Upgrading an existing cluster").
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
   The GPU pool is tainted `nvidia.com/gpu=present:NoSchedule` when
   `dedicate_gpu_nodes = true` (default); system workloads are pinned via

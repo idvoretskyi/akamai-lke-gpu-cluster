@@ -212,6 +212,19 @@ The monitoring volumes use the `linode-block-storage` class, so `tofu
 destroy` deletes them too. Model weights live in the predictor pod's
 ephemeral storage and are downloaded again on each start.
 
+## Upgrading an existing cluster
+
+Clusters created before the KServe rebuild used the
+`linode-block-storage-retain` class for the Prometheus and Grafana volumes. A
+PVC's storage class is immutable, so applying the new default in place fails
+when Helm tries to patch Grafana's PVC (and the release rolls back). Either:
+
+- **Recreate** (the intended path, matching the destroy/recreate cost model):
+  `tofu destroy`, delete the retained volumes left in Cloud Manager
+  (`linode-cli volumes list`), then `tofu apply`; or
+- **Keep the old class**: set `monitoring_storage_class =
+  "linode-block-storage-retain"` in `tofu.tfvars` before applying.
+
 ## Security
 
 - API token comes from `~/.config/linode-cli` or `LINODE_TOKEN`; it is never
