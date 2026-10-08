@@ -66,9 +66,11 @@ spec:
           secretKeyRef:
             name: hf-secret   # resolved in the InferenceService's namespace
             key: HF_TOKEN
+    # Match the kserve module's storage_initializer_memory_limit: 1Gi is
+    # OOM-killed downloading multi-GB checkpoints.
     resources:
-      requests: {cpu: 100m, memory: 100Mi}
-      limits: {cpu: "1", memory: 1Gi}
+      requests: {cpu: 100m, memory: 512Mi}
+      limits: {cpu: "1", memory: 4Gi}
   supportedUriFormats:
     - prefix: hf://
 ```
