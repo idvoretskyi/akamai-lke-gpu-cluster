@@ -1,11 +1,5 @@
 # Advisory (non-blocking) checks — warnings only, never fail `tofu apply`.
 # See AGENTS.md: OpenTofu `check` blocks (>= 1.9).
-#
-# Note: install_hami requiring install_gpu_operator is a hard error (variable
-# validation on install_hami in variables.tf), not just advisory here — HAMi
-# is entirely non-functional without the operator's driver/toolkit, so it's
-# treated as a real misconfiguration rather than a "you might want to
-# reconsider" suggestion.
 
 # RTX 4000 Ada plans (g2-gpu-*) are only offered in a subset of Linode regions
 # (notably not London). Point-in-time list — re-check with:
@@ -21,47 +15,23 @@ check "gpu_plan_available_in_region" {
   }
 }
 
-# Per-card VRAM (MiB) of Linode GPU plans, keyed by plan-name prefix. Used to
-# sanity-check how much GPU memory Ollama asks HAMi for.
-locals {
-  gpu_vram_mib_by_plan_prefix = {
-    "g2-gpu-rtx4000a" = 20475 # RTX 4000 Ada, 20 GB
-    "g1-gpu-rtx6000"  = 24576 # Quadro RTX 6000, 24 GB
-  }
-  gpu_vram_mib = one([for prefix, mib in local.gpu_vram_mib_by_plan_prefix : mib if startswith(var.gpu_node_type, prefix)])
-}
-
-check "ollama_requires_gpu_operator" {
+check "kserve_requires_gpu_operator" {
   assert {
-    condition     = !var.install_ollama || var.install_gpu_operator
-    error_message = "install_ollama is enabled without install_gpu_operator — Ollama needs the NVIDIA driver/toolkit to use the GPU and will not schedule without an nvidia.com/gpu resource."
+    condition     = !var.install_kserve || var.install_gpu_operator
+    error_message = "install_kserve is enabled without install_gpu_operator — no node advertises nvidia.com/gpu, so the vLLM InferenceService will never schedule."
   }
 }
 
-check "ollama_gpu_memory_fits_card" {
+check "gitops_application_needs_kserve" {
   assert {
-    condition     = !var.install_ollama || !var.install_hami || local.gpu_vram_mib == null || var.ollama_gpu_memory_mib <= local.gpu_vram_mib
-    error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — HAMi will never schedule the Ollama pod."
+    condition     = !var.install_argo_cd || var.install_kserve || var.gitops_path == ""
+    error_message = "install_argo_cd is enabled without install_kserve — the bootstrap 'vllm' Application is skipped, since the InferenceService CRD would not exist."
   }
 }
 
-check "ollama_leaves_headroom_for_default_slice" {
+check "public_gateway_with_open_api" {
   assert {
-    condition     = !var.install_ollama || !var.install_hami || local.gpu_vram_mib == null || var.hami_default_gpu_memory == 0 || var.ollama_gpu_memory_mib + var.hami_default_gpu_memory <= local.gpu_vram_mib
-    error_message = "ollama_gpu_memory_mib (${var.ollama_gpu_memory_mib}) + hami_default_gpu_memory (${var.hami_default_gpu_memory}) exceeds the ${coalesce(local.gpu_vram_mib, 0)} MiB of VRAM on one '${var.gpu_node_type}' GPU — a plain nvidia.com/gpu pod (e.g. an Argo Workflow GPU step) will not schedule while Ollama runs."
-  }
-}
-
-check "open_webui_requires_ollama" {
-  assert {
-    condition     = !var.install_open_webui || var.install_ollama
-    error_message = "install_open_webui is enabled without install_ollama — Open WebUI has no model backend to talk to."
-  }
-}
-
-check "argo_workflows_gpu_steps_need_hami" {
-  assert {
-    condition     = !var.install_argo_workflows || !var.install_ollama || var.install_hami
-    error_message = "install_argo_workflows and install_ollama are both enabled without install_hami — Ollama then holds the whole GPU and Argo Workflow GPU steps will not schedule."
+    condition     = !var.install_kserve || var.gateway_service_type != "LoadBalancer"
+    error_message = "gateway_service_type = LoadBalancer exposes the model endpoint on a public NodeBalancer with no authentication. Anyone who finds the IP can use the GPU."
   }
 }

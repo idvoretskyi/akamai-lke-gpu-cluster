@@ -1,0 +1,36 @@
+{{- range .Values.applications }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name | quote }}
+  namespace: {{ $.Release.Namespace | quote }}
+  # Deleting the Application deletes what it synced.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .repo_url | quote }}
+    targetRevision: {{ .target_revision | quote }}
+    path: {{ .path | quote }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .namespace | quote }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # InferenceService objects are large; server-side apply avoids the
+      # last-applied annotation size limit.
+      - ServerSideApply=true
+    # KServe's webhook may not be ready the first time Argo CD syncs.
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+{{- end }}

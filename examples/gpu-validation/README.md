@@ -5,13 +5,11 @@ Pod to confirm the GPU substrate is working immediately after `tofu apply`.
 
 **No prerequisites beyond the GPU Operator.** Just a kubeconfig and `kubectl`.
 
-> **Note:** with this repo's default `install_hami = true`, HAMi's admission
-> webhook intercepts this Pod too (it requests `nvidia.com/gpu` like any
-> other workload) and caps its visible GPU memory at `hami_default_gpu_memory`
-> (default **4000 MiB**), not the full ~20 GB card. That's expected — see
-> `tofu/modules/hami/README.md`. Set `install_hami = false` (or
-> `hami_default_gpu_memory = 0`) to validate the raw, unvirtualized substrate
-> instead.
+> **Note:** the pod needs a whole GPU. With the default stack the vLLM
+> InferenceService already holds the only one, so this pod stays `Pending`.
+> Run it before Argo CD syncs the model, temporarily remove the model (point
+> `gitops_path` at an empty directory or delete the `vllm` Application), or
+> add a second GPU node (`gpu_node_count = 2`).
 
 ## What it validates
 
@@ -60,6 +58,5 @@ kubectl delete pod/gpu-validation
 
 ## After validation
 
-- [`../hami-validation/`](../hami-validation/) — two pods sharing the card.
-- [`../argo-gpu-job/`](../argo-gpu-job/) — a GPU step in an Argo Workflow.
-- [`../ollama/`](../ollama/) — chat with the models served from the GPU.
+- [`../kserve-chat/`](../kserve-chat/) — chat with the model served by KServe + vLLM.
+- [`../argocd/`](../argocd/) — the GitOps view of the model.

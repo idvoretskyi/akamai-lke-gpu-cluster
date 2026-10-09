@@ -1,0 +1,28 @@
+kserve:
+  # Storage initializer (init container that downloads storageUri). The 1Gi
+  # default is OOM-killed fetching multi-GB Hugging Face checkpoints.
+  storage:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: ${storage_initializer_memory_limit}
+  controller:
+    # Plain Kubernetes Deployments/Services/HPAs; no Knative or Istio.
+    deploymentMode: Standard
+%{ if length(node_selector) > 0 ~}
+    nodeSelector:
+%{ for k, v in node_selector ~}
+      ${k}: "${v}"
+%{ endfor ~}
+%{ endif ~}
+    gateway:
+      # InferenceService URLs become http://<name>-<namespace>.<domain>; the
+      # Gateway routes on that Host header.
+      domain: ${domain}
+      ingressGateway:
+        enableGatewayApi: true
+        createGateway: true
+        kserveGateway: ${namespace}/kserve-ingress-gateway

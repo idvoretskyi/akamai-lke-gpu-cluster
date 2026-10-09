@@ -40,9 +40,9 @@ variable "grafana_storage_size" {
 }
 
 variable "storage_class" {
-  description = "Kubernetes StorageClass used for persistent volumes (Prometheus, Grafana, Alertmanager)"
+  description = "Kubernetes StorageClass used for persistent volumes (Prometheus, Grafana). The default deletes the Linode volume with the PVC, so `tofu destroy` leaves no billed volumes behind; use linode-block-storage-retain to keep metrics across rebuilds."
   type        = string
-  default     = "linode-block-storage-retain"
+  default     = "linode-block-storage"
 }
 
 variable "node_selector" {

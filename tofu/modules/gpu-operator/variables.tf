@@ -22,7 +22,7 @@ variable "install_driver" {
 }
 
 variable "device_plugin_enabled" {
-  description = "Enable the GPU Operator's stock NVIDIA device plugin. Set false when HAMi (or another GPU-virtualization device plugin) manages GPU scheduling instead — the operator then only provides the driver, container toolkit, DCGM, and GFD."
+  description = "Enable the GPU Operator's stock NVIDIA device plugin. Set false only when another device plugin (e.g. a GPU-sharing one) advertises nvidia.com/gpu instead."
   type        = bool
   default     = true
 }
