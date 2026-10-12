@@ -39,8 +39,12 @@ migManager:
 nodeStatusExporter:
   enabled: ${enable_node_status_exporter}
 
+# The plugin validator only checks that nvidia.com/gpu is advertised; it does
+# not launch a test pod that claims a GPU. With WITH_WORKLOAD=true that pod can
+# never run once a model server holds the node's only GPU, and the validator
+# retries forever, leaving failed pods behind.
 validator:
   plugin:
     env:
       - name: WITH_WORKLOAD
-        value: "true"
+        value: "false"

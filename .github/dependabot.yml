@@ -17,6 +17,48 @@ updates:
 
   # Keep Terraform/OpenTofu providers up-to-date for each module
   - package-ecosystem: "terraform"
+    directory: "/tofu/modules/argo-cd"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
+    directory: "/tofu/modules/cert-manager"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
+    directory: "/tofu/modules/envoy-gateway"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(terraform)"
+    labels:
+      - dependencies
+    groups:
+      terraform-providers:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "terraform"
     directory: "/tofu/modules/gpu-operator"
     schedule:
       interval: "weekly"
@@ -31,49 +73,7 @@ updates:
           - "*"
 
   - package-ecosystem: "terraform"
-    directory: "/tofu/modules/hami"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/argo-workflows"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/open-webui"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/metrics-server"
+    directory: "/tofu/modules/kserve"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -101,21 +101,7 @@ updates:
           - "*"
 
   - package-ecosystem: "terraform"
-    directory: "/tofu/modules/ollama"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "deps(terraform)"
-    labels:
-      - dependencies
-    groups:
-      terraform-providers:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
-    directory: "/tofu/modules/opencost"
+    directory: "/tofu/modules/metrics-server"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

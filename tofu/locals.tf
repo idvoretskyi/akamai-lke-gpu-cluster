@@ -48,11 +48,7 @@ locals {
   node_role_label_key = "nodepool.lke/role"
 
   system_node_labels = { (local.node_role_label_key) = "system" }
-  # "gpu" = "on" matches the label the HAMi chart's devicePlugin targets by
-  # default (devicePlugin.nvidiaNodeSelector); Helm merges map values rather
-  # than replacing them, so the module's nvidia_node_selector override is
-  # additive on top of that default — the GPU nodes must carry both labels.
-  gpu_node_labels = { (local.node_role_label_key) = "gpu", gpu = "on" }
+  gpu_node_labels    = { (local.node_role_label_key) = "gpu" }
 
   # Selector used to pin system/monitoring workloads onto the system pool.
   system_node_selector = local.system_node_labels
@@ -71,6 +67,11 @@ locals {
 
   # CIDRs allowed to talk to each other inside the cluster (nodes + pods).
   intra_cluster_cidrs = concat(var.node_cidrs, var.pod_cidrs)
+
+  # The bootstrap "vllm" Application (and so the InferenceService) exists only
+  # with Argo CD, KServe (its CRD) and a GitOps path. Shared by modules.tf and
+  # outputs.tf so the two can't drift.
+  model_application_enabled = var.install_argo_cd && var.install_kserve && var.gitops_path != ""
 
   # GPU monitoring only makes sense when the GPU Operator (DCGM) is installed.
   gpu_monitoring_enabled = var.enable_gpu_monitoring && var.install_gpu_operator

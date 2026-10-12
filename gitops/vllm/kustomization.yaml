@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# No namespace here: Argo CD places these resources in the Application's
+# destination namespace (var.model_namespace, default "vllm") and creates it.
+# That namespace must not carry a control-plane label, or KServe's webhooks
+# skip it.
+
+resources:
+  - inferenceservice.yaml

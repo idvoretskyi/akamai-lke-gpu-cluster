@@ -1,5 +1,5 @@
 # ============================================================================
-# Linode GPU Kubernetes Lab — Configuration
+# LKE + KServe GPU reference architecture — Configuration
 # ============================================================================
 # Copy this file to tofu.tfvars and adjust as needed.
 #
@@ -34,11 +34,12 @@ gpu_node_count = 1
 # ============================================================================
 # System Node Pool
 # ============================================================================
-# Small CPU pool for monitoring and system workloads (~$24/month).
+# CPU pool for the platform: monitoring, cert-manager, Envoy Gateway, KServe
+# controller, Argo CD (~$48/month). g6-standard-2 (4 GB) is too small for it.
 # List shared-CPU plans:
 #   linode-cli linodes types --json | jq '.[] | select(.class=="standard")'
 
-system_node_type   = "g6-standard-2"
+system_node_type   = "g6-standard-4"
 system_node_count  = 1
 dedicate_gpu_nodes = true
 
@@ -66,20 +67,6 @@ gpu_operator_version  = "v26.7.1"
 enable_gpu_monitoring = true
 
 # ============================================================================
-# HAMi (GPU Virtualization) — lab default: enabled
-# ============================================================================
-# Splits each physical GPU into vGPU slices so multiple pods can share one
-# GPU. Disables the GPU Operator's stock device plugin when enabled.
-
-install_hami            = true
-hami_version            = "2.9.0"
-hami_device_split_count = 10
-# vGPU memory (MB) given to nvidia.com/gpu requests with no explicit gpumem
-# (e.g. Argo Workflow GPU steps). Ollama takes 16000 MiB of the 20 GB card, so
-# 4000 leaves room for exactly one such pod. 0 = whole physical GPU.
-hami_default_gpu_memory = 4000
-
-# ============================================================================
 # Metrics Server
 # ============================================================================
 
@@ -96,6 +83,10 @@ grafana_admin_password  = "admin"
 prometheus_retention    = "7d"
 prometheus_storage_size = "15Gi" # ~$1.50/month
 grafana_storage_size    = "5Gi"  # ~$0.50/month
+# Deleted with the cluster. Upgrading a cluster created with the old
+# "linode-block-storage-retain" default in place? Set that value here: a PVC's
+# storage class can't be changed (see README "Upgrading an existing cluster").
+# monitoring_storage_class = "linode-block-storage-retain"
 
 # Optional: override default CPU/memory requests+limits (defaults shown)
 # prometheus_resources = {
@@ -108,48 +99,38 @@ grafana_storage_size    = "5Gi"  # ~$0.50/month
 # }
 
 # ============================================================================
-# Cost Monitoring (OpenCost)
+# Model Serving — KServe (Standard mode) + vLLM, behind Envoy Gateway
 # ============================================================================
+# Also installs cert-manager (KServe webhook TLS) and Envoy Gateway (Gateway
+# API). The model itself is not configured here: Argo CD syncs it from
+# gitops/vllm (see the GitOps section). Fits on an RTX 4000 Ada (20 GB):
+#   Qwen/Qwen3-8B-FP8 (default, ~9 GB weights, 32k context)
+#   Qwen/Qwen3-14B-FP8 (~16 GB weights, lower --max-model-len, ~8k)
 
-install_opencost = true
-opencost_version = "2.5.14"
+install_kserve = true
+# kserve_version        = "v0.20.0"
+# cert_manager_version  = "v1.21.2"
+# envoy_gateway_version = "v1.9.2"
+# kserve_ingress_domain = "kserve.local"
+# model_namespace       = "vllm"
 
-# ============================================================================
-# Ollama (LLM serving)
-# ============================================================================
-# Serves local LLMs from the GPU node. Reach it with:
-#   kubectl port-forward -n ollama service/ollama 11434:11434
-# Fit on an RTX 4000 Ada (20 GB VRAM), download size in brackets:
-#   gpt-oss:20b (14 GB), gemma4:12b (7.7 GB), qwen3.5:9b (6.6 GB) — comfortable
-#   qwen3.8:27b (18 GB), gemma4:26b (16 GB) — need ollama_gpu_memory_mib = 20000
-#   Kimi K2 / DeepSeek V3 / GLM-5 — far too large (cloud-only in Ollama)
-# Ollama takes a 16 GB HAMi slice, leaving ~4 GB for other GPU pods.
-
-install_ollama      = true
-ollama_models       = ["gpt-oss:20b", "gemma4:12b", "qwen3.5:9b"]
-ollama_storage_size = "50Gi" # ~$5/month
-# ollama_version        = "1.84.0"
-# ollama_gpu_memory_mib = 16000 # HAMi slice (20000 = whole GPU); ignored without HAMi
-# ollama_context_length = 8192
+# ClusterIP keeps the unauthenticated model endpoint private (kubectl
+# port-forward). LoadBalancer exposes it on a public NodeBalancer (~$10/month).
+gateway_service_type = "ClusterIP"
 
 # ============================================================================
-# Argo Workflows (CNCF) — GPU steps share the card with Ollama via HAMi
+# GitOps — Argo CD
 # ============================================================================
-# UI: kubectl port-forward -n argo service/argo-workflows-server 2746:2746
+# Bootstraps the "vllm" Application, which syncs gitops_path from
+# gitops_repo_url. Fork the repo (or point at a branch) to change the model.
+# UI: kubectl port-forward -n argocd svc/argo-cd-argocd-server 8081:80
+#     (8080 is used by the model Gateway port-forward)
 
-install_argo_workflows = true
-# argo_workflows_version = "2.0.11"
-
-# ============================================================================
-# Open WebUI — browser front-end for Ollama (opt-in)
-# ============================================================================
-# UI: kubectl port-forward -n open-webui service/open-webui 8080:80
-# The first account you create is the admin. The signup flag is only the
-# initial default; turn sign-ups off later in Admin Settings > General.
-
-install_open_webui = false
-# open_webui_version       = "16.6.0"
-# open_webui_enable_signup = true
+install_argo_cd = true
+# argo_cd_version        = "10.10.1"
+# gitops_repo_url        = "https://github.com/idvoretskyi/akamai-lke-gpu-cluster.git"
+# gitops_target_revision = "main"
+# gitops_path            = "gitops/vllm"
 
 # ============================================================================
 # Cost Management

@@ -1,0 +1,8 @@
+# Rendered by CI (helm lint/template) so the Application template is exercised.
+# The all-digit namespace checks that it stays a string after rendering.
+applications:
+  - name: vllm
+    namespace: "1234"
+    repo_url: https://github.com/idvoretskyi/akamai-lke-gpu-cluster.git
+    target_revision: main
+    path: gitops/vllm

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: envoy-gateway-class
+description: GatewayClass and EnvoyProxy settings for Envoy Gateway (local chart, managed by OpenTofu)
+type: application
+version: 0.1.0

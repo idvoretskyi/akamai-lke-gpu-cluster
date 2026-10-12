@@ -47,7 +47,7 @@ module "gpu_operator" {
 | `chart_version` | Helm chart version (`vX.Y.Z`) | `"v26.7.1"` |
 | `install_driver` | Install NVIDIA driver (LKE nodes ship it) | `false` |
 | `install_toolkit` | Install the NVIDIA Container Toolkit (rewrites containerd config) | `false` |
-| `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` when HAMi manages GPU scheduling instead | `true` |
+| `device_plugin_enabled` | Enable the stock NVIDIA device plugin; set `false` only if another device plugin advertises `nvidia.com/gpu` | `true` |
 | `enable_dcgm_exporter` | Enable DCGM Exporter for GPU metrics | `true` |
 | `enable_node_status_exporter` | Enable Node Status Exporter | `true` |
 | `node_selector` | nodeSelector to pin the operator controller (e.g. the system pool) | `{}` |

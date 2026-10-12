@@ -2,9 +2,10 @@
 #
 # The cluster runs two node pools:
 #   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
-#     metrics-server, OpenCost, GPU Operator controller, Argo Workflows, Open WebUI).
+#     metrics-server, GPU Operator controller, cert-manager, Envoy Gateway,
+#     KServe controller, Argo CD).
 #   * gpu    — the (expensive) GPU pool, tainted when var.dedicate_gpu_nodes is
-#     true so it is reserved purely for GPU-intensive workloads.
+#     true so it is reserved for model servers (the vLLM InferenceService).
 #
 # Autoscaling is intentionally disabled on both pools. Fixed node counts keep
 # costs fully predictable — no surprise scale-up events on expensive GPU nodes.

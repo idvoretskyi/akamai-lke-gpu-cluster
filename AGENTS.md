@@ -1,10 +1,11 @@
 # AGENTS.md
 
-OpenTofu IaC repo, **no application code**. All config lives in `tofu/` (root
-module + eight modules in `tofu/modules/`, each wrapping one Helm chart; see
-"Module convention" below). The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`. When code
-and prose disagree, the `.tf` files and `tofu/tofu.tfvars.example` are the
-source of truth.
+OpenTofu IaC repo plus GitOps manifests, **no application code**. The platform
+lives in `tofu/` (root module + seven modules in `tofu/modules/`, each wrapping
+Helm charts; see "Module convention" below). The model workload lives in
+`gitops/` and is applied by Argo CD, not by OpenTofu. The CLI is `tofu`
+(OpenTofu >= 1.9), **not** `terraform`. When code and prose disagree, the
+`.tf` files, `tofu/tofu.tfvars.example` and `gitops/` are the source of truth.
 
 ## Commands (run from `tofu/`)
 
@@ -17,16 +18,18 @@ source of truth.
   dir*, not just at root.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
   (config `tofu/.tflint.hcl`, passed explicitly so modules use it too),
-  `shellcheck` on `tofu/scripts/` and `tofu/modules/hami/scripts/`, an
-  `examples` job (yamllint, `py_compile`, JSON check, `make -n`), Trivy IaC
-  scan on `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md`
-  (config `.markdownlint.json`).
-- GPU smoke test: `make -C examples/gpu-validation apply wait logs`
-  (needs a live cluster with the GPU Operator running).
-- Argo GPU step: `make -C examples/argo-gpu-job submit wait logs`
-  (needs `install_argo_workflows = true` and HAMi).
-- Ollama smoke test: `make -C examples/ollama port-forward` in one terminal,
-  then `make -C examples/ollama models chat` (needs `install_ollama = true`).
+  `shellcheck` on `tofu/scripts/`, an `examples` job (yamllint, `py_compile`
+  if any `.py` exists, JSON check, `make -n`), a `gitops` job (yamllint on
+  `gitops/`, `kubectl kustomize` on every Kustomize dir, `helm lint` +
+  `helm template` on every `tofu/modules/*/chart`), Trivy IaC scan on `tofu/`
+  (fails on HIGH/CRITICAL), markdownlint on `**/*.md` (config
+  `.markdownlint.json`).
+- Model smoke test (live cluster): `make -C examples/kserve-chat wait`, then
+  `make -C examples/kserve-chat port-forward` in one terminal and
+  `make -C examples/kserve-chat models chat` in another.
+- GitOps status: `make -C examples/argocd apps status`.
+- GPU smoke test: `make -C examples/gpu-validation apply wait logs` — only
+  schedules when no InferenceService holds the GPU (see below).
 
 ## Local apply quirks
 
@@ -38,70 +41,86 @@ source of truth.
   are present. There is no tfvars entry for the token.
 - `tofu apply` runs a `local-exec` that merges the kubeconfig into
   `~/.kube/config` (requires `kubectl` on PATH). Set `merge_kubeconfig = false`
-  to skip (CI / externally managed kubeconfig). `kubectl` is also required
-  whenever `install_hami = true` (default): the HAMi module restarts its
-  scheduler via `modules/hami/scripts/restart-scheduler.sh`.
-- The first apply with `install_ollama = true` blocks until the models are
-  downloaded: the chart pulls them in a `postStart` hook, so the pod isn't
-  Ready until they finish (~49 GB for the defaults). If it times out,
-  re-running `tofu apply` resumes.
+  to skip (CI / externally managed kubeconfig).
+- `tofu apply` does **not** wait for the model. Argo CD syncs the
+  InferenceService afterwards; its first start pulls the ~7 GB vLLM image and
+  ~9 GB of weights (~10 min). Check with `kubectl get isvc -n vllm`.
+- Argo CD syncs `gitops_path` from `gitops_repo_url` at
+  `gitops_target_revision` (default `main`), anonymously. Changes to `gitops/`
+  only reach the cluster once pushed; to test a branch, set
+  `gitops_target_revision` to it in `tofu.tfvars`.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*.yaml`. `.terraform.lock.hcl`
-  **is tracked** — do not gitignore it. Put real config in `tofu/tofu.tfvars`
-  (copy from `tofu.tfvars.example`).
+  **is tracked** (root and each module) — do not gitignore it. Put real config
+  in `tofu/tofu.tfvars` (copy from `tofu.tfvars.example`).
 
 ## Non-obvious constraints (easy to break)
 
-- `system_node_type` must differ from `gpu_node_type` (`variables.tf:77`): pool
+- `system_node_type` must differ from `gpu_node_type` (`variables.tf`): pool
   outputs match pools by instance type, so identical types break those outputs.
+- Default `system_node_type` is `g6-standard-4` (8 GB). The platform (monitoring,
+  cert-manager, Envoy Gateway, KServe, Argo CD) does not fit `g6-standard-2`.
 - Cost is managed by destroying and recreating the cluster (`tofu destroy` /
-  `tofu apply`). There are no suspend/resume scripts.
+  `tofu apply`). There are no suspend/resume scripts. Monitoring volumes use
+  `monitoring_storage_class` = `linode-block-storage` (deleted with the PVC),
+  so destroy leaves no volumes. A PVC's class is immutable: clusters created
+  with the old `-retain` default must set that value or be recreated (README
+  "Upgrading an existing cluster").
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
   The GPU pool is tainted `nvidia.com/gpu=present:NoSchedule` when
   `dedicate_gpu_nodes = true` (default); system workloads are pinned via
-  `nodepool.lke/role=system`. GPU workloads must add the matching toleration and
-  an `nvidia.com/gpu` resource limit.
-- `install_opencost = true` requires `install_monitoring = true` for full
-  functionality (documented in the variable description; not currently
-  enforced by a `check` block).
-- `install_ollama = true` (default) gives Ollama a **slice** of the GPU via
-  HAMi's `nvidia.com/gpumem` (`ollama_gpu_memory_mib`, default 16000 of the
-  card's 20 GB; only passed when `install_hami = true` — without HAMi that
-  resource doesn't exist and the pod would never schedule). The rest is for
-  plain `nvidia.com/gpu` pods, which get `hami_default_gpu_memory` (4000);
-  Argo Workflow GPU steps rely on this. Setting `ollama_gpu_memory_mib` to the
-  full card, or `install_hami = false`, starves other GPU pods. Its Helm
-  release is deliberately **not** `atomic`, unlike the other modules: the
-  first install waits for model downloads, and a rollback would delete the
-  partially filled volume.
-- `install_open_webui = true` (default off) needs `install_ollama`; it is
-  CPU-only, on the system pool. Argo runs with `auth_mode = "server"` (no
-  login), so neither UI may be exposed beyond `kubectl port-forward`.
+  `nodepool.lke/role=system`. GPU workloads must add the matching toleration,
+  a `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit.
+- One GPU, no sharing layer: the InferenceService takes the whole card, so any
+  other `nvidia.com/gpu` pod stays Pending while it runs. It uses
+  `deploymentStrategy: Recreate` because a rolling update would need a second
+  GPU; keep that when editing `gitops/vllm/inferenceservice.yaml`.
+- KServe's chart hardcodes `gatewayClassName: envoy` for the Gateway it creates
+  (`createGateway`), so the envoy-gateway module's `gateway_class_name` must
+  stay `envoy`.
+- The `kserve` namespace is labelled `control-plane`; KServe's webhooks skip it,
+  so InferenceServices must never go there (`model_namespace` validation).
+- The Hugging Face runtime's default image is CPU-only. Don't fix that with
+  `huggingfaceserver.tag` in the kserve module: the multinode runtime shares
+  the tag and appends `-gpu` itself (`<ver>-gpu` renders `<ver>-gpu-gpu`).
+  Instead the InferenceService sets `image: kserve/huggingfaceserver:<ver>-gpu`;
+  keep `<ver>` in `gitops/vllm/inferenceservice.yaml` in step with
+  `kserve_version`. KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the
+  v0.20.0 default.
+- Destroy order matters: `module.argo_cd` depends on `module.kserve` so the
+  `vllm` Application (with Argo CD's resources finalizer) and its
+  InferenceService are deleted while KServe still runs.
+- The Envoy proxy Service is ClusterIP unless `gateway_service_type =
+  "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
+  authentication suitable for the internet: keep them behind
+  `kubectl port-forward`.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: a GPU plan not offered in the chosen region,
-  Ollama without the GPU Operator, Ollama asking for more GPU memory than one
-  card has (alone, or together with the default HAMi slice), Open WebUI without
-  Ollama, and Argo plus Ollama without HAMi. Warnings, not failures.
+  KServe without the GPU Operator, Argo CD without KServe (the bootstrap
+  Application is skipped), and a public (LoadBalancer) Gateway. Warnings, not
+  failures.
 
 ## GPU node image (LKE)
 
 - LKE GPU nodes ship the NVIDIA driver, container toolkit and a containerd
   `nvidia` runtime. The GPU Operator runs with `install_driver = false` and
   `gpu_operator_install_toolkit = false`; enabling the operator's toolkit
-  rewrites containerd's config and leaves the node `NotReady`. HAMi therefore
-  uses `runtime_class_name = "nvidia"` and `nvidia_driver_root = "/"`.
+  rewrites containerd's config and leaves the node `NotReady`. The operator's
+  own device plugin is enabled and advertises `nvidia.com/gpu`.
 
 ## Module convention
 
 - Each `tofu/modules/<name>/` wraps a Helm chart with the same layout:
   `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`,
-  `templates/values.yaml.tftpl`, `README.md`. New modules must mirror this and
-  be added to the CI matrix in `.github/workflows/ci.yml` and to
-  `.github/dependabot.yml`.
-- `modules/ollama` defaults `timeout` to 3600 (the others use 300-900)
-  because the first install waits for model downloads, and it is the one
-  Helm module with `atomic = false` (see above). Both are intentional.
-- Default `system_node_type` is `g6-standard-2` (4 GB), enough for the default
-  stack including Argo Workflows and Open WebUI.
+  `templates/values.yaml.tftpl`, `README.md`, and a tracked
+  `.terraform.lock.hcl`. New modules must mirror this and be added to the CI
+  matrix in `.github/workflows/ci.yml` and to `.github/dependabot.yml`.
+- Custom resources whose CRDs are installed by the same module (GatewayClass,
+  EnvoyProxy, Argo CD Applications) go in a local chart under
+  `modules/<name>/chart/`, installed by a second `helm_release` that
+  `depends_on` the first. Don't use `kubernetes_manifest` for them: it can't
+  plan before the CRD exists, which breaks the first apply.
+- Every Helm release is `atomic = true`; module timeouts are 600 s (the
+  monitoring stack 900 s).
 
 ## Conventions
 

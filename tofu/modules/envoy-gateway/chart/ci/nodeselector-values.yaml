@@ -1,0 +1,5 @@
+# Rendered by CI (helm lint/template) with a non-empty nodeSelector.
+gatewayClassName: envoy
+serviceType: LoadBalancer
+nodeSelector:
+  nodepool.lke/role: system
