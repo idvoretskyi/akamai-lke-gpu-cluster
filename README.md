@@ -97,16 +97,16 @@ scripts/chat.sh "What is the Gateway API?"
 |---|---|
 | `scripts/status.sh` | nodes, model, Argo CD app, gateway, and any unhealthy pod |
 | `scripts/chat.sh "prompt"` | opens a port-forward to the private Gateway, asks the model, closes it |
-| `scripts/ui.sh argocd\|grafana\|prometheus` | UI on localhost (login printed); Ctrl-C to stop |
+| `scripts/ui.sh argocd\|grafana\|prometheus\|model` | UI or the model API on localhost (login printed); Ctrl-C to stop |
 | `scripts/gpu-test.sh` | raw `nvidia-smi` in a CUDA pod (needs a free GPU, see Scheduling) |
 
 They are plain bash around `kubectl`, `curl` and `jq`; read them, they are short.
 `tofu output next_steps` prints the same list.
 
-The endpoint is OpenAI-compatible, so any OpenAI client works against
-`http://localhost:8080/openai/v1` (run `kubectl port-forward` as `chat.sh`
-does) with model `qwen3`, any API key, and the header
-`Host: qwen3-vllm.kserve.local`.
+The endpoint is OpenAI-compatible. `chat.sh` opens a throwaway port-forward for
+one request; for your own client, keep one open with `scripts/ui.sh model` and
+use base URL `http://localhost:8080/openai/v1`, model `qwen3`, any API key, and
+the header `Host: qwen3-vllm.kserve.local` (the Gateway routes on it).
 
 ## Changing the model (GitOps)
 
@@ -152,8 +152,13 @@ spec:
 ```
 
 - The InferenceService holds the only GPU. Other GPU pods (such as
-  `scripts/gpu-test.sh`) stay `Pending` until
-  it is removed or a second GPU node is added (`gpu_node_count = 2`).
+  `scripts/gpu-test.sh`) stay `Pending` until it is removed or a second GPU node
+  is added (`gpu_node_count = 2`). Scaling the model down does not work, because
+  KServe and Argo CD put it back. To free the GPU, delete the Argo CD
+  application (`kubectl delete application vllm -n argocd`, whose finalizer
+  removes the InferenceService), run the test, then restore with
+  `cd tofu && tofu apply -replace=helm_release.applications`: a plain `tofu
+  apply` sees no change. Tested: the model is back in about 3 minutes.
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
   `nvidia` containerd runtime, so the GPU Operator installs neither.
 

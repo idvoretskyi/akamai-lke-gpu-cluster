@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # Raw GPU smoke test: run nvidia-smi in a bare CUDA pod, print the output and
-# clean up. The pod needs a whole GPU, so it stays Pending while the model
-# server holds the only one. In that case scale the model down first, or add a
-# second GPU node (gpu_node_count = 2).
+# clean up. The pod needs a whole GPU, so it stays Pending (and this script
+# fails after 2 minutes) while the model server holds the only one.
+#
+# To free the GPU on a one-GPU cluster, delete the Argo CD application: its
+# finalizer removes the InferenceService, and nothing recreates it. Scaling the
+# model down does not work (minReplicas is 1 and KServe/Argo CD reconcile it
+# back). Afterwards restore it; a plain `tofu apply` sees no change, so:
+#
+#   kubectl delete application vllm -n argocd
+#   scripts/gpu-test.sh
+#   (cd tofu && tofu apply -replace=helm_release.applications)
+#
+# Or add a second GPU node (gpu_node_count = 2) and skip all of this.
 #
 # Usage: scripts/gpu-test.sh
 set -euo pipefail
