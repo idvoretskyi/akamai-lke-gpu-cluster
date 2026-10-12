@@ -8,21 +8,11 @@ data "external" "username" {
   program = ["sh", "-c", "echo '{\"username\":\"'$(whoami)'\"}'"]
 }
 
-# Resolve a Linode API token fallback from the default user in
-# ~/.config/linode-cli (linode-cli's own config file), for machines that are
-# already `linode-cli configure`'d and don't want a separate
-# `export LINODE_TOKEN`. Implemented with plain HCL functions (file/regex),
-# NOT a data source — data source results are persisted into OpenTofu state,
-# and this repo doesn't want the token to end up there even though state is
-# local/gitignored (see AGENTS.md). Locals are never written to state.
-#
-# Precedence note: because there's no built-in way to read an arbitrary
-# environment variable from HCL (only TF_VAR_* via variables), this can't
-# check whether LINODE_TOKEN is already set and prefer it — if the
-# linode-cli config file resolves to a token, it takes priority here over
-# LINODE_TOKEN. For this single-owner lab repo that's an acceptable
-# trade-off; if you need to override with a different token, temporarily
-# rename ~/.config/linode-cli or update its default user's token instead.
+# Linode API token: read from the default user in ~/.config/linode-cli if that
+# file exists, else null, which makes the provider use $LINODE_TOKEN. So the
+# linode-cli config wins when both are set. Plain HCL (file/regex) rather than a
+# data source on purpose: data source results are stored in state, locals are
+# not, and the token must never end up in state.
 locals {
   linode_cli_config_path  = pathexpand("~/.config/linode-cli")
   linode_cli_config       = fileexists(local.linode_cli_config_path) ? file(local.linode_cli_config_path) : ""
@@ -32,49 +22,62 @@ locals {
     null
   )
 
-  # null falls through to the linode provider's own LINODE_TOKEN env lookup
-  # (e.g. `tofu validate`/`plan` in CI, with no linode-cli config at all,
-  # keeps working instead of erroring on an empty token).
+  # null falls back to $LINODE_TOKEN (and lets `tofu validate` run in CI with
+  # no linode-cli config at all).
   linode_token = local.linode_cli_token != null ? sensitive(local.linode_cli_token) : null
+}
+
+# Everything below is an opinionated default rather than a variable: change it
+# here if you really need to. Variables are kept for the things people vary.
+
+locals {
+  tags                    = ["lke", "gpu", "ml", "ai"]
+  ha_control_plane        = false # +~$60/month
+  system_node_count       = 1
+  node_cidrs              = ["192.168.128.0/17"] # LKE private node range
+  pod_cidrs               = ["10.2.0.0/16"]      # LKE pod range
+  helm_timeout            = 600
+  namespace_labels        = { "app.kubernetes.io/managed-by" = "opentofu" }
+  model_namespace         = "vllm" # created by Argo CD; must not be "kserve"
+  gitops_path             = "gitops/vllm"
+  inference_service       = "qwen3"
+  prometheus_retention    = "7d"
+  prometheus_storage_size = "15Gi" # ~$1.50/month
+  grafana_storage_size    = "5Gi"  # ~$0.50/month
+
+  # Chart versions. Dependabot doesn't track these (Helm charts are not a
+  # package ecosystem it understands here), so bump them by hand.
+  chart_versions = {
+    gpu_operator          = "v26.7.1"
+    metrics_server        = "3.12.2"
+    kube_prometheus_stack = "80.8.0"
+    cert_manager          = "v1.21.2"
+    envoy_gateway         = "v1.9.2"
+    kserve                = "v0.20.0" # v0.21.0 charts are only on GHCR as -rc1
+    argo_cd               = "10.10.1"
+  }
 }
 
 # Node-pool scheduling primitives.
 #
-# Both pools are labelled with `nodepool.lke/role` so workloads can be pinned to
-# the right pool via nodeSelector. The GPU pool is additionally tainted (when
-# var.dedicate_gpu_nodes is true) so that only GPU workloads — and the GPU
-# Operator's GPU operands, which tolerate this taint by default — land there.
+# Both pools carry `nodepool.lke/role`, so workloads pin to a pool with a
+# nodeSelector (the values/*.yaml files pin the platform to "system"). The GPU
+# pool is also tainted, so only GPU workloads (and the GPU Operator's operands,
+# which tolerate it) land there; a model server needs the same toleration, a
+# `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit.
 locals {
   node_role_label_key = "nodepool.lke/role"
+  system_node_labels  = { (local.node_role_label_key) = "system" }
+  gpu_node_labels     = { (local.node_role_label_key) = "gpu" }
 
-  system_node_labels = { (local.node_role_label_key) = "system" }
-  gpu_node_labels    = { (local.node_role_label_key) = "gpu" }
-
-  # Selector used to pin system/monitoring workloads onto the system pool.
-  system_node_selector = local.system_node_labels
-
-  # The taint applied to GPU nodes. The NVIDIA GPU Operator tolerates a taint
-  # with this key (nvidia.com/gpu) by default, so its operands keep scheduling
-  # onto GPU nodes. User GPU workloads must add a matching toleration.
   gpu_node_taint = {
     key    = "nvidia.com/gpu"
     value  = "present"
     effect = "NoSchedule"
   }
 
-  # Toleration handed to modules; null when GPU nodes are not dedicated.
-  gpu_node_toleration = var.dedicate_gpu_nodes ? local.gpu_node_taint : null
-
   # CIDRs allowed to talk to each other inside the cluster (nodes + pods).
-  intra_cluster_cidrs = concat(var.node_cidrs, var.pod_cidrs)
-
-  # The bootstrap "vllm" Application (and so the InferenceService) exists only
-  # with Argo CD, KServe (its CRD) and a GitOps path. Shared by modules.tf and
-  # outputs.tf so the two can't drift.
-  model_application_enabled = var.install_argo_cd && var.install_kserve && var.gitops_path != ""
-
-  # GPU monitoring only makes sense when the GPU Operator (DCGM) is installed.
-  gpu_monitoring_enabled = var.enable_gpu_monitoring && var.install_gpu_operator
+  intra_cluster_cidrs = concat(local.node_cidrs, local.pod_cidrs)
 
   # Pools are matched by instance type rather than list index, since the order
   # of the pool blocks is not guaranteed to be stable in state. This relies on
@@ -83,7 +86,7 @@ locals {
   system_pool = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.system_node_type])
 }
 
-# Decode and parse the kubeconfig once; reused by kubernetes and helm providers.
+# Decode the kubeconfig once; reused by the kubernetes and helm providers.
 locals {
   kubeconfig = yamldecode(base64decode(linode_lke_cluster.gpu_cluster.kubeconfig))
 

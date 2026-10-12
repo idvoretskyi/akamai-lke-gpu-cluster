@@ -1,0 +1,41 @@
+global:
+  # Only sets the "url" in argocd-cm (links Argo CD generates); there is no
+  # Ingress. Changing it rolls the Argo CD pods (the ConfigMap checksum changes).
+  domain: argocd.local
+  nodeSelector:
+    kubernetes.io/os: linux
+    nodepool.lke/role: system
+
+configs:
+  params:
+    # Plain HTTP. kubectl port-forward does not terminate TLS; it only forwards
+    # the connection. The server is reachable solely through that tunnel
+    # (ClusterIP, no Ingress).
+    server.insecure: true
+
+# Lab install: local admin only, no SSO or notification controller.
+dex:
+  enabled: false
+notifications:
+  enabled: false
+
+controller:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+server:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+repoServer:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+applicationSet:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true

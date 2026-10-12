@@ -1,0 +1,13 @@
+# Also installs the Gateway API CRDs.
+crds:
+  enabled: true
+
+deployment:
+  pod:
+    nodeSelector:
+      nodepool.lke/role: system
+
+certgen:
+  job:
+    nodeSelector:
+      nodepool.lke/role: system

@@ -1,0 +1,11 @@
+# Only the Hugging Face (vLLM) runtime matters. Its tag is deliberately left
+# alone: the single-node and multinode runtimes share it and only the multinode
+# one appends "-gpu", so any override breaks one of them. GPU InferenceServices
+# request the CUDA image themselves (gitops/vllm/inferenceservice.yaml).
+kserve:
+  servingruntime:
+    enabled: true
+    huggingfaceserver:
+      devShm:
+        enabled: true
+        sizeLimit: 2Gi

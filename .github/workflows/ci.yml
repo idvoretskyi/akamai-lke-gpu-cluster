@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write  # required for Trivy SARIF upload to GitHub Security tab
 
 jobs:
   tofu-validate:
@@ -39,39 +38,6 @@ jobs:
           cd tofu
           tofu validate -no-color
 
-  tofu-validate-modules:
-    name: OpenTofu validate modules
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        module:
-          - argo-cd
-          - cert-manager
-          - envoy-gateway
-          - gpu-operator
-          - kserve
-          - kube-prometheus-stack
-          - metrics-server
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v2
-        with:
-          tofu_version: "1.13.1"
-
-      - name: Init module (${{ matrix.module }})
-        run: |
-          cd tofu/modules/${{ matrix.module }}
-          tofu init -backend=false
-
-      - name: Validate module (${{ matrix.module }})
-        run: |
-          cd tofu/modules/${{ matrix.module }}
-          tofu validate -no-color
-
   tflint:
     name: tflint
     runs-on: ubuntu-latest
@@ -98,6 +64,9 @@ jobs:
   trivy:
     name: Trivy config scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Trivy SARIF upload to the GitHub Security tab
 
     steps:
       - name: Checkout
@@ -129,6 +98,7 @@ jobs:
     strategy:
       matrix:
         scandir:
+          - scripts
           - tofu/scripts
 
     steps:
@@ -155,40 +125,6 @@ jobs:
             **/*.md
             !**/.terraform/**
 
-  examples:
-    name: Examples lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: yamllint manifests
-        run: |
-          pip install --quiet yamllint
-          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' \
-            examples/*/*.yaml
-
-      - name: Compile Python
-        run: |
-          shopt -s nullglob
-          files=(examples/*/*.py)
-          [ ${#files[@]} -eq 0 ] || python -m py_compile "${files[@]}"
-
-      - name: Check JSON
-        run: |
-          for f in examples/*/*.json; do
-            [ -e "$f" ] || continue
-            jq empty "$f"
-          done
-
-      - name: Dry-run Makefiles
-        run: |
-          for d in examples/*/; do
-            echo "== $d"
-            make -n -C "$d" -f Makefile $(sed -n 's/^\.PHONY: *//p' "$d/Makefile")
-          done
-
   gitops:
     name: GitOps manifests and local charts
     runs-on: ubuntu-latest
@@ -202,10 +138,11 @@ jobs:
         with:
           version: v3.19.0
 
-      - name: yamllint gitops/
+      - name: yamllint gitops/, Helm values and local charts
         run: |
           pip install --quiet yamllint
-          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' gitops/
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' \
+            gitops/ tofu/values/*.yaml tofu/values/*.yaml.tftpl tofu/charts/*/Chart.yaml tofu/charts/*/values.yaml tofu/charts/*/ci/
 
       - name: Build every Kustomize directory
         run: |
@@ -220,7 +157,7 @@ jobs:
       # output must contain objects whose metadata.name/namespace are strings.
       - name: Lint and render local Helm charts
         run: |
-          for c in tofu/modules/*/chart; do
+          for c in tofu/charts/*; do
             for v in "" "$c"/ci/*-values.yaml; do
               [ -z "$v" ] || [ -e "$v" ] || continue
               echo "== $c ${v:+(-f $v)}"

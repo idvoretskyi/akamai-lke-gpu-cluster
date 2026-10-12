@@ -1,0 +1,13 @@
+# Issues the TLS certificates for KServe's admission webhooks.
+crds:
+  enabled: true
+  keep: false
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: true
+
+global:
+  nodeSelector:
+    nodepool.lke/role: system

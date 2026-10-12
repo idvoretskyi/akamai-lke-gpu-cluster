@@ -65,61 +65,49 @@ the model is a Git commit, not a `tofu apply`.
   InferenceService with the `Host` header
   (`qwen3-vllm.kserve.local`).
 
-Measured on `de-fra-2` (KServe v0.20.0, vLLM v0.24.0): weights download in
-~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB of weights leave a 7.6 GiB
-KV cache (~55k tokens), and a single stream decodes at ~35 tokens/s.
+A measurement, not a promise (`de-fra-2`, 8 Oct 2026, KServe v0.20.0 with vLLM
+v0.24.0): weights download in ~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB
+of weights leave a 7.6 GiB KV cache (~55k tokens), and a single stream decodes
+at ~35 tokens/s.
 
 ## Quick start
 
+You need [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `curl`, `jq` and a Linode
+account. Authenticate with `linode-cli configure` (or `export LINODE_TOKEN=...`).
+
 ```bash
-# Auth: `linode-cli configure`, or export LINODE_TOKEN
-cp tofu/tofu.tfvars.example tofu/tofu.tfvars   # edit as needed
-cd tofu
+git clone https://github.com/idvoretskyi/akamai-lke-gpu-cluster && cd akamai-lke-gpu-cluster/tofu
+cp tofu.auto.tfvars.example tofu.auto.tfvars   # optional: the defaults work
 tofu init
-tofu apply -var-file=tofu.tfvars
-
-kubectl get nodes            # kubeconfig is merged into ~/.kube/config
+tofu apply
 ```
 
-`tofu.tfvars` is **not** loaded automatically; pass `-var-file=tofu.tfvars`
-(or name the file `tofu.auto.tfvars`, which is loaded without the flag).
-
-Timing: ~15-20 minutes for the cluster and platform. Argo CD then syncs the
-InferenceService; the first start pulls the ~7 GB vLLM image and ~9 GB of
-weights, so allow another ~10 minutes before it reports `READY=True`.
-
-Prerequisites: [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `jq`, and
-`linode-cli` (the provider reads its token from `~/.config/linode-cli`, else
-`LINODE_TOKEN`). `kubectl` is also used by `tofu apply` to merge the
-kubeconfig.
-
-## Try it
+That is the whole install: about 15-20 minutes for the cluster and platform.
+OpenTofu loads `tofu.auto.tfvars` by itself, so there is no `-var-file`, and
+your kubeconfig is merged into `~/.kube/config` for you. Argo CD then deploys
+the model; its first start pulls ~7 GB of image and ~9 GB of weights, so give
+it another ~10 minutes. Then, from the repository root:
 
 ```bash
-make -C examples/kserve-chat wait                # model loaded and serving
-make -C examples/kserve-chat port-forward        # terminal 1: Gateway -> :8080
-make -C examples/kserve-chat models chat         # terminal 2
-make -C examples/kserve-chat chat PROMPT="What is the Gateway API?"
-make -C examples/kserve-chat stream gpu          # streamed reply; nvidia-smi
-
-make -C examples/argocd apps status              # GitOps view of the model
+cd ..
+scripts/status.sh                 # everything healthy? is the model READY?
+scripts/chat.sh "What is the Gateway API?"
 ```
 
-The endpoint is OpenAI-compatible, so any OpenAI client works with base URL
-`http://localhost:8080/openai/v1`, model `qwen3`, any API key, and the
-`Host: qwen3-vllm.kserve.local` header.
+| Script | What it does |
+|---|---|
+| `scripts/status.sh` | nodes, model, Argo CD app, gateway, and any unhealthy pod |
+| `scripts/chat.sh "prompt"` | opens a port-forward to the private Gateway, asks the model, closes it |
+| `scripts/ui.sh argocd\|grafana\|prometheus\|model` | UI or the model API on localhost (login printed); Ctrl-C to stop |
+| `scripts/gpu-test.sh` | raw `nvidia-smi` in a CUDA pod (needs a free GPU, see Scheduling) |
 
-Web UIs are ClusterIP only; reach them with `kubectl port-forward`:
+They are plain bash around `kubectl`, `curl` and `jq`; read them, they are short.
+`tofu output next_steps` prints the same list.
 
-| UI | Command | URL |
-|---|---|---|
-| Model API (via Gateway) | `make -C examples/kserve-chat port-forward` | <http://localhost:8080/openai/v1> |
-| Argo CD (user `admin`, `make -C examples/argocd password`) | `kubectl port-forward -n argocd svc/argo-cd-argocd-server 8081:80` | <http://localhost:8081> |
-| Grafana (admin/admin by default) | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80` | <http://localhost:3000> |
-| Prometheus | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` | <http://localhost:9090> |
-
-`tofu output inference_commands` prints the raw `kubectl`/`curl` equivalents,
-and every component has a `*_validation_commands` output.
+The endpoint is OpenAI-compatible. `chat.sh` opens a throwaway port-forward for
+one request; for your own client, keep one open with `scripts/ui.sh model` and
+use base URL `http://localhost:8080/openai/v1`, model `qwen3`, any API key, and
+the header `Host: qwen3-vllm.kserve.local` (the Gateway routes on it).
 
 ## Changing the model (GitOps)
 
@@ -134,7 +122,7 @@ self-heal. To serve something else:
    `Qwen/Qwen3-14B-FP8` (~16 GB of weights) also fits with
    `--max-model-len=8192`.
 3. Commit and push. Argo CD recreates the predictor pod with the new model
-   (`make -C examples/argocd refresh` skips the ~3-minute poll).
+   (it polls Git about every 3 minutes; watch with `scripts/status.sh`).
 
 Gated models (Llama, Gemma) need a Hugging Face token; see
 [`gitops/vllm/README.md`](gitops/vllm/README.md). To test changes on a
@@ -144,51 +132,45 @@ branch first, set `gitops_target_revision` to the branch name.
 
 - Pools are labelled `nodepool.lke/role=system|gpu`; every platform component
   is pinned to the system pool.
-- With `dedicate_gpu_nodes = true` (default) the GPU pool carries the taint
+- The GPU pool always carries the taint
   `nvidia.com/gpu=present:NoSchedule`. GPU workloads need this toleration, a
   `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
-  InferenceService does:
-
-```yaml
-spec:
-  predictor:
-    nodeSelector:
-      nodepool.lke/role: gpu
-    tolerations:
-      - key: nvidia.com/gpu
-        operator: Exists
-        effect: NoSchedule
-    model:
-      resources:
-        limits:
-          nvidia.com/gpu: "1"
-```
-
+  InferenceService does ([`gitops/vllm/inferenceservice.yaml`](gitops/vllm/inferenceservice.yaml)).
 - The InferenceService holds the only GPU. Other GPU pods (such as
-  [`examples/gpu-validation`](examples/gpu-validation/)) stay `Pending` until
-  it is removed or a second GPU node is added (`gpu_node_count = 2`).
+  `scripts/gpu-test.sh`) stay `Pending` until it is removed or a second GPU node
+  is added (`gpu_node_count = 2`). Scaling the model down does not work, because
+  KServe and Argo CD put it back. To free the GPU, delete the Argo CD
+  application (`kubectl delete application vllm -n argocd`, whose finalizer
+  removes the InferenceService), run the test, then restore with
+  `cd tofu && tofu apply -replace=helm_release.applications`: a plain `tofu
+  apply` sees no change. Tested: the model is back in about 3 minutes.
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
   `nvidia` containerd runtime, so the GPU Operator installs neither.
 
 ## Configuration
 
-All settings live in `tofu/tofu.tfvars.example`, which is the source of truth
-for variable names and defaults. The ones you are most likely to change:
+The few settings people change are variables, listed in
+`tofu/tofu.auto.tfvars.example` (every one is optional). Everything else, such
+as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
+`tofu/locals.tf`.
 
 | Variable | Default | Notes |
 |---|---|---|
 | `region` | `de-fra-2` | must offer the RTX 4000 Ada plan |
+| `kubernetes_version` | `1.36` | LKE retires old versions; bump it when it does |
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
+| `gpu_node_count` | `1` | the model takes a whole GPU; more nodes for other GPU pods |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
-| `install_kserve` | on | also installs cert-manager and Envoy Gateway |
-| `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
-| `install_argo_cd` | on | bootstraps the `vllm` Application |
-| `gitops_repo_url`, `gitops_target_revision`, `gitops_path` | this repo, `main`, `gitops/vllm` | where the model comes from |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
+| `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
+| `gitops_repo_url`, `gitops_target_revision` | this repo, `main` | where Argo CD gets the model |
 | `grafana_admin_password` | `admin` | change it |
+| `monitoring_storage_class` | `linode-block-storage` | see "Upgrading an existing cluster" |
+| `merge_kubeconfig` | `true` | merge the kubeconfig into `~/.kube/config` |
+| `cluster_name_prefix` | your username | cluster label is `<prefix>-lke-gpu` |
 
-Advisory `check` blocks print warnings (never failures) for common mistakes,
-such as a GPU plan not offered in the region or a public Gateway.
+Two advisory `check` blocks print warnings (never failures): a GPU plan that is
+not offered in the region, and a public Gateway.
 
 ## Cost
 
@@ -204,8 +186,8 @@ destroyed. Costs are approximate, see
 [Linode pricing](https://www.linode.com/pricing/).
 
 ```bash
-cd tofu && tofu destroy     # stop paying
-cd tofu && tofu apply -var-file=tofu.tfvars   # bring it back
+cd tofu && tofu destroy   # stop paying
+cd tofu && tofu apply     # bring it back
 ```
 
 The monitoring volumes use the `linode-block-storage` class, so `tofu
@@ -214,28 +196,26 @@ ephemeral storage and are downloaded again on each start.
 
 ## Upgrading an existing cluster
 
-Clusters created before the KServe rebuild used the
-`linode-block-storage-retain` class for the Prometheus and Grafana volumes. A
-PVC's storage class is immutable, so applying the new default in place fails
-when Helm tries to patch Grafana's PVC (and the release rolls back). Either:
+Only for a cluster created from an older version of this repo, in the order the
+changes happened:
 
-- **Recreate** (the intended path, matching the destroy/recreate cost model):
-  `tofu destroy`, delete the retained volumes left in Cloud Manager
-  (`linode-cli volumes list`), then `tofu apply`; or
-- **Keep the old class**: set `monitoring_storage_class =
-  "linode-block-storage-retain"` in `tofu.tfvars` before applying.
-
-Either way, the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
-resources in the state are destroyed by the first apply. The root module still
-requires the otherwise unused `hashicorp/local` provider so OpenTofu can drop
-HAMi's old scratch-kubeconfig resource from the state; without it, plan and
-apply fail with "Failed to load plugin schemas".
-
-Retained volumes keep billing after their PVC is gone. Ollama's 50 Gi model
-volume used `linode-block-storage-retain`, so after the first apply on a kept
-cluster it is left detached in your account (~$5/month), as are the old
-monitoring volumes if you recreate. Find and delete detached volumes once you
-no longer need their data:
+1. **Modules to a flat root.** `tofu/moved.tf` maps every resource to its new
+   address, so `tofu plan` shows moves and Helm upgrades with identical values,
+   not a rebuild (verified on a live cluster: nothing destroyed, no pod
+   restarted). Rename `tofu.tfvars` to `tofu.auto.tfvars` and delete variables
+   that no longer exist (`install_*`, `*_version`, ...). The first apply also
+   removes the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
+   releases. The root keeps the otherwise unused `hashicorp/local` provider so
+   OpenTofu can drop HAMi's old scratch kubeconfig from the state; without it,
+   plan and apply fail with "Failed to load plugin schemas".
+2. **Monitoring storage class.** Those clusters used
+   `linode-block-storage-retain`, and a PVC's class is immutable, so applying the
+   new default in place fails when Helm patches Grafana's PVC. Either recreate
+   (`tofu destroy`, then `tofu apply`) or set `monitoring_storage_class =
+   "linode-block-storage-retain"` in `tofu.auto.tfvars`.
+3. **Retained volumes keep billing** after their PVC is gone: Ollama's 50 Gi
+   model volume (~$5/month), and the old monitoring volumes after a recreate.
+   Delete the detached ones once you no longer need the data:
 
 ```bash
 linode-cli volumes list --text --format id,label,size,linode_id   # empty linode_id = detached
@@ -245,7 +225,7 @@ linode-cli volumes delete <id>
 ## Security
 
 - API token comes from `~/.config/linode-cli` or `LINODE_TOKEN`; it is never
-  written to state or git. Kubeconfigs and `*.tfvars` are git-ignored.
+  written to state or git. Kubeconfigs and `*.tfvars` files are git-ignored.
 - A Linode Cloud Firewall allows only the Kubernetes API (443) from
   `allowed_kubectl_ips` plus intra-cluster traffic.
 - The model endpoint has no authentication. It stays private (ClusterIP
@@ -258,21 +238,23 @@ linode-cli volumes delete <id>
 
 ```text
 .
-├── tofu/                    # OpenTofu root module (platform)
-│   ├── modules/             # one module per component, see modules/README.md
-│   └── tofu.tfvars.example
-├── gitops/                  # workloads synced by Argo CD
-│   └── vllm/                # the InferenceService
-├── examples/                # runnable smoke tests (Makefiles)
-├── AGENTS.md                # contributor / agent notes
+├── tofu/
+│   ├── versions.tf  providers.tf                # providers and their versions
+│   ├── cluster.tf  firewall.tf  kubeconfig.tf   # LKE cluster, pools, firewall
+│   ├── platform.tf                              # every Helm release, in install order
+│   ├── values/                                  # one values file per chart
+│   ├── charts/                                  # 2 tiny local charts (GatewayClass, Argo CD Applications)
+│   ├── variables.tf  locals.tf  outputs.tf  checks.tf  moved.tf
+│   ├── scripts/merge-kubeconfig.sh              # run by tofu apply
+│   └── tofu.auto.tfvars.example
+├── gitops/vllm/             # the model: synced by Argo CD
+├── scripts/                 # status, chat, ui, gpu-test (plain bash)
+├── AGENTS.md  CLAUDE.md     # contributor / agent notes (CLAUDE.md points at AGENTS.md)
 └── .github/                 # CI and Dependabot
 ```
 
-Contributing: run `tofu fmt -recursive` from `tofu/`, validate the root and
-each changed module (`tofu init -backend=false && tofu validate`), and sign
-commits (`git commit -s`). CI also runs tflint, shellcheck, Trivy,
-markdownlint, yamllint and `helm lint`/`kustomize build` on the GitOps tree
-and local charts.
+Contributing: see [`AGENTS.md`](AGENTS.md) (checks to run, CI gates, conventions).
+Commits need a DCO sign-off (`git commit -s`).
 
 ## License
 

@@ -1,9 +1,9 @@
 # gitops/vllm
 
 The model workload, synced by the Argo CD Application `vllm` that OpenTofu
-bootstraps (`tofu/modules.tf`, module `argo_cd`). Argo CD deploys it into the
-`model_namespace` (default `vllm`) with automated prune and self-heal, so
-`kubectl edit` changes are reverted: change things here and push.
+bootstraps (`helm_release.applications` in `tofu/platform.tf`). Argo CD deploys
+it into the `vllm` namespace with automated prune and self-heal, so `kubectl
+edit` changes are reverted: change things here and push.
 
 | File | What |
 |---|---|
@@ -66,8 +66,9 @@ spec:
           secretKeyRef:
             name: hf-secret   # resolved in the InferenceService's namespace
             key: HF_TOKEN
-    # Match the kserve module's storage_initializer_memory_limit: 1Gi is
-    # OOM-killed downloading multi-GB checkpoints.
+    # Same limits as tofu/values/kserve.yaml: the 1Gi default is OOM-killed
+    # downloading multi-GB checkpoints. Keep the image tag in step with
+    # chart_versions.kserve in tofu/locals.tf.
     resources:
       requests: {cpu: 100m, memory: 512Mi}
       limits: {cpu: "1", memory: 4Gi}

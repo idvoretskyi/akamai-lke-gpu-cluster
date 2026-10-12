@@ -1,7 +1,7 @@
 # Firewall for LKE cluster.
 resource "linode_firewall" "lke_firewall" {
   label = "${local.cluster_prefix}-lke-firewall"
-  tags  = var.tags
+  tags  = local.tags
 
   inbound {
     label    = "allow-kubectl"

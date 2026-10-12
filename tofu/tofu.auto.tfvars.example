@@ -1,0 +1,35 @@
+# Copy to tofu.auto.tfvars (git-ignored). OpenTofu loads *.auto.tfvars on its
+# own, so a plain `tofu apply` picks it up. Every line is optional: the
+# defaults give the cluster described in the README.
+#
+# Linode API token: read from the default user in ~/.config/linode-cli
+# (`linode-cli configure`), else from $LINODE_TOKEN.
+
+region             = "de-fra-2" # RTX 4000 Ada is offered in de-fra-2 and fr-par (EU)
+kubernetes_version = "1.36"
+
+# gpu_node_type    = "g2-gpu-rtx4000a1-s" # cheapest Linode GPU, 20 GB, ~$0.52/hr
+# gpu_node_count   = 1
+# system_node_type = "g6-standard-4"      # hosts the platform; 8 GB, ~$48/month
+
+# Restrict the Kubernetes API to your own address.
+allowed_kubectl_ips = ["0.0.0.0/0"]
+
+grafana_admin_password = "admin" # change it
+
+# ClusterIP keeps the unauthenticated model endpoint private (kubectl
+# port-forward). LoadBalancer makes it public on a ~$10/month NodeBalancer.
+gateway_service_type = "ClusterIP"
+
+# Where Argo CD gets the model from. Fork the repo to change it; point the
+# revision at a branch to try changes before merging.
+# gitops_repo_url        = "https://github.com/idvoretskyi/akamai-lke-gpu-cluster.git"
+# gitops_target_revision = "main"
+
+# Upgrading a cluster created before the KServe rebuild in place? Keep its old
+# storage class (a PVC's class can't change; see README "Upgrading an existing
+# cluster").
+# monitoring_storage_class = "linode-block-storage-retain"
+
+# merge_kubeconfig = true # set false in CI or to manage kubeconfig yourself
+# cluster_name_prefix = "me" # defaults to your username

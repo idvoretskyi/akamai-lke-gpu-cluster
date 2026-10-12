@@ -1,3 +1,0 @@
-gatewayClassName: envoy
-serviceType: ClusterIP
-nodeSelector: {}

@@ -1,0 +1,77 @@
+# The only templated values file: the Grafana password (already JSON-encoded,
+# i.e. a quoted YAML string), storage class and sizes come from variables and
+# locals. Everything else is static.
+prometheus:
+  prometheusSpec:
+    retention: ${prometheus_retention}
+    # Scrape every ServiceMonitor/PodMonitor in the cluster (KServe, Argo CD,
+    # cert-manager, ...), not only this release's.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    nodeSelector:
+      nodepool.lke/role: system
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ${storage_class}
+          resources:
+            requests:
+              storage: ${prometheus_storage_size}
+    # GPU metrics from the GPU Operator's DCGM exporter.
+    additionalScrapeConfigs:
+      - job_name: dcgm-exporter
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - gpu-operator
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            regex: nvidia-dcgm-exporter
+            action: keep
+
+grafana:
+  enabled: true
+  adminPassword: ${grafana_admin_password}
+  nodeSelector:
+    nodepool.lke/role: system
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: ${grafana_storage_size}
+    storageClassName: ${storage_class}
+
+alertmanager:
+  enabled: false
+
+# node-exporter stays cluster-wide so it also scrapes the GPU node.
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+prometheusOperator:
+  nodeSelector:
+    nodepool.lke/role: system
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        nodepool.lke/role: system
+
+kube-state-metrics:
+  nodeSelector:
+    nodepool.lke/role: system

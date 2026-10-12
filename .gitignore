@@ -31,15 +31,11 @@ kubeconfig*.yaml
 .kubeconfig-*
 .kube/
 
-# Editors, OS, Python bytecode, local env
+# Editors and OS
 .idea/
 .vscode/
 *.swp
 .DS_Store
-__pycache__/
-*.py[cod]
-.env
-.env.*
 
 # Local AI-assistant state
 .claude/
