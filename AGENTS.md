@@ -22,9 +22,9 @@ and `gitops/` are the source of truth.
   `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md` (config
   `.markdownlint.json`).
 - Live cluster, from the repo root: `scripts/status.sh` (health),
-  `scripts/chat.sh "prompt"` (model smoke test), `scripts/ui.sh argocd|grafana|prometheus`.
+  `scripts/chat.sh "prompt"` (model smoke test), `scripts/ui.sh argocd|grafana|prometheus|model`.
 - `scripts/gpu-test.sh` only schedules when no InferenceService holds the GPU
-  (see below).
+  (see below; README "Scheduling" says how to free it).
 - There are no Makefiles. Keep it that way: a task is a short bash script in
   `scripts/` (with `set -euo pipefail`, shellcheck-clean) or part of OpenTofu.
 
@@ -81,13 +81,14 @@ and `gitops/` are the source of truth.
   `huggingfaceserver.tag` in `values/kserve-runtimes.yaml`: the multinode runtime shares
   the tag and appends `-gpu` itself (`<ver>-gpu` renders `<ver>-gpu-gpu`).
   Instead the InferenceService sets `image: kserve/huggingfaceserver:<ver>-gpu`;
-  keep `<ver>` in `gitops/vllm/inferenceservice.yaml` in step with
-  `chart_versions.kserve` in `locals.tf`. KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the
-  v0.20.0 default.
+  keep `<ver>` in step with `chart_versions.kserve` in `locals.tf` in all three
+  places: `gitops/vllm/inferenceservice.yaml` (the image) and
+  `gitops/vllm/README.md` (the storage-initializer image in the gated-model
+  example). KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the v0.20.0
+  default.
 - Destroy order matters: `helm_release.applications` depends on KServe (via
-  `helm_release.runtimes`) so the
-  `vllm` Application (with Argo CD's resources finalizer) and its
-  InferenceService are deleted while KServe still runs.
+  `helm_release.runtimes`) so the `vllm` Application (with Argo CD's resources
+  finalizer) and its InferenceService are deleted while KServe still runs.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
   authentication suitable for the internet: keep them behind
@@ -127,7 +128,7 @@ and `gitops/` are the source of truth.
 
 ## Conventions
 
-- Single owner `@idvoretskyi` (CODEOWNERS). CI runs on PRs to `main`.
+- Single owner `@idvoretskyi` (CODEOWNERS). CI runs on PRs to `main` and on pushes to it.
 - Dependabot commit prefixes: `deps(terraform)`, `deps(actions)`.
 - Every commit needs a DCO `Signed-off-by` trailer (the DCO check fails the
   PR otherwise): commit with `git commit -s`, or fix a branch with

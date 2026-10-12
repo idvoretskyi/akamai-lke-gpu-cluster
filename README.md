@@ -65,9 +65,10 @@ the model is a Git commit, not a `tofu apply`.
   InferenceService with the `Host` header
   (`qwen3-vllm.kserve.local`).
 
-Measured on `de-fra-2` (KServe v0.20.0, vLLM v0.24.0): weights download in
-~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB of weights leave a 7.6 GiB
-KV cache (~55k tokens), and a single stream decodes at ~35 tokens/s.
+A measurement, not a promise (`de-fra-2`, 8 Oct 2026, KServe v0.20.0 with vLLM
+v0.24.0): weights download in ~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB
+of weights leave a 7.6 GiB KV cache (~55k tokens), and a single stream decodes
+at ~35 tokens/s.
 
 ## Quick start
 
@@ -134,23 +135,7 @@ branch first, set `gitops_target_revision` to the branch name.
 - The GPU pool always carries the taint
   `nvidia.com/gpu=present:NoSchedule`. GPU workloads need this toleration, a
   `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
-  InferenceService does:
-
-```yaml
-spec:
-  predictor:
-    nodeSelector:
-      nodepool.lke/role: gpu
-    tolerations:
-      - key: nvidia.com/gpu
-        operator: Exists
-        effect: NoSchedule
-    model:
-      resources:
-        limits:
-          nvidia.com/gpu: "1"
-```
-
+  InferenceService does ([`gitops/vllm/inferenceservice.yaml`](gitops/vllm/inferenceservice.yaml)).
 - The InferenceService holds the only GPU. Other GPU pods (such as
   `scripts/gpu-test.sh`) stay `Pending` until it is removed or a second GPU node
   is added (`gpu_node_count = 2`). Scaling the model down does not work, because
@@ -172,12 +157,17 @@ as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 | Variable | Default | Notes |
 |---|---|---|
 | `region` | `de-fra-2` | must offer the RTX 4000 Ada plan |
+| `kubernetes_version` | `1.36` | LKE retires old versions; bump it when it does |
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
+| `gpu_node_count` | `1` | the model takes a whole GPU; more nodes for other GPU pods |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
+| `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
 | `gitops_repo_url`, `gitops_target_revision` | this repo, `main` | where Argo CD gets the model |
-| `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `grafana_admin_password` | `admin` | change it |
+| `monitoring_storage_class` | `linode-block-storage` | see "Upgrading an existing cluster" |
+| `merge_kubeconfig` | `true` | merge the kubeconfig into `~/.kube/config` |
+| `cluster_name_prefix` | your username | cluster label is `<prefix>-lke-gpu` |
 
 Two advisory `check` blocks print warnings (never failures): a GPU plan that is
 not offered in the region, and a public Gateway.
@@ -206,35 +196,26 @@ ephemeral storage and are downloaded again on each start.
 
 ## Upgrading an existing cluster
 
-Clusters created before the KServe rebuild used the
-`linode-block-storage-retain` class for the Prometheus and Grafana volumes. A
-PVC's storage class is immutable, so applying the new default in place fails
-when Helm tries to patch Grafana's PVC (and the release rolls back). Either:
+Only for a cluster created from an older version of this repo, in the order the
+changes happened:
 
-- **Recreate** (the intended path, matching the destroy/recreate cost model):
-  `tofu destroy`, delete the retained volumes left in Cloud Manager
-  (`linode-cli volumes list`), then `tofu apply`; or
-- **Keep the old class**: set `monitoring_storage_class =
-  "linode-block-storage-retain"` in `tofu.auto.tfvars` before applying.
-
-If your state was created before the "simplify" refactor (OpenTofu modules
-instead of the flat layout), `tofu/moved.tf` maps every resource to its new
-address, so `tofu plan` shows moves and Helm upgrades with identical values, not
-a rebuild (verified on a live cluster: nothing was destroyed and no pod
-restarted). Rename `tofu.tfvars` to `tofu.auto.tfvars` and delete the lines
-for variables that no longer exist (`install_*`, `*_version`, ...).
-
-Either way, the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
-resources in the state are destroyed by the first apply. The root module still
-requires the otherwise unused `hashicorp/local` provider so OpenTofu can drop
-HAMi's old scratch-kubeconfig resource from the state; without it, plan and
-apply fail with "Failed to load plugin schemas".
-
-Retained volumes keep billing after their PVC is gone. Ollama's 50 Gi model
-volume used `linode-block-storage-retain`, so after the first apply on a kept
-cluster it is left detached in your account (~$5/month), as are the old
-monitoring volumes if you recreate. Find and delete detached volumes once you
-no longer need their data:
+1. **Modules to a flat root.** `tofu/moved.tf` maps every resource to its new
+   address, so `tofu plan` shows moves and Helm upgrades with identical values,
+   not a rebuild (verified on a live cluster: nothing destroyed, no pod
+   restarted). Rename `tofu.tfvars` to `tofu.auto.tfvars` and delete variables
+   that no longer exist (`install_*`, `*_version`, ...). The first apply also
+   removes the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
+   releases. The root keeps the otherwise unused `hashicorp/local` provider so
+   OpenTofu can drop HAMi's old scratch kubeconfig from the state; without it,
+   plan and apply fail with "Failed to load plugin schemas".
+2. **Monitoring storage class.** Those clusters used
+   `linode-block-storage-retain`, and a PVC's class is immutable, so applying the
+   new default in place fails when Helm patches Grafana's PVC. Either recreate
+   (`tofu destroy`, then `tofu apply`) or set `monitoring_storage_class =
+   "linode-block-storage-retain"` in `tofu.auto.tfvars`.
+3. **Retained volumes keep billing** after their PVC is gone: Ollama's 50 Gi
+   model volume (~$5/month), and the old monitoring volumes after a recreate.
+   Delete the detached ones once you no longer need the data:
 
 ```bash
 linode-cli volumes list --text --format id,label,size,linode_id   # empty linode_id = detached
@@ -258,22 +239,22 @@ linode-cli volumes delete <id>
 ```text
 .
 ├── tofu/
+│   ├── versions.tf  providers.tf                # providers and their versions
 │   ├── cluster.tf  firewall.tf  kubeconfig.tf   # LKE cluster, pools, firewall
 │   ├── platform.tf                              # every Helm release, in install order
 │   ├── values/                                  # one values file per chart
 │   ├── charts/                                  # 2 tiny local charts (GatewayClass, Argo CD Applications)
 │   ├── variables.tf  locals.tf  outputs.tf  checks.tf  moved.tf
+│   ├── scripts/merge-kubeconfig.sh              # run by tofu apply
 │   └── tofu.auto.tfvars.example
 ├── gitops/vllm/             # the model: synced by Argo CD
 ├── scripts/                 # status, chat, ui, gpu-test (plain bash)
-├── AGENTS.md                # contributor / agent notes
+├── AGENTS.md  CLAUDE.md     # contributor / agent notes (CLAUDE.md points at AGENTS.md)
 └── .github/                 # CI and Dependabot
 ```
 
-Contributing: run `tofu fmt -recursive` from `tofu/`, `tofu init -backend=false
-&& tofu validate`, and sign commits (`git commit -s`). CI also runs tflint,
-shellcheck, Trivy, markdownlint, yamllint and `helm lint` plus `kubectl
-kustomize` on the charts and the GitOps tree.
+Contributing: see [`AGENTS.md`](AGENTS.md) (checks to run, CI gates, conventions).
+Commits need a DCO sign-off (`git commit -s`).
 
 ## License
 
