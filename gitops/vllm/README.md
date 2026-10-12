@@ -66,8 +66,9 @@ spec:
           secretKeyRef:
             name: hf-secret   # resolved in the InferenceService's namespace
             key: HF_TOKEN
-    # Match the kserve module's storage_initializer_memory_limit: 1Gi is
-    # OOM-killed downloading multi-GB checkpoints.
+    # Same limits as tofu/values/kserve.yaml: the 1Gi default is OOM-killed
+    # downloading multi-GB checkpoints. Keep the image tag in step with
+    # chart_versions.kserve in tofu/locals.tf.
     resources:
       requests: {cpu: 100m, memory: 512Mi}
       limits: {cpu: "1", memory: 4Gi}

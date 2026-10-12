@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Keep Terraform/OpenTofu providers up-to-date for the root module
+  # Keep the Terraform/OpenTofu providers up-to-date
   - package-ecosystem: "terraform"
     directory: "/tofu"
     schedule:

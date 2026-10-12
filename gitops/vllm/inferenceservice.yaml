@@ -17,7 +17,7 @@ spec:
     maxReplicas: 1
     deploymentStrategy:
       type: Recreate
-    # GPU pool only; tolerate its dedicated-node taint.
+    # GPU pool only; tolerate the GPU pool's taint.
     nodeSelector:
       nodepool.lke/role: gpu
     tolerations:
