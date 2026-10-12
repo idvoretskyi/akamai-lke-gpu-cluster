@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write  # required for Trivy SARIF upload to GitHub Security tab
 
 jobs:
   tofu-validate:
@@ -65,6 +64,9 @@ jobs:
   trivy:
     name: Trivy config scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Trivy SARIF upload to the GitHub Security tab
 
     steps:
       - name: Checkout

@@ -15,7 +15,6 @@ resources:
 
 podDisruptionBudget:
   enabled: false
-  minAvailable: 1
 
 nodeSelector:
   nodepool.lke/role: system

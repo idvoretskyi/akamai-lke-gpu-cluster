@@ -1,3 +1,4 @@
+# Defaults; platform.tf passes the real values.
 gatewayClassName: envoy
 serviceType: ClusterIP
 nodeSelector: {}

@@ -1,4 +1,6 @@
 global:
+  # Only sets the "url" in argocd-cm (links Argo CD generates); there is no
+  # Ingress. Changing it rolls the Argo CD pods (the ConfigMap checksum changes).
   domain: argocd.local
   nodeSelector:
     kubernetes.io/os: linux
