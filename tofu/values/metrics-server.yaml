@@ -1,0 +1,21 @@
+# Required on LKE: reach kubelets by internal IP and skip TLS verification.
+args:
+  - --kubelet-insecure-tls
+  - --kubelet-preferred-address-types=InternalIP
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 200Mi
+  limits:
+    cpu: 200m
+    memory: 400Mi
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+nodeSelector:
+  nodepool.lke/role: system

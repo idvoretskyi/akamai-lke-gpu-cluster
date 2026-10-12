@@ -15,23 +15,9 @@ check "gpu_plan_available_in_region" {
   }
 }
 
-check "kserve_requires_gpu_operator" {
-  assert {
-    condition     = !var.install_kserve || var.install_gpu_operator
-    error_message = "install_kserve is enabled without install_gpu_operator — no node advertises nvidia.com/gpu, so the vLLM InferenceService will never schedule."
-  }
-}
-
-check "gitops_application_needs_kserve" {
-  assert {
-    condition     = !var.install_argo_cd || var.install_kserve || var.gitops_path == ""
-    error_message = "install_argo_cd is enabled without install_kserve — the bootstrap 'vllm' Application is skipped, since the InferenceService CRD would not exist."
-  }
-}
-
 check "public_gateway_with_open_api" {
   assert {
-    condition     = !var.install_kserve || var.gateway_service_type != "LoadBalancer"
+    condition     = var.gateway_service_type != "LoadBalancer"
     error_message = "gateway_service_type = LoadBalancer exposes the model endpoint on a public NodeBalancer with no authentication. Anyone who finds the IP can use the GPU."
   }
 }

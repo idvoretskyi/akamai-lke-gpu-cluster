@@ -14,7 +14,7 @@ set -eu
 if ! command -v kubectl > /dev/null 2>&1; then
   echo "Error: 'kubectl' not found on PATH." >&2
   echo "  Install kubectl (https://kubernetes.io/docs/tasks/tools/) and re-run" >&2
-  echo "  'tofu apply', or set merge_kubeconfig = false in tofu.tfvars to skip" >&2
+  echo "  'tofu apply', or set merge_kubeconfig = false in tofu.auto.tfvars to skip" >&2
   echo "  the automatic kubeconfig merge and manage it externally." >&2
   exit 1
 fi
