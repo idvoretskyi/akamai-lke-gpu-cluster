@@ -10,18 +10,30 @@
 #               your own client (scripts/chat.sh needs none of this)
 set -euo pipefail
 
+# Print a secret's field, or nothing if the secret is gone (never abort: the
+# tunnel must open either way). The Argo CD initial-admin secret is meant to be
+# deleted after you change the password.
+secret() { kubectl -n "$1" get secret "$2" -o jsonpath="{.data.$3}" 2>/dev/null | base64 -d || true; }
+password() { # password <namespace> <secret> <field>
+  local pw
+  pw=$(secret "$1" "$2" "$3")
+  if [ -n "$pw" ]; then
+    echo "password: $pw"
+  else
+    echo "password: (secret $2 not found; use the password you set)"
+  fi
+}
+
 case "${1:-}" in
   argocd)
     ns=argocd target=svc/argo-cd-argocd-server from=8081 to=80
     echo "user: admin"
-    echo "password: $(kubectl -n argocd get secret argocd-initial-admin-secret \
-      -o jsonpath='{.data.password}' | base64 -d)"
+    password argocd argocd-initial-admin-secret password
     ;;
   grafana)
     ns=monitoring target=svc/kube-prometheus-stack-grafana from=3000 to=80
     echo "user: admin"
-    echo "password: $(kubectl -n monitoring get secret kube-prometheus-stack-grafana \
-      -o jsonpath='{.data.admin-password}' | base64 -d)"
+    password monitoring kube-prometheus-stack-grafana admin-password
     ;;
   prometheus)
     ns=monitoring target=svc/kube-prometheus-stack-prometheus from=9090 to=9090
