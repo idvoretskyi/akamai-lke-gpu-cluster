@@ -1,11 +1,12 @@
 # AGENTS.md
 
-OpenTofu IaC repo plus GitOps manifests, **no application code**. The platform
-lives in `tofu/` (root module + seven modules in `tofu/modules/`, each wrapping
-Helm charts; see "Module convention" below). The model workload lives in
-`gitops/` and is applied by Argo CD, not by OpenTofu. The CLI is `tofu`
-(OpenTofu >= 1.9), **not** `terraform`. When code and prose disagree, the
-`.tf` files, `tofu/tofu.tfvars.example` and `gitops/` are the source of truth.
+OpenTofu IaC repo plus GitOps manifests and a few bash scripts, **no
+application code**. The platform is one flat OpenTofu root in `tofu/`
+(`platform.tf` holds every Helm release; chart values live in
+`tofu/values/`). The model workload lives in `gitops/` and is applied by Argo
+CD, not by OpenTofu. The CLI is `tofu` (OpenTofu >= 1.9), **not** `terraform`.
+When code and prose disagree, the `.tf` files, `tofu/tofu.auto.tfvars.example`
+and `gitops/` are the source of truth.
 
 ## Commands (run from `tofu/`)
 
@@ -13,23 +14,19 @@ Helm charts; see "Module convention" below). The model workload lives in
   `tofu fmt -check -recursive` fails on any unformatted file.
 - CI validates with no backend and no cloud creds:
   `tofu init -backend=false` then `tofu validate -no-color`.
-- Modules are validated **independently** in CI. When you change
-  `tofu/modules/<m>`, run `init -backend=false` + `validate` *inside that module
-  dir*, not just at root.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
-  (config `tofu/.tflint.hcl`, passed explicitly so modules use it too),
-  `shellcheck` on `tofu/scripts/`, an `examples` job (yamllint, `py_compile`
-  if any `.py` exists, JSON check, `make -n`), a `gitops` job (yamllint on
-  `gitops/`, `kubectl kustomize` on every Kustomize dir, `helm lint` +
-  `helm template` on every `tofu/modules/*/chart`), Trivy IaC scan on `tofu/`
-  (fails on HIGH/CRITICAL), markdownlint on `**/*.md` (config
+  (config `tofu/.tflint.hcl`), `shellcheck` on `scripts/` and `tofu/scripts/`,
+  a `gitops` job (yamllint on `gitops/`, `tofu/values/` and the local charts;
+  `kubectl kustomize` on every Kustomize dir; `helm lint` + `helm template` on
+  every `tofu/charts/*`, also with each `ci/*-values.yaml`), Trivy IaC scan on
+  `tofu/` (fails on HIGH/CRITICAL), markdownlint on `**/*.md` (config
   `.markdownlint.json`).
-- Model smoke test (live cluster): `make -C examples/kserve-chat wait`, then
-  `make -C examples/kserve-chat port-forward` in one terminal and
-  `make -C examples/kserve-chat models chat` in another.
-- GitOps status: `make -C examples/argocd apps status`.
-- GPU smoke test: `make -C examples/gpu-validation apply wait logs` — only
-  schedules when no InferenceService holds the GPU (see below).
+- Live cluster, from the repo root: `scripts/status.sh` (health),
+  `scripts/chat.sh "prompt"` (model smoke test), `scripts/ui.sh argocd|grafana|prometheus`.
+- `scripts/gpu-test.sh` only schedules when no InferenceService holds the GPU
+  (see below).
+- There are no Makefiles. Keep it that way: a task is a short bash script in
+  `scripts/` (with `set -euo pipefail`, shellcheck-clean) or part of OpenTofu.
 
 ## Local apply quirks
 
@@ -48,10 +45,11 @@ Helm charts; see "Module convention" below). The model workload lives in
 - Argo CD syncs `gitops_path` from `gitops_repo_url` at
   `gitops_target_revision` (default `main`), anonymously. Changes to `gitops/`
   only reach the cluster once pushed; to test a branch, set
-  `gitops_target_revision` to it in `tofu.tfvars`.
+  `gitops_target_revision` to it in `tofu.auto.tfvars`.
 - Git-ignored: `*.tfvars`, `*.tfstate*`, `kubeconfig*.yaml`. `.terraform.lock.hcl`
-  **is tracked** (root and each module) — do not gitignore it. Put real config
-  in `tofu/tofu.tfvars` (copy from `tofu.tfvars.example`).
+  **is tracked** — do not gitignore it. Put real config
+  in `tofu/tofu.auto.tfvars` (copy from `tofu.auto.tfvars.example`); OpenTofu
+  loads `*.auto.tfvars` by itself, so no `-var-file` is needed.
 
 ## Non-obvious constraints (easy to break)
 
@@ -75,18 +73,19 @@ Helm charts; see "Module convention" below). The model workload lives in
   `deploymentStrategy: Recreate` because a rolling update would need a second
   GPU; keep that when editing `gitops/vllm/inferenceservice.yaml`.
 - KServe's chart hardcodes `gatewayClassName: envoy` for the Gateway it creates
-  (`createGateway`), so the envoy-gateway module's `gateway_class_name` must
-  stay `envoy`.
+  (`createGateway`), so the GatewayClass in `platform.tf` must stay named
+  `envoy`.
 - The `kserve` namespace is labelled `control-plane`; KServe's webhooks skip it,
   so InferenceServices must never go there (`model_namespace` validation).
 - The Hugging Face runtime's default image is CPU-only. Don't fix that with
-  `huggingfaceserver.tag` in the kserve module: the multinode runtime shares
+  `huggingfaceserver.tag` in `values/kserve-runtimes.yaml`: the multinode runtime shares
   the tag and appends `-gpu` itself (`<ver>-gpu` renders `<ver>-gpu-gpu`).
   Instead the InferenceService sets `image: kserve/huggingfaceserver:<ver>-gpu`;
   keep `<ver>` in `gitops/vllm/inferenceservice.yaml` in step with
-  `kserve_version`. KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the
+  `chart_versions.kserve` in `locals.tf`. KServe v0.21.0 charts are only on GHCR as `-rc1`, hence the
   v0.20.0 default.
-- Destroy order matters: `module.argo_cd` depends on `module.kserve` so the
+- Destroy order matters: `helm_release.applications` depends on KServe (via
+  `helm_release.runtimes`) so the
   `vllm` Application (with Argo CD's resources finalizer) and its
   InferenceService are deleted while KServe still runs.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
@@ -107,20 +106,26 @@ Helm charts; see "Module convention" below). The model workload lives in
   rewrites containerd's config and leaves the node `NotReady`. The operator's
   own device plugin is enabled and advertises `nvidia.com/gpu`.
 
-## Module convention
+## Layout conventions
 
-- Each `tofu/modules/<name>/` wraps a Helm chart with the same layout:
-  `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`,
-  `templates/values.yaml.tftpl`, `README.md`, and a tracked
-  `.terraform.lock.hcl`. New modules must mirror this and be added to the CI
-  matrix in `.github/workflows/ci.yml` and to `.github/dependabot.yml`.
-- Custom resources whose CRDs are installed by the same module (GatewayClass,
-  EnvoyProxy, Argo CD Applications) go in a local chart under
-  `modules/<name>/chart/`, installed by a second `helm_release` that
-  `depends_on` the first. Don't use `kubernetes_manifest` for them: it can't
-  plan before the CRD exists, which breaks the first apply.
-- Every Helm release is `atomic = true`; module timeouts are 600 s (the
-  monitoring stack 900 s).
+- One flat root, no modules (they were removed: seven modules of boilerplate
+  around one `helm_release` each). Add a component as a `helm_release` in
+  `platform.tf` plus a file in `tofu/values/` (a `.yaml`, or `.yaml.tftpl` only
+  if it needs variables). Pin it to the system pool with
+  `nodepool.lke/role: system` in its values.
+- Chart versions live in `local.chart_versions` (`locals.tf`). Everything people
+  vary is a variable in `variables.tf`, kept to a handful; everything else is an
+  opinionated default in `locals.tf`. Do not add `install_*` toggles.
+- Custom resources whose CRDs are installed by the same stack (GatewayClass,
+  EnvoyProxy, Argo CD Applications) go in a local chart under `tofu/charts/`,
+  installed by a second `helm_release` that `depends_on` the first. Don't use
+  `kubernetes_manifest` for them: it can't plan before the CRD exists, which
+  breaks the first apply. Give each chart a `ci/*-values.yaml` so CI renders it
+  with representative input.
+- Every Helm release is `atomic = true`; timeouts are `local.helm_timeout`
+  (600 s; the monitoring stack 900 s).
+- `moved.tf` maps the old `module.*` addresses to the flat ones for states created
+  before the refactor. Leave it until you are sure no such state remains.
 
 ## Conventions
 

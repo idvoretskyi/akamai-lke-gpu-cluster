@@ -1,5 +1,5 @@
 # Qwen3-8B (FP8) served by KServe's Hugging Face runtime (vLLM backend) on the
-# GPU pool. Synced by the Argo CD Application "vllm" (see tofu/modules.tf).
+# GPU pool. Synced by the Argo CD Application "vllm" (see helm_release.applications in tofu/platform.tf).
 #
 # Sizing for one RTX 4000 Ada (20 GB): ~8.8 GB of FP8 weights, the rest of the
 # 90% vLLM budget goes to the KV cache, enough for a 32k-token context.
@@ -29,7 +29,7 @@ spec:
         name: huggingface
       runtime: kserve-huggingfaceserver
       # The runtime's default image is KServe's CPU build; use the CUDA build.
-      # Keep the version in step with kserve_version in tofu.tfvars.
+      # Keep the version in step with chart_versions.kserve in tofu/locals.tf.
       image: kserve/huggingfaceserver:v0.20.0-gpu
       # Downloaded by KServe's storage initializer before vLLM starts.
       storageUri: hf://Qwen/Qwen3-8B-FP8

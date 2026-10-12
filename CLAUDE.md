@@ -7,5 +7,5 @@ configuration live in `README.md`.
 
 @AGENTS.md
 
-See also `README.md`, `tofu/modules/README.md` and `tofu/tofu.tfvars.example`.
+See also `README.md` and `tofu/tofu.auto.tfvars.example`.
 When prose and code disagree, the `.tf` files are the source of truth.

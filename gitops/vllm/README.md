@@ -1,9 +1,9 @@
 # gitops/vllm
 
 The model workload, synced by the Argo CD Application `vllm` that OpenTofu
-bootstraps (`tofu/modules.tf`, module `argo_cd`). Argo CD deploys it into the
-`model_namespace` (default `vllm`) with automated prune and self-heal, so
-`kubectl edit` changes are reverted: change things here and push.
+bootstraps (`helm_release.applications` in `tofu/platform.tf`). Argo CD deploys
+it into the `vllm` namespace with automated prune and self-heal, so `kubectl
+edit` changes are reverted: change things here and push.
 
 | File | What |
 |---|---|

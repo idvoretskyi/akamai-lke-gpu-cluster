@@ -71,55 +71,41 @@ KV cache (~55k tokens), and a single stream decodes at ~35 tokens/s.
 
 ## Quick start
 
+You need [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `jq` and a Linode
+account. Authenticate with `linode-cli configure` (or `export LINODE_TOKEN=...`).
+
 ```bash
-# Auth: `linode-cli configure`, or export LINODE_TOKEN
-cp tofu/tofu.tfvars.example tofu/tofu.tfvars   # edit as needed
-cd tofu
+git clone https://github.com/idvoretskyi/akamai-lke-gpu-cluster && cd akamai-lke-gpu-cluster/tofu
+cp tofu.auto.tfvars.example tofu.auto.tfvars   # optional: the defaults work
 tofu init
-tofu apply -var-file=tofu.tfvars
-
-kubectl get nodes            # kubeconfig is merged into ~/.kube/config
+tofu apply
 ```
 
-`tofu.tfvars` is **not** loaded automatically; pass `-var-file=tofu.tfvars`
-(or name the file `tofu.auto.tfvars`, which is loaded without the flag).
-
-Timing: ~15-20 minutes for the cluster and platform. Argo CD then syncs the
-InferenceService; the first start pulls the ~7 GB vLLM image and ~9 GB of
-weights, so allow another ~10 minutes before it reports `READY=True`.
-
-Prerequisites: [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `jq`, and
-`linode-cli` (the provider reads its token from `~/.config/linode-cli`, else
-`LINODE_TOKEN`). `kubectl` is also used by `tofu apply` to merge the
-kubeconfig.
-
-## Try it
+That is the whole install: about 15-20 minutes for the cluster and platform.
+OpenTofu loads `tofu.auto.tfvars` by itself, so there is no `-var-file`, and
+your kubeconfig is merged into `~/.kube/config` for you. Argo CD then deploys
+the model; its first start pulls ~7 GB of image and ~9 GB of weights, so give
+it another ~10 minutes. Then, from the repository root:
 
 ```bash
-make -C examples/kserve-chat wait                # model loaded and serving
-make -C examples/kserve-chat port-forward        # terminal 1: Gateway -> :8080
-make -C examples/kserve-chat models chat         # terminal 2
-make -C examples/kserve-chat chat PROMPT="What is the Gateway API?"
-make -C examples/kserve-chat stream gpu          # streamed reply; nvidia-smi
-
-make -C examples/argocd apps status              # GitOps view of the model
+scripts/status.sh                 # everything healthy? is the model READY?
+scripts/chat.sh "What is the Gateway API?"
 ```
 
-The endpoint is OpenAI-compatible, so any OpenAI client works with base URL
-`http://localhost:8080/openai/v1`, model `qwen3`, any API key, and the
-`Host: qwen3-vllm.kserve.local` header.
+| Script | What it does |
+|---|---|
+| `scripts/status.sh` | nodes, model, Argo CD app, gateway, and any unhealthy pod |
+| `scripts/chat.sh "prompt"` | opens a port-forward to the private Gateway, asks the model, closes it |
+| `scripts/ui.sh argocd\|grafana\|prometheus` | UI on localhost (login printed); Ctrl-C to stop |
+| `scripts/gpu-test.sh` | raw `nvidia-smi` in a CUDA pod (needs a free GPU, see Scheduling) |
 
-Web UIs are ClusterIP only; reach them with `kubectl port-forward`:
+They are plain bash around `kubectl`, `curl` and `jq`; read them, they are short.
+`tofu output next_steps` prints the same list.
 
-| UI | Command | URL |
-|---|---|---|
-| Model API (via Gateway) | `make -C examples/kserve-chat port-forward` | <http://localhost:8080/openai/v1> |
-| Argo CD (user `admin`, `make -C examples/argocd password`) | `kubectl port-forward -n argocd svc/argo-cd-argocd-server 8081:80` | <http://localhost:8081> |
-| Grafana (admin/admin by default) | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80` | <http://localhost:3000> |
-| Prometheus | `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` | <http://localhost:9090> |
-
-`tofu output inference_commands` prints the raw `kubectl`/`curl` equivalents,
-and every component has a `*_validation_commands` output.
+The endpoint is OpenAI-compatible, so any OpenAI client works against
+`http://localhost:8080/openai/v1` (run `kubectl port-forward` as `chat.sh`
+does) with model `qwen3`, any API key, and the header
+`Host: qwen3-vllm.kserve.local`.
 
 ## Changing the model (GitOps)
 
@@ -134,7 +120,7 @@ self-heal. To serve something else:
    `Qwen/Qwen3-14B-FP8` (~16 GB of weights) also fits with
    `--max-model-len=8192`.
 3. Commit and push. Argo CD recreates the predictor pod with the new model
-   (`make -C examples/argocd refresh` skips the ~3-minute poll).
+   (it polls Git about every 3 minutes; watch with `scripts/status.sh`).
 
 Gated models (Llama, Gemma) need a Hugging Face token; see
 [`gitops/vllm/README.md`](gitops/vllm/README.md). To test changes on a
@@ -165,30 +151,30 @@ spec:
 ```
 
 - The InferenceService holds the only GPU. Other GPU pods (such as
-  [`examples/gpu-validation`](examples/gpu-validation/)) stay `Pending` until
+  `scripts/gpu-test.sh`) stay `Pending` until
   it is removed or a second GPU node is added (`gpu_node_count = 2`).
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
   `nvidia` containerd runtime, so the GPU Operator installs neither.
 
 ## Configuration
 
-All settings live in `tofu/tofu.tfvars.example`, which is the source of truth
-for variable names and defaults. The ones you are most likely to change:
+The few settings people change are variables, listed in
+`tofu/tofu.auto.tfvars.example` (every one is optional). Everything else, such
+as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
+`tofu/locals.tf`.
 
 | Variable | Default | Notes |
 |---|---|---|
 | `region` | `de-fra-2` | must offer the RTX 4000 Ada plan |
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
-| `install_kserve` | on | also installs cert-manager and Envoy Gateway |
 | `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
-| `install_argo_cd` | on | bootstraps the `vllm` Application |
-| `gitops_repo_url`, `gitops_target_revision`, `gitops_path` | this repo, `main`, `gitops/vllm` | where the model comes from |
+| `gitops_repo_url`, `gitops_target_revision` | this repo, `main` | where Argo CD gets the model |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `grafana_admin_password` | `admin` | change it |
 
-Advisory `check` blocks print warnings (never failures) for common mistakes,
-such as a GPU plan not offered in the region or a public Gateway.
+Two advisory `check` blocks print warnings (never failures): a GPU plan that is
+not offered in the region, and a public Gateway.
 
 ## Cost
 
@@ -204,8 +190,8 @@ destroyed. Costs are approximate, see
 [Linode pricing](https://www.linode.com/pricing/).
 
 ```bash
-cd tofu && tofu destroy     # stop paying
-cd tofu && tofu apply -var-file=tofu.tfvars   # bring it back
+cd tofu && tofu destroy   # stop paying
+cd tofu && tofu apply     # bring it back
 ```
 
 The monitoring volumes use the `linode-block-storage` class, so `tofu
@@ -223,7 +209,14 @@ when Helm tries to patch Grafana's PVC (and the release rolls back). Either:
   `tofu destroy`, delete the retained volumes left in Cloud Manager
   (`linode-cli volumes list`), then `tofu apply`; or
 - **Keep the old class**: set `monitoring_storage_class =
-  "linode-block-storage-retain"` in `tofu.tfvars` before applying.
+  "linode-block-storage-retain"` in `tofu.auto.tfvars` before applying.
+
+If your state was created before the "simplify" refactor (OpenTofu modules
+instead of the flat layout), `tofu/moved.tf` maps every resource to its new
+address, so `tofu plan` shows moves and Helm upgrades with identical values, not
+a rebuild (verified on a live cluster: nothing was destroyed and no pod
+restarted). Rename `tofu.tfvars` to `tofu.auto.tfvars` and delete the lines
+for variables that no longer exist (`install_*`, `*_version`, ...).
 
 Either way, the old HAMi, Ollama, Open WebUI, Argo Workflows and OpenCost
 resources in the state are destroyed by the first apply. The root module still
@@ -245,7 +238,7 @@ linode-cli volumes delete <id>
 ## Security
 
 - API token comes from `~/.config/linode-cli` or `LINODE_TOKEN`; it is never
-  written to state or git. Kubeconfigs and `*.tfvars` are git-ignored.
+  written to state or git. Kubeconfigs and `*.tfvars` files are git-ignored.
 - A Linode Cloud Firewall allows only the Kubernetes API (443) from
   `allowed_kubectl_ips` plus intra-cluster traffic.
 - The model endpoint has no authentication. It stays private (ClusterIP
@@ -258,21 +251,23 @@ linode-cli volumes delete <id>
 
 ```text
 .
-├── tofu/                    # OpenTofu root module (platform)
-│   ├── modules/             # one module per component, see modules/README.md
-│   └── tofu.tfvars.example
-├── gitops/                  # workloads synced by Argo CD
-│   └── vllm/                # the InferenceService
-├── examples/                # runnable smoke tests (Makefiles)
+├── tofu/
+│   ├── cluster.tf  firewall.tf  kubeconfig.tf   # LKE cluster, pools, firewall
+│   ├── platform.tf                              # every Helm release, in install order
+│   ├── values/                                  # one values file per chart
+│   ├── charts/                                  # 2 tiny local charts (GatewayClass, Argo CD Applications)
+│   ├── variables.tf  locals.tf  outputs.tf  checks.tf  moved.tf
+│   └── tofu.auto.tfvars.example
+├── gitops/vllm/             # the model: synced by Argo CD
+├── scripts/                 # status, chat, ui, gpu-test (plain bash)
 ├── AGENTS.md                # contributor / agent notes
 └── .github/                 # CI and Dependabot
 ```
 
-Contributing: run `tofu fmt -recursive` from `tofu/`, validate the root and
-each changed module (`tofu init -backend=false && tofu validate`), and sign
-commits (`git commit -s`). CI also runs tflint, shellcheck, Trivy,
-markdownlint, yamllint and `helm lint`/`kustomize build` on the GitOps tree
-and local charts.
+Contributing: run `tofu fmt -recursive` from `tofu/`, `tofu init -backend=false
+&& tofu validate`, and sign commits (`git commit -s`). CI also runs tflint,
+shellcheck, Trivy, markdownlint, yamllint and `helm lint` plus `kubectl
+kustomize` on the charts and the GitOps tree.
 
 ## License
 
