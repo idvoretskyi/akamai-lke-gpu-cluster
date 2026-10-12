@@ -88,6 +88,7 @@ the model; its first start pulls ~7 GB of image and ~9 GB of weights, so give
 it another ~10 minutes. Then, from the repository root:
 
 ```bash
+cd ..
 scripts/status.sh                 # everything healthy? is the model READY?
 scripts/chat.sh "What is the Gateway API?"
 ```

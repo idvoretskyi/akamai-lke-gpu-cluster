@@ -84,12 +84,13 @@ output "next_steps" {
     (${local.gitops_path} @ ${var.gitops_target_revision}). Its first start pulls ~7 GB of
     image and ~9 GB of weights, so allow ~10 minutes after apply.
 
-    scripts/status.sh          # is everything healthy?
-    scripts/chat.sh "Hello"    # ask the model a question
-    scripts/ui.sh argocd       # Argo CD UI on http://localhost:8081 (prints the password)
-    scripts/ui.sh grafana      # Grafana on http://localhost:3000 (user admin)
-    scripts/ui.sh prometheus   # Prometheus on http://localhost:9090
-    scripts/gpu-test.sh        # raw nvidia-smi; needs the GPU free (see README)
+    From this directory (tofu/):
+    ../scripts/status.sh          # is everything healthy?
+    ../scripts/chat.sh "Hello"    # ask the model a question
+    ../scripts/ui.sh argocd       # Argo CD UI on http://localhost:8081 (prints the password)
+    ../scripts/ui.sh grafana      # Grafana on http://localhost:3000 (user admin)
+    ../scripts/ui.sh prometheus   # Prometheus on http://localhost:9090
+    ../scripts/gpu-test.sh        # raw nvidia-smi; needs the GPU free (see README)
   EOT
 }
 
