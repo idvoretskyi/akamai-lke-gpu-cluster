@@ -140,7 +140,7 @@ jobs:
         run: |
           pip install --quiet yamllint
           yamllint -d '{extends: relaxed, rules: {line-length: disable}}' \
-            gitops/ tofu/values/*.yaml tofu/charts/*/Chart.yaml tofu/charts/*/values.yaml tofu/charts/*/ci/
+            gitops/ tofu/values/*.yaml tofu/values/*.yaml.tftpl tofu/charts/*/Chart.yaml tofu/charts/*/values.yaml tofu/charts/*/ci/
 
       - name: Build every Kustomize directory
         run: |

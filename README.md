@@ -71,7 +71,7 @@ KV cache (~55k tokens), and a single stream decodes at ~35 tokens/s.
 
 ## Quick start
 
-You need [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `jq` and a Linode
+You need [OpenTofu](https://opentofu.org) >= 1.9, `kubectl`, `curl`, `jq` and a Linode
 account. Authenticate with `linode-cli configure` (or `export LINODE_TOKEN=...`).
 
 ```bash
@@ -130,7 +130,7 @@ branch first, set `gitops_target_revision` to the branch name.
 
 - Pools are labelled `nodepool.lke/role=system|gpu`; every platform component
   is pinned to the system pool.
-- With `dedicate_gpu_nodes = true` (default) the GPU pool carries the taint
+- The GPU pool always carries the taint
   `nvidia.com/gpu=present:NoSchedule`. GPU workloads need this toleration, a
   `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
   InferenceService does:

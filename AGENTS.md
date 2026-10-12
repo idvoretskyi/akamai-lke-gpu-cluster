@@ -64,9 +64,8 @@ and `gitops/` are the source of truth.
   with the old `-retain` default must set that value or be recreated (README
   "Upgrading an existing cluster").
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
-  The GPU pool is tainted `nvidia.com/gpu=present:NoSchedule` when
-  `dedicate_gpu_nodes = true` (default); system workloads are pinned via
-  `nodepool.lke/role=system`. GPU workloads must add the matching toleration,
+  The GPU pool is always tainted `nvidia.com/gpu=present:NoSchedule`; system
+  workloads are pinned via `nodepool.lke/role=system` in `tofu/values/`. GPU workloads must add the matching toleration,
   a `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit.
 - One GPU, no sharing layer: the InferenceService takes the whole card, so any
   other `nvidia.com/gpu` pod stays Pending while it runs. It uses
@@ -76,7 +75,8 @@ and `gitops/` are the source of truth.
   (`createGateway`), so the GatewayClass in `platform.tf` must stay named
   `envoy`.
 - The `kserve` namespace is labelled `control-plane`; KServe's webhooks skip it,
-  so InferenceServices must never go there (`model_namespace` validation).
+  so InferenceServices must never go there. The model namespace is
+  `local.model_namespace` (`vllm`), not a variable.
 - The Hugging Face runtime's default image is CPU-only. Don't fix that with
   `huggingfaceserver.tag` in `values/kserve-runtimes.yaml`: the multinode runtime shares
   the tag and appends `-gpu` itself (`<ver>-gpu` renders `<ver>-gpu-gpu`).
@@ -94,15 +94,13 @@ and `gitops/` are the source of truth.
   `kubectl port-forward`.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: a GPU plan not offered in the chosen region,
-  KServe without the GPU Operator, Argo CD without KServe (the bootstrap
-  Application is skipped), and a public (LoadBalancer) Gateway. Warnings, not
-  failures.
+  and a public (LoadBalancer) Gateway. Warnings, not failures.
 
 ## GPU node image (LKE)
 
 - LKE GPU nodes ship the NVIDIA driver, container toolkit and a containerd
-  `nvidia` runtime. The GPU Operator runs with `install_driver = false` and
-  `gpu_operator_install_toolkit = false`; enabling the operator's toolkit
+  `nvidia` runtime. The GPU Operator runs with `driver.enabled: false` and
+  `toolkit.enabled: false` (`values/gpu-operator.yaml`); enabling the operator's toolkit
   rewrites containerd's config and leaves the node `NotReady`. The operator's
   own device plugin is enabled and advertises `nvidia.com/gpu`.
 

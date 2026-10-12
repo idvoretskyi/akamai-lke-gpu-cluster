@@ -92,8 +92,9 @@ resource "helm_release" "kube_prometheus_stack" {
       prometheus_retention    = local.prometheus_retention
       prometheus_storage_size = local.prometheus_storage_size
       grafana_storage_size    = local.grafana_storage_size
-      grafana_admin_password  = var.grafana_admin_password
-      storage_class           = var.monitoring_storage_class
+      # JSON string = valid YAML scalar, so any password survives intact.
+      grafana_admin_password = jsonencode(var.grafana_admin_password)
+      storage_class          = var.monitoring_storage_class
     })
   ]
 

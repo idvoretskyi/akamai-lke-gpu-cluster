@@ -1,5 +1,6 @@
-# The only templated values file: the Grafana password, storage class and sizes
-# come from variables/locals. Everything else is static.
+# The only templated values file: the Grafana password (already JSON-encoded,
+# i.e. a quoted YAML string), storage class and sizes come from variables and
+# locals. Everything else is static.
 prometheus:
   prometheusSpec:
     retention: ${prometheus_retention}
