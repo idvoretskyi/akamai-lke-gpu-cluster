@@ -28,18 +28,18 @@ if [ -f ~/.kube/config ]; then
 fi
 
 # Temp files hold credentials: create them private and remove them on any exit.
+# The merged file is created inside ~/.kube so the final mv is a rename on the
+# same filesystem, which is atomic: ~/.kube/config is either the old file or the
+# complete new one, never half-written (a plain cp would truncate it first).
 new=$(mktemp)
-merged=$(mktemp)
+merged=$(mktemp ~/.kube/config.XXXXXX)
 trap 'rm -f "$new" "$merged"' EXIT
 chmod 600 "$new" "$merged"
 
 printf '%s' "$LKE_KUBECONFIG_B64" | base64 -d >"$new"
 
-# Merge into ~/.kube/config (writing to a temp file first, so a failed merge
-# never truncates the real one).
 KUBECONFIG=~/.kube/config:"$new" kubectl config view --flatten >"$merged"
-cp "$merged" ~/.kube/config
-chmod 600 ~/.kube/config
+mv "$merged" ~/.kube/config
 
 # Activate the new context; target only ~/.kube/config so other entries in a
 # multi-path KUBECONFIG cannot cause permission errors.
