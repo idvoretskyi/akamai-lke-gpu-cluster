@@ -2,7 +2,8 @@
 #
 #   gpu_operator ───┐
 #   metrics_server ─┴─> kube_prometheus_stack ─┬─> cert_manager ──┐
-#                                               └─> envoy_gateway ─┴─> kserve ─> argo_cd
+#                                              ├─> envoy_gateway ─┴─> kserve ─> argo_cd Application
+#                                              └─> argo_cd ───────────────────────┘
 #
 # Everything except the GPU operands runs on the system pool (the values/*.yaml
 # files pin it). The model itself is not here: Argo CD deploys it from

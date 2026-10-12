@@ -8,21 +8,11 @@ data "external" "username" {
   program = ["sh", "-c", "echo '{\"username\":\"'$(whoami)'\"}'"]
 }
 
-# Resolve a Linode API token fallback from the default user in
-# ~/.config/linode-cli (linode-cli's own config file), for machines that are
-# already `linode-cli configure`'d and don't want a separate
-# `export LINODE_TOKEN`. Implemented with plain HCL functions (file/regex),
-# NOT a data source — data source results are persisted into OpenTofu state,
-# and this repo doesn't want the token to end up there even though state is
-# local/gitignored (see AGENTS.md). Locals are never written to state.
-#
-# Precedence note: because there's no built-in way to read an arbitrary
-# environment variable from HCL (only TF_VAR_* via variables), this can't
-# check whether LINODE_TOKEN is already set and prefer it — if the
-# linode-cli config file resolves to a token, it takes priority here over
-# LINODE_TOKEN. For this single-owner lab repo that's an acceptable
-# trade-off; if you need to override with a different token, temporarily
-# rename ~/.config/linode-cli or update its default user's token instead.
+# Linode API token: read from the default user in ~/.config/linode-cli if that
+# file exists, else null, which makes the provider use $LINODE_TOKEN. So the
+# linode-cli config wins when both are set. Plain HCL (file/regex) rather than a
+# data source on purpose: data source results are stored in state, locals are
+# not, and the token must never end up in state.
 locals {
   linode_cli_config_path  = pathexpand("~/.config/linode-cli")
   linode_cli_config       = fileexists(local.linode_cli_config_path) ? file(local.linode_cli_config_path) : ""
@@ -32,9 +22,8 @@ locals {
     null
   )
 
-  # null falls through to the linode provider's own LINODE_TOKEN env lookup
-  # (e.g. `tofu validate`/`plan` in CI, with no linode-cli config at all,
-  # keeps working instead of erroring on an empty token).
+  # null falls back to $LINODE_TOKEN (and lets `tofu validate` run in CI with
+  # no linode-cli config at all).
   linode_token = local.linode_cli_token != null ? sensitive(local.linode_cli_token) : null
 }
 

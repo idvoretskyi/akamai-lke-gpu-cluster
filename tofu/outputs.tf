@@ -36,8 +36,7 @@ output "cluster_dashboard_url" {
 }
 
 # ─── Node Pools ───────────────────────────────────────────────────────────────
-# Pools are matched by instance type rather than list index, since the order of
-# the pool blocks is not guaranteed to be stable in state.
+# Matched by instance type (see locals.tf).
 
 output "gpu_node_pool_id" {
   description = "The ID of the GPU node pool"
