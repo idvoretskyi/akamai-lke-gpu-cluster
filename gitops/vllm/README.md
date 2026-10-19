@@ -8,6 +8,7 @@ edit` changes are reverted: change things here and push.
 | File | What |
 |---|---|
 | `llminferenceservice.yaml` | KServe `LLMInferenceService` `qwen3`: vLLM in the llm-d image on the GPU pool |
+| `podmonitor.yaml` | Prometheus `PodMonitor` scraping vLLM metrics |
 | `kustomization.yaml` | Kustomize entry point Argo CD renders |
 
 ## The LLMInferenceService

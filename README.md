@@ -67,10 +67,9 @@ the model is a Git commit, not a `tofu apply`.
   service. Requests reach it through `kubectl port-forward` and pick the
   model with the path (`/vllm/qwen3/v1/...`).
 
-A measurement, not a promise (`de-fra-2`, 8 Oct 2026, KServe v0.20.0 with its
-Hugging Face runtime and vLLM v0.24.0, before the llm-d migration): weights download in ~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB
-of weights leave a 7.6 GiB KV cache (~55k tokens), and a single stream decodes
-at ~35 tokens/s.
+A measurement, not a promise (`de-fra-2`, 19 Oct 2026, KServe v0.21.0 with the
+llm-d CUDA image): a single stream decodes ~33 tokens/s (293 tokens in 8.8 s,
+through the Gateway).
 
 ## Quick start
 
@@ -139,7 +138,7 @@ branch first, set `gitops_target_revision` to the branch name.
   `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
   LLMInferenceService does ([`gitops/vllm/llminferenceservice.yaml`](gitops/vllm/llminferenceservice.yaml)).
 - The LLMInferenceService holds the only GPU. Other GPU pods (such as
-  `scripts/gpu-test.sh`) stay `Pending` until it is removed or a second GPU node
+  `scripts/gpu-test.sh`) fail to start ("requested number of devices unavailable") until it is removed or a second GPU node
   is added (`gpu_node_count = 2`). Scaling the model down does not work, because
   KServe and Argo CD put it back. To free the GPU, delete the Argo CD
   application (`kubectl delete application vllm -n argocd`, whose finalizer

@@ -5,7 +5,7 @@
 # Sizing for one RTX 4000 Ada (20 GB): ~8.8 GB of FP8 weights, the rest of the
 # 90% vLLM budget goes to the KV cache, enough for a 32k-token context.
 #
-# Reachable through the Gateway at /<namespace>/<name>/v1/... (scripts/chat.sh).
+# Metrics: podmonitor.yaml. Reachable through the Gateway at /<namespace>/<name>/v1/... (scripts/chat.sh).
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceService
 metadata:

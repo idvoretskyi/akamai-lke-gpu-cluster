@@ -1,0 +1,14 @@
+# vLLM's Prometheus metrics (port 8000, plain HTTP), scraped by the
+# Prometheus from kube-prometheus-stack (it selects every PodMonitor).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: qwen3-vllm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qwen3
+      app.kubernetes.io/part-of: llminferenceservice
+  podMetricsEndpoints:
+    - targetPort: 8000
+      path: /metrics

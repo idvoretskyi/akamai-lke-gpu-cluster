@@ -69,7 +69,7 @@ and `gitops/` are the source of truth.
   a `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit.
 - One GPU, whole-card by default: HAMi (`values/hami.yaml`, `deviceSplitCount: 1`)
   advertises the card once, so the LLMInferenceService takes all of it and any
-  other `nvidia.com/gpu` pod stays Pending. Its `rolloutStrategy` is
+  other `nvidia.com/gpu` pod is rejected at admission (`UnexpectedAdmissionError`). Its `rolloutStrategy` is
   `maxSurge: 0` because a surge pod would need a second GPU; keep that when
   editing `gitops/vllm/llminferenceservice.yaml`.
 - HAMi's admission webhook sets `schedulerName: hami-scheduler` on every pod
