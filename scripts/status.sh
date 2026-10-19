@@ -3,7 +3,7 @@
 # any check fails, so it is safe to use in a script or a pipeline.
 #
 # Checks: every node Ready; every pod Running/Completed and fully Ready; the
-# model (InferenceService) Ready; the Argo CD application Synced and Healthy;
+# model (LLMInferenceService) Ready; the Argo CD application Synced and Healthy;
 # the Gateway Programmed.
 #
 # Usage: scripts/status.sh
@@ -40,13 +40,13 @@ bad=$(get pods -A | jq -r '
 pods=$(get pods -A | jq -r '.items | length' || echo 0)
 check "pods Running and Ready ($pods)" "$([ -z "$bad" ] && [ "$pods" -gt 0 ] && echo 0 || echo 1)" "$(echo "$bad" | tr '\n' ' ')"
 
-# model: InferenceService Ready
-bad=$(get inferenceservice -A | jq -r '
+# model: LLMInferenceService Ready
+bad=$(get llminferenceservice -A | jq -r '
   .items[]
   | select(([.status.conditions[]? | select(.type=="Ready")][0].status) != "True")
   | "\(.metadata.namespace)/\(.metadata.name)"' || echo "unreachable")
-n=$(get inferenceservice -A | jq -r '.items | length' || echo 0)
-check "model InferenceService Ready ($n)" "$([ -z "$bad" ] && [ "$n" -gt 0 ] && echo 0 || echo 1)" "${bad:-none found}"
+n=$(get llminferenceservice -A | jq -r '.items | length' || echo 0)
+check "model LLMInferenceService Ready ($n)" "$([ -z "$bad" ] && [ "$n" -gt 0 ] && echo 0 || echo 1)" "${bad:-none found}"
 
 # Argo CD: Synced and Healthy
 bad=$(get applications -n argocd | jq -r '

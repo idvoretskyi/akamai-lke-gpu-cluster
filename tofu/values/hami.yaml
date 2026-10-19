@@ -1,0 +1,36 @@
+# HAMi: GPU device plugin + scheduler extension. The scheduler and webhook run
+# on the system pool; the device plugin DaemonSet lands on the GPU node.
+# LKE GPU nodes ship the NVIDIA driver, container toolkit and a containerd
+# "nvidia" runtime, so nothing is installed on the node.
+
+scheduler:
+  nodeSelector:
+    nodepool.lke/role: system
+  kubeScheduler:
+    image:
+      # The chart defaults to an Alibaba Cloud mirror.
+      registry: registry.k8s.io
+      repository: kube-scheduler
+  # cert-manager (installed earlier) issues the webhook certificate.
+  certManager:
+    enabled: true
+  patch:
+    enabled: false
+
+devicePlugin:
+  nvidiaNodeSelector:
+    nodepool.lke/role: gpu
+  service:
+    type: ClusterIP
+
+devices:
+  nvidia:
+    # One whole GPU per pod. Raise this to share the card between pods, e.g. the
+    # model server and scripts/gpu-test.sh (limit each with nvidia.com/gpumem).
+    deviceSplitCount: 1
+    # Run GPU pods with the node's "nvidia" containerd runtime.
+    runtimeClassName: nvidia
+    createRuntimeClass: true
+
+prometheus:
+  enabled: true

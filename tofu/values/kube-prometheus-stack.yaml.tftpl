@@ -24,18 +24,6 @@ prometheus:
           resources:
             requests:
               storage: ${prometheus_storage_size}
-    # GPU metrics from the GPU Operator's DCGM exporter.
-    additionalScrapeConfigs:
-      - job_name: dcgm-exporter
-        kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names:
-                - gpu-operator
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_service_name]
-            regex: nvidia-dcgm-exporter
-            action: keep
 
 grafana:
   enabled: true

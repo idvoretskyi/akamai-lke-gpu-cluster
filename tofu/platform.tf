@@ -1,9 +1,8 @@
 # The platform: every Helm release, in install order.
 #
-#   gpu_operator ───┐
-#   metrics_server ─┴─> kube_prometheus_stack ─┬─> cert_manager ──┐
-#                                              ├─> envoy_gateway ─┴─> kserve ─> argo_cd Application
-#                                              └─> argo_cd ───────────────────────┘
+#   metrics_server ─> kube_prometheus_stack ─┬─> cert_manager ─┬─> hami ──────────┐
+#                                            │                 └─> envoy_gateway ─┴─> kserve (+ llmisvc) ─> argo_cd Application
+#                                            └─> argo_cd ─────────────────────────────────────────────────┘
 #
 # Everything except the GPU operands runs on the system pool (the values/*.yaml
 # files pin it). The model itself is not here: Argo CD deploys it from
@@ -12,23 +11,25 @@
 # Releases are atomic, so a failed install or upgrade rolls back instead of
 # leaving a half-installed chart behind.
 
-# ─── GPU Operator ─────────────────────────────────────────────────────────────
-# Device plugin (advertises nvidia.com/gpu), GPU feature discovery and the DCGM
-# exporter. LKE GPU nodes already ship the driver and container toolkit.
+# ─── HAMi ─────────────────────────────────────────────────────────────────────
+# CNCF GPU device plugin and scheduler extension: advertises nvidia.com/gpu,
+# can share a card between pods, and exports GPU metrics (ServiceMonitors).
+# LKE GPU nodes already ship the NVIDIA driver and container toolkit. Installed
+# after cert-manager, which issues the certificate of HAMi's admission webhook.
 
-resource "kubernetes_namespace_v1" "gpu_operator" {
+resource "kubernetes_namespace_v1" "hami" {
   metadata {
-    name   = "gpu-operator"
-    labels = merge(local.namespace_labels, { "app.kubernetes.io/name" = "gpu-operator" })
+    name   = "hami-system"
+    labels = merge(local.namespace_labels, { "app.kubernetes.io/name" = "hami" })
   }
 }
 
-resource "helm_release" "gpu_operator" {
-  name       = "gpu-operator"
-  repository = "https://helm.ngc.nvidia.com/nvidia"
-  chart      = "gpu-operator"
-  version    = local.chart_versions.gpu_operator
-  namespace  = kubernetes_namespace_v1.gpu_operator.metadata[0].name
+resource "helm_release" "hami" {
+  name       = "hami"
+  repository = "https://project-hami.github.io/HAMi/"
+  chart      = "hami"
+  version    = local.chart_versions.hami
+  namespace  = kubernetes_namespace_v1.hami.metadata[0].name
 
   create_namespace = false
   wait             = true
@@ -38,7 +39,9 @@ resource "helm_release" "gpu_operator" {
   max_history      = 5
   timeout          = local.helm_timeout
 
-  values = [file("${path.module}/values/gpu-operator.yaml")]
+  values = [file("${path.module}/values/hami.yaml")]
+
+  depends_on = [helm_release.cert_manager, helm_release.kube_prometheus_stack]
 }
 
 # ─── Metrics Server ───────────────────────────────────────────────────────────
@@ -99,7 +102,7 @@ resource "helm_release" "kube_prometheus_stack" {
     })
   ]
 
-  depends_on = [helm_release.gpu_operator, helm_release.metrics_server]
+  depends_on = [helm_release.metrics_server]
 }
 
 # ─── cert-manager ─────────────────────────────────────────────────────────────
@@ -192,7 +195,7 @@ resource "helm_release" "gateway_class" {
 
 # ─── KServe ───────────────────────────────────────────────────────────────────
 # Control plane in Standard mode (plain Deployments, no Knative/Istio), routed
-# through the Gateway API, plus the vLLM-backed Hugging Face runtime. Three
+# through the Gateway API, plus the LLMInferenceService (llm-d) controller below. Three
 # releases: the CRDs are separate so the controller can be upgraded or removed
 # without touching every InferenceService in the cluster.
 
@@ -244,14 +247,17 @@ resource "helm_release" "kserve" {
     helm_release.kserve_crd,
     helm_release.cert_manager,
     helm_release.gateway_class,
-    helm_release.gpu_operator,
+    helm_release.hami,
   ]
 }
 
-resource "helm_release" "runtimes" {
-  name       = "kserve-runtime-configs"
+# LLMInferenceService (llm-d): KServe's API for LLM serving on upstream vLLM.
+# Its CRDs and controller are separate charts; the shared resources (config,
+# storage container, cert-manager issuer) already come from kserve-resources.
+resource "helm_release" "kserve_llmisvc_crd" {
+  name       = "kserve-llmisvc-crd"
   repository = "oci://ghcr.io/kserve/charts"
-  chart      = "kserve-runtime-configs"
+  chart      = "kserve-llmisvc-crd"
   version    = local.chart_versions.kserve
   namespace  = kubernetes_namespace_v1.kserve.metadata[0].name
 
@@ -261,10 +267,26 @@ resource "helm_release" "runtimes" {
   cleanup_on_fail  = true
   max_history      = 5
   timeout          = local.helm_timeout
+}
 
-  values = [file("${path.module}/values/kserve-runtimes.yaml")]
+resource "helm_release" "kserve_llmisvc" {
+  name       = "kserve-llmisvc"
+  repository = "oci://ghcr.io/kserve/charts"
+  chart      = "kserve-llmisvc-resources"
+  version    = local.chart_versions.kserve
+  namespace  = kubernetes_namespace_v1.kserve.metadata[0].name
 
-  depends_on = [helm_release.kserve]
+  create_namespace = false
+  wait             = true
+  wait_for_jobs    = true
+  atomic           = true
+  cleanup_on_fail  = true
+  max_history      = 5
+  timeout          = local.helm_timeout
+
+  values = [file("${path.module}/values/kserve-llmisvc.yaml")]
+
+  depends_on = [helm_release.kserve_llmisvc_crd, helm_release.kserve]
 }
 
 # ─── Argo CD ──────────────────────────────────────────────────────────────────
@@ -326,5 +348,5 @@ resource "helm_release" "applications" {
     })
   ]
 
-  depends_on = [helm_release.argo_cd, helm_release.runtimes]
+  depends_on = [helm_release.argo_cd, helm_release.kserve_llmisvc]
 }

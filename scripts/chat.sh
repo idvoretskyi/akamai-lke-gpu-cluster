@@ -5,7 +5,7 @@
 #
 # Usage:   scripts/chat.sh "Why is the sky blue?"
 #          scripts/chat.sh                      # uses a default question
-# Env:     MODEL=qwen3  NAMESPACE=vllm  DOMAIN=kserve.local  MAX_TOKENS=512
+# Env:     MODEL=qwen3  NAMESPACE=vllm  MAX_TOKENS=512
 #
 # Qwen3 "thinks" before it answers; add /no_think to the prompt to skip that.
 set -euo pipefail
@@ -13,7 +13,6 @@ set -euo pipefail
 PROMPT="${1:-Explain in two sentences what KServe does. /no_think}"
 MODEL="${MODEL:-qwen3}"
 NAMESPACE="${NAMESPACE:-vllm}"
-DOMAIN="${DOMAIN:-kserve.local}"
 MAX_TOKENS="${MAX_TOKENS:-512}"
 GATEWAY_NS=envoy-gateway-system
 GATEWAY=kserve-ingress-gateway
@@ -54,6 +53,6 @@ fi
 # The prompt travels through the environment into jq, never through the shell.
 PROMPT="$PROMPT" jq -n --arg m "$MODEL" --argjson n "$MAX_TOKENS" \
   '{model: $m, max_tokens: $n, messages: [{role: "user", content: env.PROMPT}]}' |
-  curl -sS --fail-with-body "http://127.0.0.1:$port/openai/v1/chat/completions" \
-    -H "Host: $MODEL-$NAMESPACE.$DOMAIN" -H 'Content-Type: application/json' -d @- |
+  curl -sS --fail-with-body "http://127.0.0.1:$port/$NAMESPACE/$MODEL/v1/chat/completions" \
+    -H 'Content-Type: application/json' -d @- |
   jq -r '.choices[0].message.content, "-- tokens: \(.usage.prompt_tokens) in / \(.usage.completion_tokens) out"'

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Raw GPU smoke test: run nvidia-smi in a bare CUDA pod, print the output and
 # clean up. The pod needs a whole GPU, so it stays Pending (and this script
-# fails after 2 minutes) while the model server holds the only one.
+# fails after 2 minutes) while the model server holds the only one (HAMi: see README "Scheduling" for sharing).
 #
 # README "Scheduling" explains how to free the GPU on a one-GPU cluster (scaling
 # the model down does not work; KServe and Argo CD put it back). Or add a second

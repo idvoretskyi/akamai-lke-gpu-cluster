@@ -23,7 +23,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # InferenceService objects are large; server-side apply avoids the
+      # LLMInferenceService objects are large; server-side apply avoids the
       # last-applied annotation size limit.
       - ServerSideApply=true
     # KServe's webhook may not be ready the first time Argo CD syncs.
