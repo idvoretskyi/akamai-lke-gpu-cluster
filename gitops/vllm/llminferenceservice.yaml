@@ -52,6 +52,6 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           failureThreshold: 120
           periodSeconds: 10

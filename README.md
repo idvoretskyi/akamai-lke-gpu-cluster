@@ -149,7 +149,7 @@ branch first, set `gitops_target_revision` to the branch name.
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
   `nvidia` containerd runtime, so HAMi installs neither; it only runs the
   device plugin and scheduler. To share the one GPU between the model and other
-  pods, set `devices.nvidia.deviceSplitCount` in `tofu/values/hami.yaml` and
+  pods, set `devicePlugin.deviceSplitCount` in `tofu/values/hami.yaml` and
   give each pod a `nvidia.com/gpumem` limit.
 
 ## Configuration

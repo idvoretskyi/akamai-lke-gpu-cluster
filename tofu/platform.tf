@@ -267,6 +267,9 @@ resource "helm_release" "kserve_llmisvc_crd" {
   cleanup_on_fail  = true
   max_history      = 5
   timeout          = local.helm_timeout
+
+  # Both CRD charts ship clusterstoragecontainers; install them one at a time.
+  depends_on = [helm_release.kserve_crd]
 }
 
 resource "helm_release" "kserve_llmisvc" {

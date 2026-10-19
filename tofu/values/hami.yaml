@@ -18,19 +18,22 @@ scheduler:
     enabled: false
 
 devicePlugin:
+  # null drops the chart's default "gpu: on" selector (Helm merges maps).
   nvidiaNodeSelector:
+    gpu: null
     nodepool.lke/role: gpu
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
   service:
     type: ClusterIP
-
-devices:
-  nvidia:
-    # One whole GPU per pod. Raise this to share the card between pods, e.g. the
-    # model server and scripts/gpu-test.sh (limit each with nvidia.com/gpumem).
-    deviceSplitCount: 1
-    # Run GPU pods with the node's "nvidia" containerd runtime.
-    runtimeClassName: nvidia
-    createRuntimeClass: true
+  # One whole GPU per pod. Raise this to share the card between pods, e.g. the
+  # model server and scripts/gpu-test.sh (limit each with nvidia.com/gpumem).
+  deviceSplitCount: 1
+  # Run GPU pods with the node's "nvidia" containerd runtime.
+  runtimeClassName: nvidia
+  createRuntimeClass: true
 
 prometheus:
   enabled: true
