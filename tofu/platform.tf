@@ -272,6 +272,27 @@ resource "helm_release" "kserve_llmisvc_crd" {
   depends_on = [helm_release.kserve_crd]
 }
 
+# The LLMInferenceServiceConfig presets (vLLM image and command, router route,
+# scheduler) that every LLMInferenceService is merged with.
+resource "helm_release" "runtime_configs" {
+  name       = "kserve-runtime-configs"
+  repository = "oci://ghcr.io/kserve/charts"
+  chart      = "kserve-runtime-configs"
+  version    = local.chart_versions.kserve
+  namespace  = kubernetes_namespace_v1.kserve.metadata[0].name
+
+  create_namespace = false
+  wait             = true
+  atomic           = true
+  cleanup_on_fail  = true
+  max_history      = 5
+  timeout          = local.helm_timeout
+
+  values = [file("${path.module}/values/kserve-runtime-configs.yaml")]
+
+  depends_on = [helm_release.kserve_llmisvc]
+}
+
 resource "helm_release" "kserve_llmisvc" {
   name       = "kserve-llmisvc"
   repository = "oci://ghcr.io/kserve/charts"
@@ -351,5 +372,5 @@ resource "helm_release" "applications" {
     })
   ]
 
-  depends_on = [helm_release.argo_cd, helm_release.kserve_llmisvc]
+  depends_on = [helm_release.argo_cd, helm_release.runtime_configs]
 }

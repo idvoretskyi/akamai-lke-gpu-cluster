@@ -36,6 +36,10 @@ spec:
     containers:
       - name: main
         env:
+          # The llm-d image is RHEL-based and Triton looks for libcuda in
+          # /usr/lib64; the NVIDIA toolkit mounts it here instead.
+          - name: TRITON_LIBCUDA_PATH
+            value: /usr/lib/x86_64-linux-gnu
           - name: VLLM_ADDITIONAL_ARGS
             value: --max-model-len=32768 --gpu-memory-utilization=0.90
         resources:

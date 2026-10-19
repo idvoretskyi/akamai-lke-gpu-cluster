@@ -86,14 +86,14 @@ and `gitops/` are the source of truth.
   `LLMInferenceServiceConfig` presets pin, so no runtime or image is set here.
   vLLM flags go in the `VLLM_ADDITIONAL_ARGS` env var. Its CRDs and controller
   are the `kserve-llmisvc-*` charts, same version as `chart_versions.kserve`
-  (`kserve-llmisvc-resources` runs with `createSharedResources: false`, the rest
+  (`kserve-runtime-configs` installs the LLMInferenceServiceConfig presets; `kserve-llmisvc-resources` runs with `createSharedResources: false`, the rest
   comes from `kserve-resources`). The route is `/<namespace>/<name>/v1/...` on
   the Gateway. Without a `router.scheduler` there is no llm-d endpoint picker
   (it needs the Gateway API Inference Extension wired into Envoy Gateway).
   Keep `<ver>` of the storage-initializer image in `gitops/vllm/README.md` in
   step with `chart_versions.kserve`.
 - Destroy order matters: `helm_release.applications` depends on KServe (via
-  `helm_release.kserve_llmisvc`) so the `vllm` Application (with Argo CD's resources
+  `helm_release.runtime_configs`) so the `vllm` Application (with Argo CD's resources
   finalizer) and its LLMInferenceService are deleted while KServe still runs.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
