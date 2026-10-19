@@ -5,16 +5,6 @@
 # been applied with this file.
 
 moved {
-  from = module.gpu_operator[0].kubernetes_namespace_v1.gpu_operator
-  to   = kubernetes_namespace_v1.gpu_operator
-}
-
-moved {
-  from = module.gpu_operator[0].helm_release.gpu_operator
-  to   = helm_release.gpu_operator
-}
-
-moved {
   from = module.metrics_server[0].helm_release.metrics_server
   to   = helm_release.metrics_server
 }
@@ -67,11 +57,6 @@ moved {
 moved {
   from = module.kserve[0].helm_release.kserve
   to   = helm_release.kserve
-}
-
-moved {
-  from = module.kserve[0].helm_release.runtimes
-  to   = helm_release.runtimes
 }
 
 moved {

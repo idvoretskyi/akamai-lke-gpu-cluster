@@ -19,26 +19,26 @@ are done.
                        ┌──────────────────────── LKE cluster ────────────────────────┐
  you ── kubectl ──────►│ system pool (g6-standard-4)          GPU pool (RTX 4000 Ada) │
    port-forward        │                                      taint nvidia.com/gpu    │
-                       │  Envoy Gateway ── Gateway ─HTTPRoute─► InferenceService      │
+                       │  Envoy Gateway ── Gateway ─HTTPRoute─► LLMInferenceService  │
                        │  (Gateway API)   kserve-ingress-       "qwen3"               │
-                       │                  gateway               KServe HF runtime     │
-                       │                                         = vLLM, Qwen3-8B-FP8 │
-                       │  KServe controller (Standard mode) ──► Deployment/Service/HPA│
-                       │  cert-manager (KServe webhook TLS)                           │
+                       │                  gateway               llm-d image = vLLM,   │
+                       │                                         Qwen3-8B-FP8         │
+                       │  KServe controllers (Standard mode) ─► Deployment/Service    │
+                       │  cert-manager (KServe + HAMi webhook TLS)                    │
                        │  Argo CD ◄── gitops/vllm in Git                              │
-                       │  Prometheus + Grafana ◄── DCGM GPU metrics, ServiceMonitors  │
-                       │  metrics-server, GPU Operator controller                     │
+                       │  Prometheus + Grafana ◄── HAMi GPU metrics, ServiceMonitors  │
+                       │  metrics-server, HAMi scheduler                              │
                        └──────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Component | Project | Managed by |
 |---|---|---|---|
 | Infrastructure | LKE cluster, node pools, Cloud Firewall | Akamai | OpenTofu |
-| GPU | [GPU Operator](https://github.com/NVIDIA/gpu-operator) (device plugin, GFD, DCGM) | NVIDIA | OpenTofu |
+| GPU | [HAMi](https://project-hami.io/) (device plugin, scheduler, GPU metrics) | CNCF sandbox | OpenTofu |
 | Ingress | [Envoy Gateway](https://gateway.envoyproxy.io/) + Gateway API | CNCF (Envoy) / Kubernetes SIG | OpenTofu |
-| Serving | [KServe](https://kserve.github.io/website/) Standard mode + [cert-manager](https://cert-manager.io/) | CNCF incubating / graduated | OpenTofu |
-| Inference engine | [vLLM](https://docs.vllm.ai/) via KServe's Hugging Face runtime | LF AI & Data | OpenTofu (runtime) |
-| Model | `InferenceService` serving `Qwen/Qwen3-8B-FP8` | | **Argo CD** (`gitops/vllm`) |
+| Serving | [KServe](https://kserve.github.io/website/) Standard mode (`InferenceService` and `LLMInferenceService`) + [cert-manager](https://cert-manager.io/) | CNCF incubating / graduated | OpenTofu |
+| Inference engine | [vLLM](https://docs.vllm.ai/) (PyTorch-based) in the [llm-d](https://llm-d.ai/) image that KServe's `LLMInferenceService` runs | PyTorch Foundation (LF) / CNCF sandbox (llm-d) | KServe |
+| Model | `LLMInferenceService` serving `Qwen/Qwen3-8B-FP8` | | **Argo CD** (`gitops/vllm`) |
 | GitOps | [Argo CD](https://argo-cd.readthedocs.io/) | CNCF graduated | OpenTofu |
 | Observability | [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts), [Metrics Server](https://github.com/kubernetes-sigs/metrics-server) | CNCF / Kubernetes SIG | OpenTofu |
 
@@ -48,27 +48,28 @@ the model is a Git commit, not a `tofu apply`.
 
 ## The serving story
 
-- **KServe Standard mode.** No Knative or Istio: an `InferenceService` becomes
-  a plain Deployment, Service and HPA, plus an `HTTPRoute` on the shared
-  `kserve-ingress-gateway`. This is KServe's recommended mode for generative
-  workloads.
-- **vLLM.** KServe's Hugging Face runtime runs vLLM and exposes an
-  OpenAI-compatible API under `/openai/v1`. The runtime's default image is
-  KServe's CPU build, so the InferenceService requests the CUDA build
-  (`kserve/huggingfaceserver:<ver>-gpu`) itself.
+- **KServe Standard mode.** No Knative or Istio: an `InferenceService` or
+  `LLMInferenceService` becomes a plain Deployment and Service, plus an
+  `HTTPRoute` on the shared `kserve-ingress-gateway`. This is KServe's
+  recommended mode for generative workloads.
+- **vLLM with llm-d.** The model is a KServe `LLMInferenceService`: the
+  controller runs upstream vLLM from the llm-d CUDA image and exposes an
+  OpenAI-compatible API at `/<namespace>/<name>/v1` on the Gateway. With more
+  GPUs, adding `router.scheduler` enables llm-d's endpoint picker (load- and
+  prefix-cache-aware routing). `InferenceService` still works too.
+- **GPU layer.** HAMi advertises the card and schedules GPU pods. It runs with
+  `deviceSplitCount: 1` (whole card); raise it to share the GPU.
 - **The model.** `Qwen/Qwen3-8B-FP8`: ungated (no Hugging Face token), ~9 GB
   of FP8 weights, which the Ada GPU runs natively. vLLM gets 90% of the 20 GB
   card; what the weights leave over holds the KV cache for a 32k-token
-  context. One replica with a `Recreate` strategy, since there is one GPU.
+  context. One replica that is replaced rather than surged on rollout, since there is one GPU.
 - **Private by default.** The Envoy proxy behind the Gateway is a ClusterIP
   service. Requests reach it through `kubectl port-forward` and pick the
-  InferenceService with the `Host` header
-  (`qwen3-vllm.kserve.local`).
+  model with the path (`/vllm/qwen3/v1/...`).
 
-A measurement, not a promise (`de-fra-2`, 8 Oct 2026, KServe v0.20.0 with vLLM
-v0.24.0): weights download in ~30 s, vLLM loads and compiles in ~2 min, 8.8 GiB
-of weights leave a 7.6 GiB KV cache (~55k tokens), and a single stream decodes
-at ~35 tokens/s.
+A measurement, not a promise (`de-fra-2`, 19 Oct 2026, KServe v0.21.0 with the
+llm-d CUDA image): a single stream decodes ~33 tokens/s (293 tokens in 8.8 s,
+through the Gateway).
 
 ## Quick start
 
@@ -106,8 +107,8 @@ They are plain bash around `kubectl`, `curl` and `jq`; read them, they are short
 
 The endpoint is OpenAI-compatible. `chat.sh` opens a throwaway port-forward for
 one request; for your own client, keep one open with `scripts/ui.sh model` and
-use base URL `http://localhost:8080/openai/v1`, model `qwen3`, any API key, and
-the header `Host: qwen3-vllm.kserve.local` (the Gateway routes on it).
+use base URL `http://localhost:8080/vllm/qwen3/v1`, model `qwen3` and any API key
+(the Gateway routes on the path).
 
 ## Changing the model (GitOps)
 
@@ -117,11 +118,11 @@ self-heal. To serve something else:
 
 1. Fork the repository and set `gitops_repo_url` to the fork (Argo CD reads it
    anonymously, so it must be public, or add repo credentials to Argo CD).
-2. Edit [`gitops/vllm/inferenceservice.yaml`](gitops/vllm/inferenceservice.yaml):
-   `storageUri: hf://<org>/<model>` and the vLLM `args`. For the 20 GB card,
+2. Edit [`gitops/vllm/llminferenceservice.yaml`](gitops/vllm/llminferenceservice.yaml):
+   `model.uri: hf://<org>/<model>` and the `VLLM_ADDITIONAL_ARGS` env var. For the 20 GB card,
    `Qwen/Qwen3-14B-FP8` (~16 GB of weights) also fits with
    `--max-model-len=8192`.
-3. Commit and push. Argo CD recreates the predictor pod with the new model
+3. Commit and push. Argo CD recreates the model pod with the new model
    (it polls Git about every 3 minutes; watch with `scripts/status.sh`).
 
 Gated models (Llama, Gemma) need a Hugging Face token; see
@@ -135,17 +136,20 @@ branch first, set `gitops_target_revision` to the branch name.
 - The GPU pool always carries the taint
   `nvidia.com/gpu=present:NoSchedule`. GPU workloads need this toleration, a
   `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit, as the
-  InferenceService does ([`gitops/vllm/inferenceservice.yaml`](gitops/vllm/inferenceservice.yaml)).
-- The InferenceService holds the only GPU. Other GPU pods (such as
-  `scripts/gpu-test.sh`) stay `Pending` until it is removed or a second GPU node
+  LLMInferenceService does ([`gitops/vllm/llminferenceservice.yaml`](gitops/vllm/llminferenceservice.yaml)).
+- The LLMInferenceService holds the only GPU. Other GPU pods (such as
+  `scripts/gpu-test.sh`) fail to start ("requested number of devices unavailable") until it is removed or a second GPU node
   is added (`gpu_node_count = 2`). Scaling the model down does not work, because
   KServe and Argo CD put it back. To free the GPU, delete the Argo CD
   application (`kubectl delete application vllm -n argocd`, whose finalizer
-  removes the InferenceService), run the test, then restore with
+  removes the LLMInferenceService), run the test, then restore with
   `cd tofu && tofu apply -replace=helm_release.applications`: a plain `tofu
   apply` sees no change. Tested: the model is back in about 3 minutes.
 - LKE GPU nodes already ship the NVIDIA driver, container toolkit and an
-  `nvidia` containerd runtime, so the GPU Operator installs neither.
+  `nvidia` containerd runtime, so HAMi installs neither; it only runs the
+  device plugin and scheduler. To share the one GPU between the model and other
+  pods, set `devicePlugin.deviceSplitCount` in `tofu/values/hami.yaml` and
+  give each pod a `nvidia.com/gpumem` limit.
 
 ## Configuration
 

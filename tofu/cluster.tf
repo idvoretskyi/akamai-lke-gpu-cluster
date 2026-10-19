@@ -4,7 +4,7 @@
 #   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
 #     metrics-server, GPU Operator controller, cert-manager, Envoy Gateway,
 #     KServe controller, Argo CD).
-#   * gpu    — the (expensive) GPU pool, tainted so it is reserved for model servers (the vLLM InferenceService).
+#   * gpu    — the (expensive) GPU pool, tainted so it is reserved for model servers (the vLLM LLMInferenceService).
 #
 # Autoscaling is intentionally disabled on both pools. Fixed node counts keep
 # costs fully predictable — no surprise scale-up events on expensive GPU nodes.

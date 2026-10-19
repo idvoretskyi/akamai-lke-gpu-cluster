@@ -1,0 +1,16 @@
+# LLMInferenceService (llm-d) controller. Same mode and gateway as
+# values/kserve.yaml; the shared resources (config, storage container,
+# cert-manager issuer) are already installed by the kserve release.
+kserve:
+  createSharedResources: false
+  controller:
+    deploymentMode: Standard
+    gateway:
+      domain: kserve.local
+      ingressGateway:
+        enableGatewayApi: true
+        kserveGateway: kserve/kserve-ingress-gateway
+  llmisvc:
+    controller:
+      nodeSelector:
+        nodepool.lke/role: system

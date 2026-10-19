@@ -48,13 +48,13 @@ locals {
   # Chart versions. Dependabot doesn't track these (Helm charts are not a
   # package ecosystem it understands here), so bump them by hand.
   chart_versions = {
-    gpu_operator          = "v26.7.1"
-    metrics_server        = "3.12.2"
-    kube_prometheus_stack = "80.8.0"
+    hami                  = "2.10.0"
+    metrics_server        = "3.14.0"
+    kube_prometheus_stack = "92.10.1"
     cert_manager          = "v1.21.2"
     envoy_gateway         = "v1.9.2"
-    kserve                = "v0.20.0" # v0.21.0 charts are only on GHCR as -rc1
-    argo_cd               = "10.10.1"
+    kserve                = "v0.21.0"
+    argo_cd               = "10.10.5"
   }
 }
 
