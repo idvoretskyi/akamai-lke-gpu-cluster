@@ -60,6 +60,16 @@ moved {
 }
 
 moved {
+  from = module.kserve[0].helm_release.runtimes
+  to   = helm_release.runtimes
+}
+
+moved {
+  from = helm_release.runtimes
+  to   = helm_release.runtime_configs
+}
+
+moved {
   from = module.argo_cd[0].kubernetes_namespace_v1.argo_cd
   to   = kubernetes_namespace_v1.argo_cd
 }

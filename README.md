@@ -203,6 +203,16 @@ ephemeral storage and are downloaded again on each start.
 Only for a cluster created from an older version of this repo, in the order the
 changes happened:
 
+Before `tofu apply`, update the kube-prometheus-stack CRDs. Helm does not update
+existing CRDs, and this pinned version includes schema changes:
+
+```bash
+for crd in alertmanagerconfigs alertmanagers podmonitors probes prometheusagents prometheuses prometheusrules scrapeconfigs servicemonitors thanosrulers; do
+  kubectl apply --server-side --force-conflicts \
+    -f "https://raw.githubusercontent.com/prometheus-community/helm-charts/kube-prometheus-stack-92.10.1/charts/kube-prometheus-stack/charts/crds/crds/crd-${crd}.yaml"
+done
+```
+
 1. **Modules to a flat root.** `tofu/moved.tf` maps every resource to its new
    address, so `tofu plan` shows moves and Helm upgrades with identical values,
    not a rebuild (verified on a live cluster: nothing destroyed, no pod
