@@ -95,8 +95,10 @@ and `gitops/` are the source of truth.
 - Destroy order matters: `helm_release.applications` depends on KServe (via
   `helm_release.kserve_llmisvc`) so the `vllm` Application (with Argo CD's resources
   finalizer) and its LLMInferenceService are deleted while KServe still runs.
-  `runtime_configs` must be destroyed after `kserve_llmisvc`: the controller's
-  webhook refuses to delete the well-known configs while it is running.
+  `runtime_configs` must be destroyed after `kserve_llmisvc` (its webhook
+  refuses to delete the well-known configs), but then no controller removes its
+  finalizers, so `terraform_data.llmisvc_config_guard` strips them on destroy
+  (`scripts/strip-llmisvc-finalizers.sh`).
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
   authentication suitable for the internet: keep them behind

@@ -295,6 +295,21 @@ resource "helm_release" "runtime_configs" {
   depends_on = [helm_release.kserve_llmisvc_crd]
 }
 
+# Destroy only: removes the finalizers the (by then deleted) controller left on
+# the presets, so uninstalling runtime_configs does not hang. Destroyed after
+# kserve_llmisvc (which depends on it) and before runtime_configs.
+resource "terraform_data" "llmisvc_config_guard" {
+  input = linode_lke_cluster.gpu_cluster.kubeconfig
+
+  provisioner "local-exec" {
+    when        = destroy
+    command     = "${path.module}/scripts/strip-llmisvc-finalizers.sh"
+    environment = { LKE_KUBECONFIG_B64 = self.input }
+  }
+
+  depends_on = [helm_release.runtime_configs]
+}
+
 resource "helm_release" "kserve_llmisvc" {
   name       = "kserve-llmisvc"
   repository = "oci://ghcr.io/kserve/charts"
@@ -312,7 +327,7 @@ resource "helm_release" "kserve_llmisvc" {
 
   values = [file("${path.module}/values/kserve-llmisvc.yaml")]
 
-  depends_on = [helm_release.kserve_llmisvc_crd, helm_release.kserve, helm_release.runtime_configs]
+  depends_on = [helm_release.kserve_llmisvc_crd, helm_release.kserve, terraform_data.llmisvc_config_guard]
 }
 
 # ─── Argo CD ──────────────────────────────────────────────────────────────────
