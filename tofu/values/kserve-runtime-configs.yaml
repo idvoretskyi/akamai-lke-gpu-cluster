@@ -1,0 +1,7 @@
+# Only the LLMInferenceService presets. The Hugging Face InferenceService
+# runtimes stay off: models are served through LLMInferenceService.
+kserve:
+  llmisvcConfigs:
+    enabled: true
+  servingruntime:
+    enabled: false

@@ -46,9 +46,8 @@ case "${1:-}" in
       echo "No Envoy service for the model Gateway. Is the cluster up? (scripts/status.sh)" >&2
       exit 1
     fi
-    echo "base URL: http://localhost:8080/openai/v1"
+    echo "base URL: http://localhost:8080/vllm/qwen3/v1   (the Gateway routes on /<namespace>/<name>)"
     echo "model:    qwen3   (any API key)"
-    echo "header:   Host: qwen3-vllm.kserve.local   (the Gateway routes on it)"
     ;;
   *)
     echo "usage: $0 argocd|grafana|prometheus|model" >&2

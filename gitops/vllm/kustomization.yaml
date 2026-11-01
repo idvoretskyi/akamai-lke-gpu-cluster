@@ -7,4 +7,5 @@ kind: Kustomization
 # skip it.
 
 resources:
-  - inferenceservice.yaml
+  - llminferenceservice.yaml
+  - podmonitor.yaml

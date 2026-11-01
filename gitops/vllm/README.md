@@ -7,24 +7,29 @@ edit` changes are reverted: change things here and push.
 
 | File | What |
 |---|---|
-| `inferenceservice.yaml` | KServe `InferenceService` `qwen3`: Hugging Face runtime (vLLM) on the GPU pool |
+| `llminferenceservice.yaml` | KServe `LLMInferenceService` `qwen3`: vLLM in the llm-d image on the GPU pool |
+| `podmonitor.yaml` | Prometheus `PodMonitor` scraping vLLM metrics |
 | `kustomization.yaml` | Kustomize entry point Argo CD renders |
 
-## The InferenceService
+## The LLMInferenceService
 
-- `storageUri: hf://Qwen/Qwen3-8B-FP8`: KServe's storage initializer
+- `model.uri: hf://Qwen/Qwen3-8B-FP8`: KServe's storage initializer
   downloads the weights into the pod before vLLM starts.
-- `--model_name=qwen3`: the name used in OpenAI requests (`"model": "qwen3"`).
-- `--max-model-len=32768`, `--gpu-memory-utilization=0.90`: vLLM takes 90%
+- `model.name: qwen3`: the name used in OpenAI requests (`"model": "qwen3"`).
+  The API is served at `/vllm/qwen3/v1/...` on the Gateway.
+- `VLLM_ADDITIONAL_ARGS`: extra `vllm serve` flags. `--max-model-len=32768`
+  and `--gpu-memory-utilization=0.90`: vLLM takes 90%
   of the 20 GB card; the FP8 weights use ~9 GB and the KV cache the rest.
-- `minReplicas: 1`, `maxReplicas: 1`, `deploymentStrategy: Recreate`: one
-  GPU, so no scale-out and no rolling update (the new pod could never get a
-  GPU while the old one holds it).
+- `replicas: 1`, `rolloutStrategy` (`maxSurge: 0`, `maxUnavailable: 1`): one
+  GPU, so no scale-out and no surge pod (it could never get a GPU while the
+  old one holds it).
+- `router.route: {}` without `scheduler`: one replica needs no llm-d
+  endpoint picker. Add `scheduler: {}` when there are several GPUs.
 - `nodeSelector` + toleration: lands on the tainted GPU pool.
 
 ## Swapping the model
 
-Edit `storageUri` and `args`, commit, push. Models that fit one RTX 4000 Ada
+Edit `model.uri` and `VLLM_ADDITIONAL_ARGS`, commit, push. Models that fit one RTX 4000 Ada
 (20 GB) with vLLM:
 
 | Model | Weights | Notes |
@@ -59,12 +64,12 @@ metadata:
 spec:
   container:
     name: storage-initializer
-    image: kserve/storage-initializer:v0.20.0
+    image: kserve/storage-initializer:v0.21.0
     env:
       - name: HF_TOKEN
         valueFrom:
           secretKeyRef:
-            name: hf-secret   # resolved in the InferenceService's namespace
+            name: hf-secret   # resolved in the LLMInferenceService's namespace
             key: HF_TOKEN
     # Same limits as tofu/values/kserve.yaml: the 1Gi default is OOM-killed
     # downloading multi-GB checkpoints. Keep the image tag in step with
