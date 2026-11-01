@@ -93,8 +93,10 @@ and `gitops/` are the source of truth.
   Keep `<ver>` of the storage-initializer image in `gitops/vllm/README.md` in
   step with `chart_versions.kserve`.
 - Destroy order matters: `helm_release.applications` depends on KServe (via
-  `helm_release.runtime_configs`) so the `vllm` Application (with Argo CD's resources
+  `helm_release.kserve_llmisvc`) so the `vllm` Application (with Argo CD's resources
   finalizer) and its LLMInferenceService are deleted while KServe still runs.
+  `runtime_configs` must be destroyed after `kserve_llmisvc`: the controller's
+  webhook refuses to delete the well-known configs while it is running.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
   authentication suitable for the internet: keep them behind

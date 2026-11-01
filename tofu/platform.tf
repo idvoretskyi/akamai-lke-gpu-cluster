@@ -290,7 +290,9 @@ resource "helm_release" "runtime_configs" {
 
   values = [file("${path.module}/values/kserve-runtime-configs.yaml")]
 
-  depends_on = [helm_release.kserve_llmisvc]
+  # Not after the controller: its webhook refuses to delete these well-known
+  # configs, so on destroy the controller (kserve_llmisvc) must go first.
+  depends_on = [helm_release.kserve_llmisvc_crd]
 }
 
 resource "helm_release" "kserve_llmisvc" {
@@ -310,7 +312,7 @@ resource "helm_release" "kserve_llmisvc" {
 
   values = [file("${path.module}/values/kserve-llmisvc.yaml")]
 
-  depends_on = [helm_release.kserve_llmisvc_crd, helm_release.kserve]
+  depends_on = [helm_release.kserve_llmisvc_crd, helm_release.kserve, helm_release.runtime_configs]
 }
 
 # ─── Argo CD ──────────────────────────────────────────────────────────────────
@@ -372,5 +374,5 @@ resource "helm_release" "applications" {
     })
   ]
 
-  depends_on = [helm_release.argo_cd, helm_release.runtime_configs]
+  depends_on = [helm_release.argo_cd, helm_release.kserve_llmisvc]
 }
