@@ -6,4 +6,5 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../tofu"
-tofu apply -auto-approve -var gpu_enabled=false
+# Targeted: only the pool changes, and this skips fetching every Helm chart.
+tofu apply -auto-approve -var gpu_enabled=false -target=linode_lke_cluster.gpu_cluster
