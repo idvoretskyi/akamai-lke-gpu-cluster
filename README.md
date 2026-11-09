@@ -165,6 +165,7 @@ as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
 | `gpu_node_count` | `1` | the model takes a whole GPU; more nodes for other GPU pods |
 | `gpu_enabled` | `true` | `false` removes the GPU pool (see "Cost") |
+| `model_s3_access_key`, `model_s3_secret_key` | empty | read-only key for the weights bucket (see "Cost") |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
@@ -205,7 +206,37 @@ scripts/gpu-up.sh     # gpu_enabled=true, waits for the model to be Ready
 
 The monitoring volumes use the `linode-block-storage` class, so `tofu
 destroy` deletes them too. Model weights live in the predictor pod's
-ephemeral storage and are downloaded again on each start.
+ephemeral storage and are downloaded again on each start, from the bucket below.
+
+### Model weights in Object Storage
+
+`model.uri` is `s3://idv-lke-model-weights/Qwen3-8B-FP8`: a copy of the weights
+in an Object Storage bucket in the cluster's region (~$5/month), so they load
+in about a minute and survive `tofu destroy`. The bucket is created once,
+outside OpenTofu, so destroying the cluster does not delete it:
+
+```bash
+# bucket (this linode-cli has no bucket command; use the API) and two keys
+curl -X POST https://api.linode.com/v4/object-storage/buckets \
+  -H "Authorization: Bearer $LINODE_TOKEN" -H "Content-Type: application/json" \
+  -d '{"label":"idv-lke-model-weights","region":"de-fra-2","acl":"private"}'
+linode-cli object-storage keys-create --label weights-rw \
+  --bucket_access.bucket_name idv-lke-model-weights --bucket_access.region de-fra-2 \
+  --bucket_access.permissions read_write   # to upload
+linode-cli object-storage keys-create --label weights-ro \
+  --bucket_access.bucket_name idv-lke-model-weights --bucket_access.region de-fra-2 \
+  --bucket_access.permissions read_only    # for the cluster
+```
+
+Upload the files of `Qwen/Qwen3-8B-FP8` under the prefix `Qwen3-8B-FP8/` with
+any S3 client (endpoint `https://de-fra-1.linodeobjects.com`; with boto3 set
+`request_checksum_calculation="when_required"`). Put the read-only key in
+`tofu.auto.tfvars` as `model_s3_access_key` / `model_s3_secret_key`; OpenTofu
+turns it into the Secret `vllm/model-s3`. To use Hugging Face instead, set
+`model.uri` back to `hf://Qwen/Qwen3-8B-FP8` and leave the keys empty.
+
+OpenTofu now creates the `vllm` namespace. A cluster made before this change
+already has it: run `tofu import kubernetes_namespace_v1.model vllm` once.
 
 ## Upgrading an existing cluster
 

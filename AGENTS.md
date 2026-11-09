@@ -101,6 +101,15 @@ and `gitops/` are the source of truth.
   refuses to delete the well-known configs), but then no controller removes its
   finalizers, so `terraform_data.llmisvc_config_guard` strips them on destroy
   (`scripts/strip-llmisvc-finalizers.sh`).
+- The model weights are read from an Object Storage bucket (`s3://` in
+  `gitops/vllm/llminferenceservice.yaml`), created outside OpenTofu so
+  `tofu destroy` keeps them. OpenTofu owns the `vllm` namespace and the Secret
+  `model-s3` (KServe's `serving.kserve.io/s3-*` annotations); the pod uses the
+  ServiceAccount `model` from `gitops/vllm/`. Keys live in the git-ignored
+  `tofu.auto.tfvars`.
+- `scripts/gpu-up.sh` deletes the Pending model pod once the GPU is advertised:
+  HAMi's scheduler rejects it before the device plugin registers, and the
+  scheduler then backs off ~5 min.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
   authentication suitable for the internet: keep them behind
