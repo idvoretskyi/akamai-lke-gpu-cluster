@@ -50,6 +50,12 @@ variable "gpu_node_type" {
   # List GPU plans: linode-cli linodes types --json | jq '.[] | select(.class=="gpu")'
 }
 
+variable "gpu_enabled" {
+  description = "Whether the GPU pool exists. Set to false to stop paying for the GPU (~$380/month) while keeping the cluster and platform; the model stays Pending until it is true again (scripts/gpu-up.sh, scripts/gpu-down.sh)."
+  type        = bool
+  default     = true
+}
+
 variable "gpu_node_count" {
   description = "Number of GPU nodes. The model server takes a whole GPU, so extra GPU pods need another node."
   type        = number
