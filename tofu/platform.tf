@@ -365,6 +365,37 @@ resource "helm_release" "argo_cd" {
 # It carries Argo CD's resources finalizer, so destroying this release deletes
 # the InferenceService it synced. That is why it depends on KServe: on
 # `tofu destroy` the InferenceService must go while KServe still runs.
+# The model namespace is created here, not by Argo CD, so the credentials for
+# the weights bucket can exist before the first sync. KServe's storage
+# initializer reads s3:// credentials from a Secret with these annotations that
+# is attached to the pod's ServiceAccount (gitops/vllm/serviceaccount.yaml).
+resource "kubernetes_namespace_v1" "model" {
+  metadata {
+    name   = local.model_namespace
+    labels = merge(local.namespace_labels, { "app.kubernetes.io/name" = "vllm" })
+  }
+}
+
+resource "kubernetes_secret_v1" "model_s3" {
+  count = var.model_s3_access_key == "" ? 0 : 1
+
+  metadata {
+    name      = "model-s3"
+    namespace = kubernetes_namespace_v1.model.metadata[0].name
+    annotations = {
+      "serving.kserve.io/s3-endpoint"  = local.model_s3_endpoint
+      "serving.kserve.io/s3-region"    = "de-fra-1"
+      "serving.kserve.io/s3-usehttps"  = "1"
+      "serving.kserve.io/s3-verifyssl" = "1"
+    }
+  }
+
+  data = {
+    AWS_ACCESS_KEY_ID     = var.model_s3_access_key
+    AWS_SECRET_ACCESS_KEY = var.model_s3_secret_key
+  }
+}
+
 resource "helm_release" "applications" {
   name      = "argo-cd-applications"
   chart     = "${path.module}/charts/argo-cd-apps"
@@ -389,5 +420,5 @@ resource "helm_release" "applications" {
     })
   ]
 
-  depends_on = [helm_release.argo_cd, helm_release.kserve_llmisvc]
+  depends_on = [helm_release.argo_cd, helm_release.kserve_llmisvc, kubernetes_secret_v1.model_s3]
 }

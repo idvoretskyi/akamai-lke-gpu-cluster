@@ -7,5 +7,6 @@ kind: Kustomization
 # skip it.
 
 resources:
+  - serviceaccount.yaml
   - llminferenceservice.yaml
   - podmonitor.yaml

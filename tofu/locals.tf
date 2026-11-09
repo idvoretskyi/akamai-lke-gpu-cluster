@@ -38,7 +38,8 @@ locals {
   pod_cidrs               = ["10.2.0.0/16"]      # LKE pod range
   helm_timeout            = 600
   namespace_labels        = { "app.kubernetes.io/managed-by" = "opentofu" }
-  model_namespace         = "vllm" # created by Argo CD; must not be "kserve"
+  model_namespace         = "vllm"                       # must not be "kserve"
+  model_s3_endpoint       = "de-fra-1.linodeobjects.com" # Object Storage endpoint of the weights bucket
   gitops_path             = "gitops/vllm"
   inference_service       = "qwen3"
   prometheus_retention    = "7d"
