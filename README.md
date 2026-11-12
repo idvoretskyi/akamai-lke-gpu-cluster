@@ -78,7 +78,7 @@ account. Authenticate with `linode-cli configure` (or `export LINODE_TOKEN=...`)
 
 ```bash
 git clone https://github.com/idvoretskyi/akamai-lke-gpu-cluster && cd akamai-lke-gpu-cluster/tofu
-cp tofu.auto.tfvars.example tofu.auto.tfvars   # optional: the defaults work
+cp tofu.auto.tfvars.example tofu.auto.tfvars   # set the weights keys, or use hf:// (see "Model weights in Object Storage")
 tofu init
 tofu apply
 ```
@@ -232,8 +232,19 @@ Upload the files of `Qwen/Qwen3-8B-FP8` under the prefix `Qwen3-8B-FP8/` with
 any S3 client (endpoint `https://de-fra-1.linodeobjects.com`; with boto3 set
 `request_checksum_calculation="when_required"`). Put the read-only key in
 `tofu.auto.tfvars` as `model_s3_access_key` / `model_s3_secret_key`; OpenTofu
-turns it into the Secret `vllm/model-s3`. To use Hugging Face instead, set
-`model.uri` back to `hf://Qwen/Qwen3-8B-FP8` and leave the keys empty.
+turns it into the Secret `vllm/model-s3`. The keys are required with the
+default `s3://` URI: without them the Secret does not exist and the model does
+not start.
+
+To use Hugging Face instead (no bucket, no keys), in `gitops/vllm/` set
+`model.uri` back to `hf://Qwen/Qwen3-8B-FP8`, remove `serviceAccountName: model`
+from `llminferenceservice.yaml` and delete `serviceaccount.yaml` (and its entry
+in `kustomization.yaml`), since the ServiceAccount references the missing
+Secret.
+
+The bucket is created with the API region `de-fra-2`; its S3 endpoint is the
+Object Storage cluster `de-fra-1`, which is what `local.model_s3_endpoint` and
+the Secret's `s3-region` use.
 
 OpenTofu now creates the `vllm` namespace. A cluster made before this change
 already has it: run `tofu import kubernetes_namespace_v1.model vllm` once.

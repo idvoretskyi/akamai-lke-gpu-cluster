@@ -361,10 +361,6 @@ resource "helm_release" "argo_cd" {
   depends_on = [helm_release.kube_prometheus_stack]
 }
 
-# The bootstrap Application (a custom resource, hence a local chart, as above).
-# It carries Argo CD's resources finalizer, so destroying this release deletes
-# the InferenceService it synced. That is why it depends on KServe: on
-# `tofu destroy` the InferenceService must go while KServe still runs.
 # The model namespace is created here, not by Argo CD, so the credentials for
 # the weights bucket can exist before the first sync. KServe's storage
 # initializer reads s3:// credentials from a Secret with these annotations that
@@ -396,6 +392,10 @@ resource "kubernetes_secret_v1" "model_s3" {
   }
 }
 
+# The bootstrap Application (a custom resource, hence a local chart, as above).
+# It carries Argo CD's resources finalizer, so destroying this release deletes
+# the InferenceService it synced. That is why it depends on KServe: on
+# `tofu destroy` the InferenceService must go while KServe still runs.
 resource "helm_release" "applications" {
   name      = "argo-cd-applications"
   chart     = "${path.module}/charts/argo-cd-apps"
