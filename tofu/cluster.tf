@@ -2,7 +2,7 @@
 #
 # The cluster runs two node pools:
 #   * system — a CPU pool that hosts cluster "system" workloads (monitoring,
-#     metrics-server, GPU Operator controller, cert-manager, Envoy Gateway,
+#     metrics-server, HAMi, cert-manager, Envoy Gateway,
 #     KServe controller, Argo CD).
 #   * gpu    — the (expensive) GPU pool, tainted so it is reserved for model servers (the vLLM LLMInferenceService).
 #
@@ -22,15 +22,20 @@ resource "linode_lke_cluster" "gpu_cluster" {
   }
 
   # GPU pool — reserved for GPU-intensive workloads via the taint below.
-  pool {
-    type   = var.gpu_node_type
-    count  = var.gpu_node_count
-    labels = local.gpu_node_labels
+  # Absent when gpu_enabled = false.
+  dynamic "pool" {
+    for_each = var.gpu_enabled ? [1] : []
 
-    taint {
-      key    = local.gpu_node_taint.key
-      value  = local.gpu_node_taint.value
-      effect = local.gpu_node_taint.effect
+    content {
+      type   = var.gpu_node_type
+      count  = var.gpu_node_count
+      labels = local.gpu_node_labels
+
+      taint {
+        key    = local.gpu_node_taint.key
+        value  = local.gpu_node_taint.value
+        effect = local.gpu_node_taint.effect
+      }
     }
   }
 

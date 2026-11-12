@@ -64,6 +64,8 @@ and `gitops/` are the source of truth.
   with the old `-retain` default must set that value or be recreated (README
   "Upgrading an existing cluster").
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
+  `gpu_enabled = false` removes the GPU pool (`scripts/gpu-down.sh`); the model
+  then stays Pending and `local.gpu_pool` is null, so use `try()` on it.
   The GPU pool is always tainted `nvidia.com/gpu=present:NoSchedule`; system
   workloads are pinned via `nodepool.lke/role=system` in `tofu/values/`. GPU workloads must add the matching toleration,
   a `nodepool.lke/role: gpu` selector and an `nvidia.com/gpu` limit.

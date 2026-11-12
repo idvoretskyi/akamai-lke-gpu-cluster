@@ -15,6 +15,13 @@ check "gpu_plan_available_in_region" {
   }
 }
 
+check "gpu_pool_present" {
+  assert {
+    condition     = var.gpu_enabled
+    error_message = "gpu_enabled = false: there is no GPU node, so the model stays Pending. Run scripts/gpu-up.sh (or set gpu_enabled = true) to bring it back."
+  }
+}
+
 check "public_gateway_with_open_api" {
   assert {
     condition     = var.gateway_service_type != "LoadBalancer"

@@ -10,6 +10,7 @@ kubernetes_version = "1.36"
 
 # gpu_node_type    = "g2-gpu-rtx4000a1-s" # cheapest Linode GPU, 20 GB, ~$0.52/hr
 # gpu_node_count   = 1
+# gpu_enabled      = true                # false removes the GPU pool (stops ~$0.52/hr)
 # system_node_type = "g6-standard-4"      # hosts the platform; 8 GB, ~$48/month
 
 # Restrict the Kubernetes API to your own address.

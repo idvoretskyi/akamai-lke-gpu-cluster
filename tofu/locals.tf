@@ -81,7 +81,8 @@ locals {
 
   # Pools are matched by instance type rather than list index, since the order
   # of the pool blocks is not guaranteed to be stable in state. This relies on
-  # the system_node_type != gpu_node_type validation in variables.tf.
+  # the system_node_type != gpu_node_type validation in variables.tf. gpu_pool
+  # is null when gpu_enabled = false.
   gpu_pool    = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.gpu_node_type])
   system_pool = one([for p in linode_lke_cluster.gpu_cluster.pool : p if p.type == var.system_node_type])
 }

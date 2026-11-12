@@ -39,13 +39,13 @@ output "cluster_dashboard_url" {
 # Matched by instance type (see locals.tf).
 
 output "gpu_node_pool_id" {
-  description = "The ID of the GPU node pool"
-  value       = local.gpu_pool.id
+  description = "The ID of the GPU node pool (null when gpu_enabled = false)"
+  value       = try(local.gpu_pool.id, null)
 }
 
 output "gpu_node_pool_count" {
-  description = "Number of nodes in the GPU pool"
-  value       = local.gpu_pool.count
+  description = "Number of nodes in the GPU pool (null when gpu_enabled = false)"
+  value       = try(local.gpu_pool.count, null)
 }
 
 output "system_node_pool_id" {

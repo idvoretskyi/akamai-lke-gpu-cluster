@@ -164,6 +164,7 @@ as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 | `kubernetes_version` | `1.36` | LKE retires old versions; bump it when it does |
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
 | `gpu_node_count` | `1` | the model takes a whole GPU; more nodes for other GPU pods |
+| `gpu_enabled` | `true` | `false` removes the GPU pool (see "Cost") |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
@@ -192,6 +193,14 @@ destroyed. Costs are approximate, see
 ```bash
 cd tofu && tofu destroy   # stop paying
 cd tofu && tofu apply     # bring it back
+```
+
+To keep the cluster and pay only for the system node (~$55/month), remove just
+the GPU pool and add it back when needed. The model stays Pending meanwhile:
+
+```bash
+scripts/gpu-down.sh   # gpu_enabled=false
+scripts/gpu-up.sh     # gpu_enabled=true, waits for the model to be Ready
 ```
 
 The monitoring volumes use the `linode-block-storage` class, so `tofu
