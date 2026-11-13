@@ -27,6 +27,11 @@ gateway_service_type = "ClusterIP"
 # gitops_repo_url        = "https://github.com/idvoretskyi/akamai-lke-gpu-cluster.git"
 # gitops_target_revision = "main"
 
+# Read-only Object Storage key for the bucket that holds the model weights
+# (README "Model weights in Object Storage"). Needed when model.uri is s3://.
+# model_s3_access_key = "..."
+# model_s3_secret_key = "..."
+
 # Upgrading a cluster created before the KServe rebuild in place? Keep its old
 # storage class (a PVC's class can't change; see README "Upgrading an existing
 # cluster").

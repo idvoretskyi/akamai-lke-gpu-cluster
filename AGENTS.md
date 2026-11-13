@@ -13,7 +13,9 @@ and `gitops/` are the source of truth.
 - Always run `tofu fmt -recursive` before committing — CI gate
   `tofu fmt -check -recursive` fails on any unformatted file.
 - CI validates with no backend and no cloud creds:
-  `tofu init -backend=false` then `tofu validate -no-color`.
+  `tofu init -backend=false` then `tofu validate -no-color`. CI pins OpenTofu
+  `1.13.1` and tflint `v0.64.0`; other local versions may format or lint
+  differently.
 - Other CI gates (`.github/workflows/ci.yml`): `tflint --recursive`
   (config `tofu/.tflint.hcl`), `shellcheck` on `scripts/` and `tofu/scripts/`,
   a `gitops` job (yamllint on `gitops/`, `tofu/values/` and the local charts;
@@ -62,7 +64,8 @@ and `gitops/` are the source of truth.
   `monitoring_storage_class` = `linode-block-storage` (deleted with the PVC),
   so destroy leaves no volumes. A PVC's class is immutable: clusters created
   with the old `-retain` default must set that value or be recreated (README
-  "Upgrading an existing cluster").
+  "Upgrading an existing cluster"). The variable only accepts
+  `linode-block-storage` or `linode-block-storage-retain`.
 - Two fixed-size pools (`system`, `gpu`); autoscaling is intentionally disabled.
   `gpu_enabled = false` removes the GPU pool (`scripts/gpu-down.sh`); the model
   then stays Pending and `local.gpu_pool` is null, so use `try()` on it.
@@ -101,13 +104,23 @@ and `gitops/` are the source of truth.
   refuses to delete the well-known configs), but then no controller removes its
   finalizers, so `terraform_data.llmisvc_config_guard` strips them on destroy
   (`scripts/strip-llmisvc-finalizers.sh`).
+- The model weights are read from an Object Storage bucket (`s3://` in
+  `gitops/vllm/llminferenceservice.yaml`), created outside OpenTofu so
+  `tofu destroy` keeps them. OpenTofu owns the `vllm` namespace and the Secret
+  `model-s3` (KServe's `serving.kserve.io/s3-*` annotations); the pod uses the
+  ServiceAccount `model` from `gitops/vllm/`. Keys live in the git-ignored
+  `tofu.auto.tfvars`.
+- `scripts/gpu-up.sh` deletes the Pending model pod once the GPU is advertised:
+  HAMi's scheduler rejects it before the device plugin registers, and the
+  scheduler then backs off ~5 min.
 - The Envoy proxy Service is ClusterIP unless `gateway_service_type =
   "LoadBalancer"`. The model endpoint, Argo CD and Grafana have no
   authentication suitable for the internet: keep them behind
   `kubectl port-forward`.
 - `checks.tf` uses OpenTofu `check` blocks (>= 1.9) for **non-blocking**
   advisory warnings — currently: a GPU plan not offered in the chosen region,
-  and a public (LoadBalancer) Gateway. Warnings, not failures.
+  a public (LoadBalancer) Gateway, and `gpu_enabled = false` (model stays
+  Pending). Warnings, not failures.
 
 ## GPU node image (LKE)
 

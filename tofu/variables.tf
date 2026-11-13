@@ -125,6 +125,20 @@ variable "gitops_target_revision" {
 
 # ─── Storage ──────────────────────────────────────────────────────────────────
 
+variable "model_s3_access_key" {
+  description = "Access key of a read-only Object Storage key for the bucket that holds the model weights (gitops/vllm/llminferenceservice.yaml, model.uri s3://...). Leave empty to skip the Secret, e.g. when model.uri is hf://."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "model_s3_secret_key" {
+  description = "Secret key matching model_s3_access_key."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "monitoring_storage_class" {
   description = "StorageClass for the Prometheus and Grafana volumes. linode-block-storage deletes the Linode volumes with the cluster. Clusters created before the KServe rebuild use linode-block-storage-retain, and a PVC's class is immutable, so set that value to upgrade them in place (see README 'Upgrading an existing cluster')."
   type        = string

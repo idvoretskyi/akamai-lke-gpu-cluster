@@ -8,13 +8,17 @@ edit` changes are reverted: change things here and push.
 | File | What |
 |---|---|
 | `llminferenceservice.yaml` | KServe `LLMInferenceService` `qwen3`: vLLM in the llm-d image on the GPU pool |
+| `serviceaccount.yaml` | ServiceAccount `model`, referencing the S3 credentials Secret |
 | `podmonitor.yaml` | Prometheus `PodMonitor` scraping vLLM metrics |
 | `kustomization.yaml` | Kustomize entry point Argo CD renders |
 
 ## The LLMInferenceService
 
-- `model.uri: hf://Qwen/Qwen3-8B-FP8`: KServe's storage initializer
-  downloads the weights into the pod before vLLM starts.
+- `model.uri: s3://idv-lke-model-weights/Qwen3-8B-FP8`: KServe's storage
+  initializer downloads the weights from Object Storage into the pod before
+  vLLM starts, with the Secret `model-s3` through the ServiceAccount `model`
+  (see the top-level README, "Model weights in Object Storage"). `hf://`
+  also works.
 - `model.name: qwen3`: the name used in OpenAI requests (`"model": "qwen3"`).
   The API is served at `/vllm/qwen3/v1/...` on the Gateway.
 - `VLLM_ADDITIONAL_ARGS`: extra `vllm serve` flags. `--max-model-len=32768`

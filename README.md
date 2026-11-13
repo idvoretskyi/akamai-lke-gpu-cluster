@@ -78,7 +78,7 @@ account. Authenticate with `linode-cli configure` (or `export LINODE_TOKEN=...`)
 
 ```bash
 git clone https://github.com/idvoretskyi/akamai-lke-gpu-cluster && cd akamai-lke-gpu-cluster/tofu
-cp tofu.auto.tfvars.example tofu.auto.tfvars   # optional: the defaults work
+cp tofu.auto.tfvars.example tofu.auto.tfvars   # set the weights keys, or use hf:// (see "Model weights in Object Storage")
 tofu init
 tofu apply
 ```
@@ -154,7 +154,7 @@ branch first, set `gitops_target_revision` to the branch name.
 ## Configuration
 
 The few settings people change are variables, listed in
-`tofu/tofu.auto.tfvars.example` (every one is optional). Everything else, such
+`tofu/tofu.auto.tfvars.example` (all optional, except the two `model_s3_*` keys unless you switch to `hf://`). Everything else, such
 as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 `tofu/locals.tf`.
 
@@ -165,6 +165,7 @@ as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 | `gpu_node_type` | `g2-gpu-rtx4000a1-s` | |
 | `gpu_node_count` | `1` | the model takes a whole GPU; more nodes for other GPU pods |
 | `gpu_enabled` | `true` | `false` removes the GPU pool (see "Cost") |
+| `model_s3_access_key`, `model_s3_secret_key` | empty | read-only key for the weights bucket (see "Cost") |
 | `system_node_type` | `g6-standard-4` | 8 GB; must differ from `gpu_node_type` |
 | `allowed_kubectl_ips` | `0.0.0.0/0` | restrict to your IP |
 | `gateway_service_type` | `ClusterIP` | `LoadBalancer` = public, unauthenticated NodeBalancer |
@@ -205,7 +206,53 @@ scripts/gpu-up.sh     # gpu_enabled=true, waits for the model to be Ready
 
 The monitoring volumes use the `linode-block-storage` class, so `tofu
 destroy` deletes them too. Model weights live in the predictor pod's
-ephemeral storage and are downloaded again on each start.
+ephemeral storage and are downloaded again on each start, from the bucket below.
+
+### Model weights in Object Storage
+
+`model.uri` defaults to `s3://idv-lke-model-weights/Qwen3-8B-FP8`, a copy of the
+weights in an Object Storage bucket in the cluster's region (~$5/month), so
+they load in about a minute and survive `tofu destroy`. The bucket is created
+once, outside OpenTofu, so destroying the cluster does not delete it. For your
+own deployment, replace `my-lke-model-weights-a1b2c3` below with a globally
+unique bucket name and set `spec.model.uri` in
+`gitops/vllm/llminferenceservice.yaml` to
+`s3://my-lke-model-weights-a1b2c3/Qwen3-8B-FP8`:
+
+```bash
+# Replace the example bucket name with a globally unique name.
+# bucket (this linode-cli has no bucket command; use the API) and two keys
+curl -X POST https://api.linode.com/v4/object-storage/buckets \
+  -H "Authorization: Bearer $LINODE_TOKEN" -H "Content-Type: application/json" \
+  -d '{"label":"my-lke-model-weights-a1b2c3","region":"de-fra-2","acl":"private"}'
+linode-cli object-storage keys-create --label weights-rw \
+  --bucket_access.bucket_name my-lke-model-weights-a1b2c3 --bucket_access.region de-fra-2 \
+  --bucket_access.permissions read_write   # to upload
+linode-cli object-storage keys-create --label weights-ro \
+  --bucket_access.bucket_name my-lke-model-weights-a1b2c3 --bucket_access.region de-fra-2 \
+  --bucket_access.permissions read_only    # for the cluster
+```
+
+Upload the files of `Qwen/Qwen3-8B-FP8` under the prefix `Qwen3-8B-FP8/` with
+any S3 client (endpoint `https://de-fra-1.linodeobjects.com`; with boto3 set
+`request_checksum_calculation="when_required"`). Put the read-only key in
+`tofu.auto.tfvars` as `model_s3_access_key` / `model_s3_secret_key`; OpenTofu
+turns it into the Secret `vllm/model-s3`. The keys are required with the
+default `s3://` URI: without them the Secret does not exist and the model does
+not start.
+
+To use Hugging Face instead (no bucket, no keys), in `gitops/vllm/` set
+`model.uri` back to `hf://Qwen/Qwen3-8B-FP8`, remove `serviceAccountName: model`
+from `llminferenceservice.yaml` and delete `serviceaccount.yaml` (and its entry
+in `kustomization.yaml`), since the ServiceAccount references the missing
+Secret.
+
+The bucket is created with the API region `de-fra-2`; its S3 endpoint is the
+Object Storage cluster `de-fra-1`, which is what `local.model_s3_endpoint` and
+the Secret's `s3-region` use.
+
+OpenTofu now creates the `vllm` namespace. A cluster made before this change
+already has it: run `tofu import kubernetes_namespace_v1.model vllm` once.
 
 ## Upgrading an existing cluster
 
