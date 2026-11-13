@@ -42,9 +42,20 @@ wait_for() {
   done
 }
 
-has_pods() { [[ -n "$(k get pods -n vllm -o name)" ]]; }
+poll_request_timeout() {
+  local remaining=$((deadline - $(date +%s)))
+  (( remaining > 0 )) || return 1
+  printf '%ss' "$remaining"
+}
+has_pods() {
+  local request_timeout
+  request_timeout="$(poll_request_timeout)" || return 1
+  [[ -n "$(k get pods -n vllm --request-timeout="$request_timeout" -o name)" ]]
+}
 gpu_advertised() {
-  k get nodes -l nodepool.lke/role=gpu \
+  local request_timeout
+  request_timeout="$(poll_request_timeout)" || return 1
+  k get nodes -l nodepool.lke/role=gpu --request-timeout="$request_timeout" \
     -o jsonpath='{.items[*].status.allocatable.nvidia\.com/gpu}' | grep -q '[1-9]'
 }
 

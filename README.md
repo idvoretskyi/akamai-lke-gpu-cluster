@@ -210,21 +210,26 @@ ephemeral storage and are downloaded again on each start, from the bucket below.
 
 ### Model weights in Object Storage
 
-`model.uri` is `s3://idv-lke-model-weights/Qwen3-8B-FP8`: a copy of the weights
-in an Object Storage bucket in the cluster's region (~$5/month), so they load
-in about a minute and survive `tofu destroy`. The bucket is created once,
-outside OpenTofu, so destroying the cluster does not delete it:
+`model.uri` defaults to `s3://idv-lke-model-weights/Qwen3-8B-FP8`, a copy of the
+weights in an Object Storage bucket in the cluster's region (~$5/month), so
+they load in about a minute and survive `tofu destroy`. The bucket is created
+once, outside OpenTofu, so destroying the cluster does not delete it. For your
+own deployment, replace `my-lke-model-weights-a1b2c3` below with a globally
+unique bucket name and set `spec.model.uri` in
+`gitops/vllm/llminferenceservice.yaml` to
+`s3://my-lke-model-weights-a1b2c3/Qwen3-8B-FP8`:
 
 ```bash
+# Replace the example bucket name with a globally unique name.
 # bucket (this linode-cli has no bucket command; use the API) and two keys
 curl -X POST https://api.linode.com/v4/object-storage/buckets \
   -H "Authorization: Bearer $LINODE_TOKEN" -H "Content-Type: application/json" \
-  -d '{"label":"idv-lke-model-weights","region":"de-fra-2","acl":"private"}'
+  -d '{"label":"my-lke-model-weights-a1b2c3","region":"de-fra-2","acl":"private"}'
 linode-cli object-storage keys-create --label weights-rw \
-  --bucket_access.bucket_name idv-lke-model-weights --bucket_access.region de-fra-2 \
+  --bucket_access.bucket_name my-lke-model-weights-a1b2c3 --bucket_access.region de-fra-2 \
   --bucket_access.permissions read_write   # to upload
 linode-cli object-storage keys-create --label weights-ro \
-  --bucket_access.bucket_name idv-lke-model-weights --bucket_access.region de-fra-2 \
+  --bucket_access.bucket_name my-lke-model-weights-a1b2c3 --bucket_access.region de-fra-2 \
   --bucket_access.permissions read_only    # for the cluster
 ```
 
