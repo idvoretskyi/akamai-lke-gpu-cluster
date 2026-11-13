@@ -154,7 +154,7 @@ branch first, set `gitops_target_revision` to the branch name.
 ## Configuration
 
 The few settings people change are variables, listed in
-`tofu/tofu.auto.tfvars.example` (every one is optional). Everything else, such
+`tofu/tofu.auto.tfvars.example` (all optional, except the two `model_s3_*` keys unless you switch to `hf://`). Everything else, such
 as chart versions, CIDRs, volume sizes and tags, is an opinionated default in
 `tofu/locals.tf`.
 
